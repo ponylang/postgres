@@ -2,7 +2,12 @@
   "packages": [
     "postgres"
   ],
-  "deps": [],
+  "deps": [
+    {
+      "locator": "github.com/seantallen-org/lori.git",
+      "version": "0.3.0"
+    }
+  ],
   "info": {
     "description": "A pure Pony Postgres driver",
     "homepage": "https://github.com/ponylang/postgres/",

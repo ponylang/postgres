@@ -1,3 +1,8 @@
 {
-  "locks": []
+  "locks": [
+    {
+      "locator": "github.com/seantallen-org/lori.git",
+      "revision": "0.3.0"
+    }
+  ]
 }

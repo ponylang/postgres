@@ -30,10 +30,13 @@ EXAMPLES := $(notdir $(shell find $(EXAMPLES_DIR)/* -type d))
 EXAMPLES_SOURCE_FILES := $(shell find $(EXAMPLES_DIR) -name *.pony)
 EXAMPLES_BINARIES := $(addprefix $(BUILD_DIR)/,$(EXAMPLES))
 
-test: unit-tests build-examples
+test: unit-tests integration-tests build-examples
 
 unit-tests: $(tests_binary)
-	$^ --exclude=integration --sequential
+	$^ --exclude=integration/ --sequential
+
+integration-tests: $(tests_binary)
+	$^ --only=integration/ --sequential
 
 $(tests_binary): $(SOURCE_FILES) | $(BUILD_DIR)
 	$(GET_DEPENDENCIES_WITH)

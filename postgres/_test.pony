@@ -11,14 +11,14 @@ actor \nodoc\ Main is TestList
     test(_IntegrationTestToReplace)
     test(_UnitTestToReplace)
 
-class iso _IntegrationTestToReplace is UnitTest
+class \nodoc\ iso _IntegrationTestToReplace is UnitTest
   fun name(): String =>
     "integration/TestToReplace"
 
   fun apply(h: TestHelper) =>
     h.assert_true(true)
 
-class iso _UnitTestToReplace is UnitTest
+class \nodoc\ iso _UnitTestToReplace is UnitTest
   fun name(): String =>
     "TestToReplace"
 

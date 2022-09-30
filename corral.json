@@ -1,0 +1,14 @@
+{
+  "packages": [
+    "postgres"
+  ],
+  "deps": [],
+  "info": {
+    "description": "A pure Pony Postgres driver",
+    "homepage": "https://github.com/ponylang/postgres/",
+    "license": "BSD-2-Clause",
+    "documentation_url": "https://ponylang.github.io/postgres",
+    "version": "0.0.0",
+    "name": "postgres"
+  }
+}

@@ -5,15 +5,39 @@ on:
     types: [shared-docker-linux-builders-updated]
 
 jobs:
-  vs-latest-ponyc:
-    name: Verify main against the latest ponyc
+  vs-latest-ponyc-linux:
+    name: Verify main against the latest ponyc om Linux
     runs-on: ubuntu-latest
     container:
-      image: ponylang/shared-docker-ci-x86-64-unknown-linux-builder:latest
+      image: ponylang/shared-docker-ci-x86-64-unknown-linux-builder-with-libressl-3.5.2:latest
+    services:
+      postgres:
+        image: postgres:14.5
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST_AUTH_METHOD: md5
+          POSTGRES_INITDB_ARGS: "--auth-host=md5"
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
-      - uses: actions/checkout@v2
-      - name: Test
-        run: make test config=debug
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Unit tests
+        run: make unit-tests config=debug
+      - name: Integration tests
+        run: make integration-tests config=debug
+        env:
+          POSTGRES_HOST: postgres
+          POSTGRES_PORT: 5432
+          POSTGRES_USERNAME: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DATABASE: postgres
       - name: Send alert on failure
         if: ${{ failure() }}
         uses: zulip/github-actions-zulip@35d7ad8e98444f894dcfe1d4e17332581d28ebeb

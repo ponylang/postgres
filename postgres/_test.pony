@@ -1,3 +1,6 @@
+use "cli"
+use "collections"
+use lori = "lori"
 use "pony_test"
 
 actor \nodoc\ Main is TestList
@@ -8,19 +11,82 @@ actor \nodoc\ Main is TestList
     None
 
   fun tag tests(test: PonyTest) =>
-    test(_IntegrationTestToReplace)
-    test(_UnitTestToReplace)
+    test(_Connect)
+    test(_ConnectFailure)
 
-class \nodoc\ iso _IntegrationTestToReplace is UnitTest
+class \nodoc\ iso _Connect is UnitTest
+  """
+  Test to verify that given correct login information that we can connect to
+  a Postgres server.
+  """
   fun name(): String =>
-    "integration/TestToReplace"
+    "integration/Connect"
 
   fun apply(h: TestHelper) =>
-    h.assert_true(true)
+    let info = _TestConnectionConfiguration(h.env.vars)
 
-class \nodoc\ iso _UnitTestToReplace is UnitTest
+    let session = PgSession(
+      lori.TCPConnectAuth(h.env.root),
+      recover iso _ConnectTestNotify(h, true) end,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+    h.dispose_when_done(session)
+    h.long_test(5_000_000_000)
+
+class \nodoc\ iso _ConnectFailure is UnitTest
+  """
+  Test to verify that connection failures are handled correctly. Currently,
+  we set up a bad connect attempt by taking the valid port number that would
+  allow a connect and reversing it to create an attempt to connect on a port
+  that nothing should be listening on.
+  """
   fun name(): String =>
-    "TestToReplace"
+    "integration/ConnectFailure"
 
   fun apply(h: TestHelper) =>
-    h.assert_true(true)
+    let info = _TestConnectionConfiguration(h.env.vars)
+
+    let session = PgSession(
+      lori.TCPConnectAuth(h.env.root),
+      recover iso _ConnectTestNotify(h,false) end,
+      info.host,
+      info.port.reverse(),
+      info.username,
+      info.password,
+      info.database)
+
+    h.dispose_when_done(session)
+    h.long_test(5_000_000_000)
+
+class \nodoc\ iso _ConnectTestNotify is PgSessionNotify
+  let _h: TestHelper
+  let _sucess_expected: Bool
+
+  new create(h: TestHelper, sucess_expected: Bool) =>
+    _h = h
+    _sucess_expected = sucess_expected
+
+  fun ref on_connected() =>
+    _h.complete(_sucess_expected == true)
+
+  fun ref on_connection_failed() =>
+    _h.complete(_sucess_expected == false)
+
+class \nodoc\ val _TestConnectionConfiguration
+  let host: String
+  let port: String
+  let username: String
+  let password: String
+  let database: String
+
+  new val create(vars: (Array[String] val | None)) =>
+    let e = EnvVars(vars)
+    host = try e("POSTGRES_HOST")? else "127.0.0.1" end
+    port = try e("POSTGRES_PORT")? else "5432" end
+    username = try e("POSTGRES_USERNAME")? else "postgres" end
+    password = try e("POSTGRES_PASSWORD")? else "postgres" end
+    database = try e("POSTGRES_DATABASE")? else "postgres" end

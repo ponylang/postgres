@@ -70,6 +70,13 @@ $(coverage_binary): $(SOURCE_FILES) | $(COVERAGE_DIR)
 	$(GET_DEPENDENCIES_WITH)
 	$(PONYC) --debug -o $(COVERAGE_DIR) $(SRC_DIR)
 
+start-pg-container:
+	 @docker run --name pg -e POSTGRES_DB=postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_HOST_AUTH_METHOD=md5 -e POSTGRES_INITDB_ARGS="--auth-host=md5" -p 5432:5432 -d postgres:14.5
+
+stop-pg-container:
+	@docker stop pg
+	@docker rm pg
+
 all: test
 
 $(BUILD_DIR):
@@ -78,4 +85,4 @@ $(BUILD_DIR):
 $(COVERAGE_DIR):
 	mkdir -p $(COVERAGE_DIR)
 
-.PHONY: all build-examples clean docs TAGS test coverage
+.PHONY: all build-examples clean docs TAGS test coverage start-pg-container stop-pg-container

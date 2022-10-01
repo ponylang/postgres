@@ -12,3 +12,15 @@ interface PgSessionNotify
     authenticate.
     """
     None
+
+  fun ref on_authenticated() =>
+    """
+    Called when we have successfully authenticated with the server.
+    """
+    None
+
+  fun ref on_authentication_failed() =>
+    """
+    Called if we have failed to successfully authenicate with the server.
+    """
+    None

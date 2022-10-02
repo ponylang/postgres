@@ -15,6 +15,14 @@ actor \nodoc\ Main is TestList
     test(_AuthenticateFailure)
     test(_Connect)
     test(_ConnectFailure)
+    test(_ResponseParserAuthenticationMD5PasswordMessage)
+    test(_ResponseParserAuthenticationOkMessage)
+    test(_ResponseParserEmptyBuffer)
+    test(_ResponseParserErrorResponseMessage)
+    test(_ResponseParserIncompleteMessage)
+    test(_ResponseParserMultipleMessagesAuthenticationMD5PasswordFirst)
+    test(_ResponseParserMultipleMessagesAuthenticationOkFirst)
+    test(_ResponseParserMultipleMessagesErrorResponseFirst)
 
 class \nodoc\ iso _Authenticate is UnitTest
   """

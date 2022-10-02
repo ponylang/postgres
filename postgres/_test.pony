@@ -11,8 +11,72 @@ actor \nodoc\ Main is TestList
     None
 
   fun tag tests(test: PonyTest) =>
+    test(_Authenticate)
+    test(_AuthenticateFailure)
     test(_Connect)
     test(_ConnectFailure)
+
+class \nodoc\ iso _Authenticate is UnitTest
+  """
+  Test to verify that given correct login information we can authenticate with
+  a Postgres server. This test assumes that connecting is working correctly and
+  will fail if it isn't.
+  """
+  fun name(): String =>
+    "integration/Authenicate"
+
+  fun apply(h: TestHelper) =>
+    let info = _TestConnectionConfiguration(h.env.vars)
+
+    let session = PgSession(
+      lori.TCPConnectAuth(h.env.root),
+      recover iso _AuthenticateTestNotify(h, true) end,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+    h.dispose_when_done(session)
+    h.long_test(5_000_000_000)
+
+class \nodoc\ iso _AuthenticateFailure is UnitTest
+  """
+  Test to verify when we fail to authenticate with a Postgres server that are
+  handling the failure correctly. This test assumes that connecting is working
+  correctly and will fail if it isn't.
+  """
+  fun name(): String =>
+    "integration/AuthenicateFailure"
+
+  fun apply(h: TestHelper) =>
+    let info = _TestConnectionConfiguration(h.env.vars)
+
+    let session = PgSession(
+      lori.TCPConnectAuth(h.env.root),
+      recover iso _AuthenticateTestNotify(h, false) end,
+      info.host,
+      info.port,
+      info.username,
+      info.password + " " + info.password,
+      info.database)
+
+    h.dispose_when_done(session)
+    h.long_test(5_000_000_000)
+
+class \nodoc\ iso _AuthenticateTestNotify is PgSessionNotify
+  let _h: TestHelper
+  let _sucess_expected: Bool
+
+  new create(h: TestHelper, sucess_expected: Bool) =>
+    _h = h
+    _sucess_expected = sucess_expected
+
+  fun ref on_authenticated() =>
+    _h.complete(_sucess_expected == true)
+
+  fun ref on_authentication_failed() =>
+    _h.complete(_sucess_expected == false)
 
 class \nodoc\ iso _Connect is UnitTest
   """

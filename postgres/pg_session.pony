@@ -1,6 +1,12 @@
 use "buffered"
 use lori = "lori"
 
+primitive _Unopened
+primitive _Connected
+primitive _LoggedIn
+primitive _Closed
+type _SessionState is (_Unopened | _Connected | _LoggedIn | _Closed)
+
 actor PgSession is lori.TCPClientActor
   let _auth: lori.TCPConnectAuth
   let _notify: PgSessionNotify iso
@@ -11,7 +17,7 @@ actor PgSession is lori.TCPClientActor
   let _database: String
 
   var _connection: lori.TCPConnection = lori.TCPConnection.none()
-
+  var _state: _SessionState = _Unopened
   let _readbuf: Reader = Reader
 
   new create(
@@ -37,17 +43,29 @@ actor PgSession is lori.TCPClientActor
     _connection
 
   fun ref on_connected() =>
+    _state = _Connected
     _notify.on_connected()
     _send_startup_message()
 
   fun ref on_failure() =>
+    _state = _Closed
     _notify.on_connection_failed()
 
   fun ref on_received(data: Array[U8] iso) =>
     _readbuf.append(consume data)
     _parse_response()
 
+  fun ref _shutdown() =>
+    """
+    Shutdown the session.
+    """
+
+    _readbuf.clear()
+    _connection.close()
+    _state = _Closed
+
   fun ref _send_startup_message() =>
+    // TODO STA: assert that we have a state of _Connected
     try
       let msg = _Message.startup(_user, _database)?
       _connection.send(msg)
@@ -57,24 +75,35 @@ actor PgSession is lori.TCPClientActor
     end
 
   fun ref _parse_response() =>
-    while true do
-      let message = _ResponseParser(_readbuf)
-      match message
-      | let msg: _AuthenticationMD5PasswordMessage =>
-        let md5_password = _MD5Password(_user, _password, msg.salt)
-        let reply = _Message.password(md5_password)
-        _connection.send(reply)
-      | _AuthenticationOkMessage =>
-        _notify.on_authenticated()
-      | let err: _ErrorResponseMessage =>
-        // TODO STA: need to handle invalid_authorization_specification here
-        // as well.
-        if err.code == _ErrorCode.invalid_password() then
-          _notify.on_authentication_failed()
+    try
+      while true do
+        let message = _ResponseParser(_readbuf)?
+        match message
+        | let msg: _AuthenticationMD5PasswordMessage =>
+          let md5_password = _MD5Password(_user, _password, msg.salt)
+          let reply = _Message.password(md5_password)
+          _connection.send(reply)
+        | _AuthenticationOkMessage =>
+          _state = _LoggedIn
+          _notify.on_authenticated()
+        | let err: _ErrorResponseMessage =>
+          // TODO STA: need to handle invalid_authorization_specification here
+          // as well.
+          if err.code == _ErrorCode.invalid_password() then
+            _notify.on_authentication_failed()
+            _shutdown()
+          end
+        | None =>
+          // No complete message was found in our received buffer, so we stop
+          // parsing for now.
+          return
         end
-      | None =>
-        // No complete message was found in our received buffer, so we stop
-        // parsing for now.
-        return
       end
+    else
+      // An unrecoverable error was encountered while parsing. Once that
+      // happens, there's no way we are going to be able to figure out how
+      // to get the responses back into an understandable state. The only
+      // thing we can do is shut this session down.
+
+      _shutdown()
     end

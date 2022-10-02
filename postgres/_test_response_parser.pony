@@ -9,10 +9,10 @@ class \nodoc\ iso _ResponseParserEmptyBuffer is UnitTest
   fun name(): String =>
     "ResponseParser/EmptyBuffer"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let empty: Reader = Reader
 
-    if _ResponseParser(empty) isnt None then
+    if _ResponseParser(empty)? isnt None then
       h.fail()
     end
 
@@ -24,7 +24,7 @@ class \nodoc\ iso _ResponseParserIncompleteMessage is UnitTest
   fun name(): String =>
     "ResponseParser/IncompleteMessage"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let bytes = _IncomingAuthenticationOkMessage.bytes()
     let complete_message_index = bytes.size()
 
@@ -33,7 +33,7 @@ class \nodoc\ iso _ResponseParserIncompleteMessage is UnitTest
       let s: Array[U8] val = bytes.trim(0, i)
       r.append(s)
 
-      if _ResponseParser(r) isnt None then
+      if _ResponseParser(r)? isnt None then
         h.fail(
           "Parsing incomplete message with size of " +
           i.string() +
@@ -48,12 +48,12 @@ class \nodoc\ iso _ResponseParserAuthenticationOkMessage is UnitTest
   fun name(): String =>
     "ResponseParser/AuthenticationOkMessage"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let bytes = _IncomingAuthenticationOkMessage.bytes()
     let r: Reader = Reader
     r.append(bytes)
 
-    if _ResponseParser(r) isnt _AuthenticationOkMessage then
+    if _ResponseParser(r)? isnt _AuthenticationOkMessage then
       h.fail()
     end
 
@@ -64,13 +64,13 @@ class \nodoc\ iso _ResponseParserAuthenticationMD5PasswordMessage is UnitTest
   fun name(): String =>
     "ResponseParser/AuthenticationMD5PasswordMessage"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let salt = "7669"
     let bytes = _IncomingAuthenticationMD5PasswordMessage(salt).bytes()
     let r: Reader = Reader
     r.append(bytes)
 
-    match _ResponseParser(r)
+    match _ResponseParser(r)?
     | let m: _AuthenticationMD5PasswordMessage =>
       if m.salt != salt then
         h.fail("Salt not correctly parsed.")
@@ -86,13 +86,13 @@ class \nodoc\ iso _ResponseParserErrorResponseMessage is UnitTest
   fun name(): String =>
     "ResponseParser/ErrorResponseMessage"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let code = "7669"
     let bytes = _IncomingErrorResponseMessage(code).bytes()
     let r: Reader = Reader
     r.append(bytes)
 
-    match _ResponseParser(r)
+    match _ResponseParser(r)?
     | let m: _ErrorResponseMessage =>
       if m.code != code then
         h.fail("Code not correctly parsed.")
@@ -111,16 +111,16 @@ class \nodoc\ iso _ResponseParserMultipleMessagesAuthenticationOkFirst
   fun name(): String =>
     "ResponseParser/MultipleMessages/AuthenticationOkFirst"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let r: Reader = Reader
     r.append(_IncomingAuthenticationOkMessage.bytes())
     r.append(_IncomingAuthenticationOkMessage.bytes())
 
-    if _ResponseParser(r) isnt _AuthenticationOkMessage then
+    if _ResponseParser(r)? isnt _AuthenticationOkMessage then
       h.fail("Wrong message returned for first message.")
     end
 
-    if _ResponseParser(r) isnt _AuthenticationOkMessage then
+    if _ResponseParser(r)? isnt _AuthenticationOkMessage then
       h.fail("Wrong message returned for second message.")
     end
 
@@ -133,13 +133,13 @@ class \nodoc\ iso _ResponseParserMultipleMessagesAuthenticationMD5PasswordFirst
   fun name(): String =>
     "ResponseParser/MultipleMessages/AuthenticationMD5PasswordFirst"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let salt = "7669"
     let r: Reader = Reader
     r.append(_IncomingAuthenticationMD5PasswordMessage(salt).bytes())
     r.append(_IncomingAuthenticationOkMessage.bytes())
 
-    match _ResponseParser(r)
+    match _ResponseParser(r)?
     | let m: _AuthenticationMD5PasswordMessage =>
       if m.salt != salt then
         h.fail("Salt not correctly parsed.")
@@ -148,7 +148,7 @@ class \nodoc\ iso _ResponseParserMultipleMessagesAuthenticationMD5PasswordFirst
       h.fail("Wrong message returned for first message.")
     end
 
-    if _ResponseParser(r) isnt _AuthenticationOkMessage then
+    if _ResponseParser(r)? isnt _AuthenticationOkMessage then
       h.fail("Wrong message returned for second message.")
     end
 
@@ -161,13 +161,13 @@ class \nodoc\ iso _ResponseParserMultipleMessagesErrorResponseFirst is UnitTest
   fun name(): String =>
     "ResponseParser/MultipleMessages/ErrorResponseFirst"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let code = "7669"
     let r: Reader = Reader
     r.append(_IncomingErrorResponseMessage(code).bytes())
     r.append(_IncomingAuthenticationOkMessage.bytes())
 
-    match _ResponseParser(r)
+    match _ResponseParser(r)?
     | let m: _ErrorResponseMessage =>
       if m.code != code then
         h.fail("Code not correctly parsed.")
@@ -176,7 +176,7 @@ class \nodoc\ iso _ResponseParserMultipleMessagesErrorResponseFirst is UnitTest
       h.fail("Wrong message returned for first message.")
     end
 
-    if _ResponseParser(r) isnt _AuthenticationOkMessage then
+    if _ResponseParser(r)? isnt _AuthenticationOkMessage then
       h.fail("Wrong message returned for second message.")
     end
 

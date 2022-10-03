@@ -9,7 +9,7 @@ type _SessionState is (_Unopened | _Connected | _LoggedIn | _Closed)
 
 actor PgSession is lori.TCPClientActor
   let _auth: lori.TCPConnectAuth
-  let _notify: PgSessionNotify iso
+  let _notify: PgSessionNotify
   let _host: String
   let _service: String
   let _user: String
@@ -22,7 +22,7 @@ actor PgSession is lori.TCPClientActor
 
   new create(
     auth: lori.TCPConnectAuth,
-    notify: PgSessionNotify iso,
+    notify: PgSessionNotify,
     host: String,
     service: String,
     user: String,
@@ -44,12 +44,12 @@ actor PgSession is lori.TCPClientActor
 
   fun ref on_connected() =>
     _state = _Connected
-    _notify.on_connected()
+    _notify.pg_session_connected(this)
     _send_startup_message()
 
   fun ref on_failure() =>
     _state = _Closed
-    _notify.on_connection_failed()
+    _notify.pg_session_connection_failed(this)
 
   fun ref on_received(data: Array[U8] iso) =>
     _readbuf.append(consume data)
@@ -85,12 +85,12 @@ actor PgSession is lori.TCPClientActor
           _connection.send(reply)
         | _AuthenticationOkMessage =>
           _state = _LoggedIn
-          _notify.on_authenticated()
+          _notify.pg_session_authenticated(this)
         | let err: _ErrorResponseMessage =>
           // TODO STA: need to handle invalid_authorization_specification here
           // as well.
           if err.code == _ErrorCode.invalid_password() then
-            _notify.on_authentication_failed()
+            _notify.pg_session_authentication_failed(this)
             _shutdown()
           end
         | None =>

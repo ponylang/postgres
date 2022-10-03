@@ -100,7 +100,7 @@ trait _ConnectableState is _UnconnectedState
       let msg = _Message.startup(s.user, s.database)?
       s._connection().send(msg)
     else
-      // TODO STA: this should never happen here
+      _Unreachable()
       None
     end
 
@@ -110,12 +110,10 @@ trait _NotConnectableState
   something has gone wrong with the state machine.
   """
   fun on_connected(s: Session ref) =>
-    // TODO STA: die out here if debug
-    None
+    _IllegalState()
 
   fun on_failure(s: Session ref) =>
-    // TODO STA: die out here if debug
-    None
+    _IllegalState()
 
 trait _ConnectedState is _NotConnectableState
   """
@@ -169,12 +167,17 @@ trait _UnconnectedState is _NotAuthenticableState
   and receiving an authentication event while unconnected is an error.
   """
   fun on_received(s: Session ref, data: Array[U8] iso) =>
-    // TODO STA: die out here if debug
+    // It is possible we will continue to receive data after we have closed
+    // so this isn't an invalid state. We should silently drop the data. If
+    // "not yet opened" and "closed" were different states, rather than a single
+    // "unconnected" then we would want to call illegal state if `on_received`
+    // was called when the state was "not yet opened".
     None
 
   fun shutdown(s: Session ref) =>
-    // TODO STA: die out here if debug
-    None
+    ifdef debug then
+      _IllegalState()
+    end
 
 trait _AuthenticableState is _ConnectedState
   """
@@ -204,15 +207,12 @@ trait _NotAuthenticableState
   that haven't yet been authenticated are eligible to be authenticated.
   """
   fun on_authentication_ok(s: Session ref) =>
-    // TODO STA: die out here if debug
-    None
+    _IllegalState()
 
   fun on_authentication_failed(s: Session ref) =>
-    // TODO STA: die out here if debug
-    None
+    _IllegalState()
 
   fun on_authentication_md5_password(s: Session ref,
     msg: _AuthenticationMD5PasswordMessage)
   =>
-    // TODO STA: die out here if debug
-    None
+    _IllegalState()

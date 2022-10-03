@@ -12,7 +12,7 @@ actor Session is lori.TCPClientActor
   let readbuf: Reader = Reader
   var state: _SessionState = _SessionUnopened
 
-  var _connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
 
   new create(
     auth': lori.TCPConnectAuth,
@@ -30,18 +30,18 @@ actor Session is lori.TCPClientActor
     password = password'
     database = database'
 
-    _connection = lori.TCPConnection.client(auth', host, service, "", this)
+    _tcp_connection = lori.TCPConnection.client(auth', host, service, "", this)
 
-  fun ref connection(): lori.TCPConnection =>
-    _connection
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
 
-  fun ref on_connected() =>
+  fun ref _on_connected() =>
     state.on_connected(this)
 
-  fun ref on_failure() =>
+  fun ref _on_connection_failure() =>
     state.on_failure(this)
 
-  fun ref on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso) =>
     state.on_received(this, consume data)
 
 // Possible session states
@@ -98,7 +98,7 @@ trait _ConnectableState is _UnconnectedState
   fun _send_startup_message(s: Session ref) =>
      try
       let msg = _Message.startup(s.user, s.database)?
-      s.connection().send(msg)
+      s._connection().send(msg)
     else
       // TODO STA: this should never happen here
       None
@@ -160,7 +160,7 @@ trait _ConnectedState is _NotConnectableState
   fun shutdown(s: Session ref) =>
     s.state = _SessionClosed
     s.readbuf.clear()
-    s.connection().close()
+    s._connection().close()
 
 trait _UnconnectedState is _NotAuthenticableState
   """
@@ -196,7 +196,7 @@ trait _AuthenticableState is _ConnectedState
   =>
       let md5_password = _MD5Password(s.user, s.password, msg.salt)
       let reply = _Message.password(md5_password)
-      s.connection().send(reply)
+      s._connection().send(reply)
 
 trait _NotAuthenticableState
   """

@@ -1,8 +1,8 @@
 use "buffered"
 use lori = "lori"
 
-actor PgSession is lori.TCPClientActor
-  let notify: PgSessionNotify
+actor Session is lori.TCPClientActor
+  let notify: SessionStatusNotify
   let host: String
   let service: String
   let user: String
@@ -10,13 +10,13 @@ actor PgSession is lori.TCPClientActor
   let database: String
 
   let readbuf: Reader = Reader
-  var state: _PgSessionState = _PgSessionUnopened
+  var state: _SessionState = _SessionUnopened
 
   var _connection: lori.TCPConnection = lori.TCPConnection.none()
 
   new create(
     auth': lori.TCPConnectAuth,
-    notify': PgSessionNotify,
+    notify': SessionStatusNotify,
     host': String,
     service': String,
     user': String,
@@ -45,39 +45,39 @@ actor PgSession is lori.TCPClientActor
     state.on_received(this, consume data)
 
 // Possible session states
-primitive _PgSessionUnopened is _ConnectableState
-primitive _PgSessionClosed is (_NotConnectableState & _UnconnectedState)
-primitive _PgSessionConnected is _AuthenticableState
-primitive _PgSessionLoggedIn is (_ConnectedState & _NotAuthenticableState)
+primitive _SessionUnopened is _ConnectableState
+primitive _SessionClosed is (_NotConnectableState & _UnconnectedState)
+primitive _SessionConnected is _AuthenticableState
+primitive _SessionLoggedIn is (_ConnectedState & _NotAuthenticableState)
 
-interface val _PgSessionState
-  fun on_connected(s: PgSession ref)
+interface val _SessionState
+  fun on_connected(s: Session ref)
     """
     Called when a connection is established with the server.
     """
-  fun on_failure(s: PgSession ref)
+  fun on_failure(s: Session ref)
     """
     Called if we fail to establish a connection with the server.
     """
-  fun on_authentication_ok(s: PgSession ref)
+  fun on_authentication_ok(s: Session ref)
     """
     Called when we successfully authenticate with the server.
     """
-  fun on_authentication_failed(s: PgSession ref)
+  fun on_authentication_failed(s: Session ref)
     """
     Called if we failed to successfully authenticate with the server.
     """
-  fun on_authentication_md5_password(s: PgSession ref,
+  fun on_authentication_md5_password(s: Session ref,
     msg: _AuthenticationMD5PasswordMessage)
     """
     Called if the server requests we autheticate using the Postgres MD5
     password scheme.
     """
-  fun shutdown(s: PgSession ref)
+  fun shutdown(s: Session ref)
     """
     Called when we are shutting down the session.
     """
-  fun on_received(s: PgSession ref, data: Array[U8] iso)
+  fun on_received(s: Session ref, data: Array[U8] iso)
     """
     Called when we receive data from the server.
     """
@@ -86,16 +86,16 @@ trait _ConnectableState is _UnconnectedState
   """
   An unopened session that can be connected to a server.
   """
-  fun on_connected(s: PgSession ref) =>
-    s.state = _PgSessionConnected
+  fun on_connected(s: Session ref) =>
+    s.state = _SessionConnected
     s.notify.pg_session_connected(s)
     _send_startup_message(s)
 
-  fun on_failure(s: PgSession ref) =>
-    s.state = _PgSessionClosed
+  fun on_failure(s: Session ref) =>
+    s.state = _SessionClosed
     s.notify.pg_session_connection_failed(s)
 
-  fun _send_startup_message(s: PgSession ref) =>
+  fun _send_startup_message(s: Session ref) =>
      try
       let msg = _Message.startup(s.user, s.database)?
       s.connection().send(msg)
@@ -109,11 +109,11 @@ trait _NotConnectableState
   A session that if it gets messages related to connect to a server, then
   something has gone wrong with the state machine.
   """
-  fun on_connected(s: PgSession ref) =>
+  fun on_connected(s: Session ref) =>
     // TODO STA: die out here if debug
     None
 
-  fun on_failure(s: PgSession ref) =>
+  fun on_failure(s: Session ref) =>
     // TODO STA: die out here if debug
     None
 
@@ -122,11 +122,11 @@ trait _ConnectedState is _NotConnectableState
   A connected session. Connected sessions are not connectable as they have
   already been connected.
   """
-  fun on_received(s: PgSession ref, data: Array[U8] iso) =>
+  fun on_received(s: Session ref, data: Array[U8] iso) =>
     s.readbuf.append(consume data)
     _parse_response(s)
 
-  fun _parse_response(s: PgSession ref) =>
+  fun _parse_response(s: Session ref) =>
     try
       while true do
         let message = _ResponseParser(s.readbuf)?
@@ -157,8 +157,8 @@ trait _ConnectedState is _NotConnectableState
       shutdown(s)
     end
 
-  fun shutdown(s: PgSession ref) =>
-    s.state = _PgSessionClosed
+  fun shutdown(s: Session ref) =>
+    s.state = _SessionClosed
     s.readbuf.clear()
     s.connection().close()
 
@@ -168,11 +168,11 @@ trait _UnconnectedState is _NotAuthenticableState
   it has been closed. Unconnected sessions are not eligible to be authenticated
   and receiving an authentication event while unconnected is an error.
   """
-  fun on_received(s: PgSession ref, data: Array[U8] iso) =>
+  fun on_received(s: Session ref, data: Array[U8] iso) =>
     // TODO STA: die out here if debug
     None
 
-  fun shutdown(s: PgSession ref) =>
+  fun shutdown(s: Session ref) =>
     // TODO STA: die out here if debug
     None
 
@@ -183,15 +183,15 @@ trait _AuthenticableState is _ConnectedState
   session has been authenticated, it's an error for another authetication event
   to occur.
   """
-  fun on_authentication_ok(s: PgSession ref) =>
-    s.state = _PgSessionLoggedIn
+  fun on_authentication_ok(s: Session ref) =>
+    s.state = _SessionLoggedIn
     s.notify.pg_session_authenticated(s)
 
-  fun on_authentication_failed(s: PgSession ref) =>
+  fun on_authentication_failed(s: Session ref) =>
     s.notify.pg_session_authentication_failed(s)
     shutdown(s)
 
-  fun on_authentication_md5_password(s: PgSession ref,
+  fun on_authentication_md5_password(s: Session ref,
     msg: _AuthenticationMD5PasswordMessage)
   =>
       let md5_password = _MD5Password(s.user, s.password, msg.salt)
@@ -203,15 +203,15 @@ trait _NotAuthenticableState
   A session that isn't eligible to be authenticated. Only connected sessions
   that haven't yet been authenticated are eligible to be authenticated.
   """
-  fun on_authentication_ok(s: PgSession ref) =>
+  fun on_authentication_ok(s: Session ref) =>
     // TODO STA: die out here if debug
     None
 
-  fun on_authentication_failed(s: PgSession ref) =>
+  fun on_authentication_failed(s: Session ref) =>
     // TODO STA: die out here if debug
     None
 
-  fun on_authentication_md5_password(s: PgSession ref,
+  fun on_authentication_md5_password(s: Session ref,
     msg: _AuthenticationMD5PasswordMessage)
   =>
     // TODO STA: die out here if debug

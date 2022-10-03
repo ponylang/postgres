@@ -36,7 +36,7 @@ class \nodoc\ iso _Authenticate is UnitTest
   fun apply(h: TestHelper) =>
     let info = _TestConnectionConfiguration(h.env.vars)
 
-    let session = PgSession(
+    let session = Session(
       lori.TCPConnectAuth(h.env.root),
       _AuthenticateTestNotify(h, true),
       info.host,
@@ -60,7 +60,7 @@ class \nodoc\ iso _AuthenticateFailure is UnitTest
   fun apply(h: TestHelper) =>
     let info = _TestConnectionConfiguration(h.env.vars)
 
-    let session = PgSession(
+    let session = Session(
       lori.TCPConnectAuth(h.env.root),
       _AuthenticateTestNotify(h, false),
       info.host,
@@ -72,7 +72,7 @@ class \nodoc\ iso _AuthenticateFailure is UnitTest
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
 
-actor \nodoc\ _AuthenticateTestNotify is PgSessionNotify
+actor \nodoc\ _AuthenticateTestNotify is SessionStatusNotify
   let _h: TestHelper
   let _sucess_expected: Bool
 
@@ -80,10 +80,10 @@ actor \nodoc\ _AuthenticateTestNotify is PgSessionNotify
     _h = h
     _sucess_expected = sucess_expected
 
-  be pg_session_authenticated(session: PgSession) =>
+  be pg_session_authenticated(session: Session) =>
     _h.complete(_sucess_expected == true)
 
-  be pg_session_authentication_failed(session: PgSession) =>
+  be pg_session_authentication_failed(session: Session) =>
     _h.complete(_sucess_expected == false)
 
 class \nodoc\ iso _Connect is UnitTest
@@ -97,7 +97,7 @@ class \nodoc\ iso _Connect is UnitTest
   fun apply(h: TestHelper) =>
     let info = _TestConnectionConfiguration(h.env.vars)
 
-    let session = PgSession(
+    let session = Session(
       lori.TCPConnectAuth(h.env.root),
       _ConnectTestNotify(h, true),
       info.host,
@@ -122,7 +122,7 @@ class \nodoc\ iso _ConnectFailure is UnitTest
   fun apply(h: TestHelper) =>
     let info = _TestConnectionConfiguration(h.env.vars)
 
-    let session = PgSession(
+    let session = Session(
       lori.TCPConnectAuth(h.env.root),
       _ConnectTestNotify(h,false),
       info.host,
@@ -134,7 +134,7 @@ class \nodoc\ iso _ConnectFailure is UnitTest
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
 
-actor \nodoc\ _ConnectTestNotify is PgSessionNotify
+actor \nodoc\ _ConnectTestNotify is SessionStatusNotify
   let _h: TestHelper
   let _sucess_expected: Bool
 
@@ -142,10 +142,10 @@ actor \nodoc\ _ConnectTestNotify is PgSessionNotify
     _h = h
     _sucess_expected = sucess_expected
 
-  be pg_session_connected(session: PgSession) =>
+  be pg_session_connected(session: Session) =>
     _h.complete(_sucess_expected == true)
 
-  be pg_session_connection_failed(session: PgSession) =>
+  be pg_session_connection_failed(session: Session) =>
     _h.complete(_sucess_expected == false)
 
 class \nodoc\ val _TestConnectionConfiguration

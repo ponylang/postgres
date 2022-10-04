@@ -1,6 +1,7 @@
 use "buffered"
 use "collections"
 use "pony_test"
+use "random"
 
 class \nodoc\ iso _TestResponseParserEmptyBuffer is UnitTest
   """
@@ -40,6 +41,20 @@ class \nodoc\ iso _TestResponseParserIncompleteMessage is UnitTest
           " didn't return None.")
       end
     end
+
+class \nodoc\ iso _TestResponseParserJunkMessage is UnitTest
+  """
+  Verify that handing a buffer contains "junk" data leads to an error.
+  """
+  fun name(): String =>
+    "ResponseParser/JunkMessage"
+
+  fun apply(h: TestHelper) =>
+    h.assert_error({() ? =>
+      let bytes = _IncomingJunkTestMessage.bytes()
+      let r: Reader = Reader
+      r.append(bytes)
+      _ResponseParser(r)? })
 
 class \nodoc\ iso _TestResponseParserAuthenticationOkMessage is UnitTest
   """
@@ -226,7 +241,7 @@ class \nodoc\ val _IncomingErrorResponseTestMessage
   new val create(code: String) =>
     _code = code
 
-   fun bytes(): Array[U8] val =>
+  fun bytes(): Array[U8] val =>
     let payload_size = 4 + 1 + _code.size() + 1 + 1
     let wb: Writer = Writer
     wb.u8(_MessageType.error_response())
@@ -235,6 +250,31 @@ class \nodoc\ val _IncomingErrorResponseTestMessage
     wb.write(_code)
     wb.u8(0)
     wb.u8(0)
+
+    recover val
+      let out = Array[U8]
+      for b in wb.done().values() do
+        out.append(b)
+      end
+      out
+    end
+
+class \nodoc\ val _IncomingJunkTestMessage
+  """
+  Creates a junk message where "junk" is currently defined as having a message
+  type that we don't recognize, aka not an ascii letter.
+  """
+  new val create() =>
+    None
+
+  fun bytes(): Array[U8] val =>
+    let rand = Rand
+    let wb: Writer = Writer
+    wb.u8(1)
+    wb.u32_be(7669)
+    for i in Range(0, 100_000) do
+      wb.u32_be(rand.u32())
+    end
 
     recover val
       let out = Array[U8]

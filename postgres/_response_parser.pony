@@ -7,7 +7,10 @@ type _AuthenticationMessages is
 type _ResponseParserResult is
   ( _AuthenticationMessages
   | _ErrorResponseMessage
+  | UnsupportedMessage
   | None )
+
+primitive UnsupportedMessage
 
 primitive _ResponseParser
   """
@@ -65,8 +68,8 @@ primitive _ResponseParser
 
         return _AuthenticationMD5PasswordMessage(salt)
       else
-        // TODO STA: unsupported auth type
-        return None
+        buffer.skip(message_size)?
+        return UnsupportedMessage
       end
     | _MessageType.error_response() =>
       // Slide past the header...
@@ -75,8 +78,8 @@ primitive _ResponseParser
       let payload = buffer.block(payload_size)?
       return _error_response(consume payload)?
     else
-      // TODO STA: unsupported message
-      return None
+      buffer.skip(message_size)?
+      return UnsupportedMessage
     end
 
   fun _error_response(payload: Array[U8] val): _ErrorResponseMessage ? =>

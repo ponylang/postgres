@@ -148,6 +148,9 @@ trait _ConnectedState is _NotConnectableState
             s.state.on_authentication_failed(s, reason)
             shutdown(s)
           end
+        | UnsupportedMessage =>
+          // Unsupported message of a known type found. Continue on the way.
+          None
         | None =>
           // No complete message was found in our received buffer, so we stop
           // parsing for now.

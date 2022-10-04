@@ -1,6 +1,7 @@
 use "buffered"
 use "collections"
 use "pony_test"
+
 class \nodoc\ iso _TestResponseParserEmptyBuffer is UnitTest
   """
   Verify that handling an empty buffer to the parser returns `None`

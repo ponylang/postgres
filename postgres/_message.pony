@@ -1,4 +1,3 @@
-// TODO STA: need unit tests for each type of message that _Message can generate
 primitive _Message
   fun startup(user: String, database: String): Array[U8] val ? =>
     // TODO STA: We can know the length ahead of time and size our array

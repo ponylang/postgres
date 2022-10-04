@@ -83,7 +83,10 @@ actor \nodoc\ _AuthenticateTestNotify is SessionStatusNotify
   be pg_session_authenticated(session: Session) =>
     _h.complete(_sucess_expected == true)
 
-  be pg_session_authentication_failed(session: Session) =>
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
     _h.complete(_sucess_expected == false)
 
 class \nodoc\ iso _Connect is UnitTest

@@ -35,9 +35,6 @@ primitive _ResponseParser
     end
 
     let message_type = buffer.peek_u8(0)?
-    // payload size includes the 4 bytes for the descriptive header on the
-    // payload.
-
     if ((message_type < 'A') or (message_type > 'z')) or
       ((message_type > 'Z') and (message_type < 'a'))
     then
@@ -46,6 +43,8 @@ primitive _ResponseParser
       error
     end
 
+    // payload size includes the 4 bytes for the descriptive header on the
+    // payload.
     let payload_size = buffer.peek_u32_be(1)?.usize() - 4
     let message_size = payload_size + 4 + 1
 

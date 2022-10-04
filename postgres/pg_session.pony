@@ -63,7 +63,9 @@ interface val _SessionState
     """
     Called when we successfully authenticate with the server.
     """
-  fun on_authentication_failed(s: Session ref)
+  fun on_authentication_failed(
+    s: Session ref,
+    reason: AuthenticationFailureReason)
     """
     Called if we failed to successfully authenticate with the server.
     """
@@ -134,10 +136,16 @@ trait _ConnectedState is _NotConnectableState
         | _AuthenticationOkMessage =>
           s.state.on_authentication_ok(s)
         | let err: _ErrorResponseMessage =>
-          // TODO STA: need to handle invalid_authorization_specification here
-          // as well.
-          if err.code == _ErrorCode.invalid_password() then
-            s.state.on_authentication_failed(s)
+          if (err.code == _ErrorCode.invalid_password())
+            or (err.code == _ErrorCode.invalid_authentication_specification())
+          then
+            let reason = if err.code == _ErrorCode.invalid_password() then
+              InvalidPassword
+            else
+              InvalidAuthenticationSpecification
+            end
+
+            s.state.on_authentication_failed(s, reason)
             shutdown(s)
           end
         | None =>
@@ -190,8 +198,8 @@ trait _AuthenticableState is _ConnectedState
     s.state = _SessionLoggedIn
     s.notify.pg_session_authenticated(s)
 
-  fun on_authentication_failed(s: Session ref) =>
-    s.notify.pg_session_authentication_failed(s)
+  fun on_authentication_failed(s: Session ref, r: AuthenticationFailureReason) =>
+    s.notify.pg_session_authentication_failed(s, r)
     shutdown(s)
 
   fun on_authentication_md5_password(s: Session ref,
@@ -209,7 +217,7 @@ trait _NotAuthenticableState
   fun on_authentication_ok(s: Session ref) =>
     _IllegalState()
 
-  fun on_authentication_failed(s: Session ref) =>
+  fun on_authentication_failed(s: Session ref, r: AuthenticationFailureReason) =>
     _IllegalState()
 
   fun on_authentication_md5_password(s: Session ref,

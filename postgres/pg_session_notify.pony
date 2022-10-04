@@ -19,7 +19,10 @@ interface tag SessionStatusNotify
     """
     None
 
-  be pg_session_authentication_failed(session: Session) =>
+  be pg_session_authentication_failed(
+    session: Session,
+    reason: AuthenticationFailureReason)
+  =>
     """
     Called if we have failed to successfully authenicate with the server.
     """

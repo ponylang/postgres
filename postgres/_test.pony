@@ -11,21 +11,21 @@ actor \nodoc\ Main is TestList
     None
 
   fun tag tests(test: PonyTest) =>
-    test(_Authenticate)
-    test(_AuthenticateFailure)
-    test(_Connect)
-    test(_ConnectFailure)
-    test(_MessagePassword)
-    test(_ResponseParserAuthenticationMD5PasswordMessage)
-    test(_ResponseParserAuthenticationOkMessage)
-    test(_ResponseParserEmptyBuffer)
-    test(_ResponseParserErrorResponseMessage)
-    test(_ResponseParserIncompleteMessage)
-    test(_ResponseParserMultipleMessagesAuthenticationMD5PasswordFirst)
-    test(_ResponseParserMultipleMessagesAuthenticationOkFirst)
-    test(_ResponseParserMultipleMessagesErrorResponseFirst)
+    test(_TestAuthenticate)
+    test(_TestAuthenticateFailure)
+    test(_TestConnect)
+    test(_TestConnectFailure)
+    test(_TestMessagePassword)
+    test(_TestResponseParserAuthenticationMD5PasswordMessage)
+    test(_TestResponseParserAuthenticationOkMessage)
+    test(_TestResponseParserEmptyBuffer)
+    test(_TestResponseParserErrorResponseMessage)
+    test(_TestResponseParserIncompleteMessage)
+    test(_TestResponseParserMultipleMessagesAuthenticationMD5PasswordFirst)
+    test(_TestResponseParserMultipleMessagesAuthenticationOkFirst)
+    test(_TestResponseParserMultipleMessagesErrorResponseFirst)
 
-class \nodoc\ iso _Authenticate is UnitTest
+class \nodoc\ iso _TestAuthenticate is UnitTest
   """
   Test to verify that given correct login information we can authenticate with
   a Postgres server. This test assumes that connecting is working correctly and
@@ -35,7 +35,7 @@ class \nodoc\ iso _Authenticate is UnitTest
     "integration/Authenicate"
 
   fun apply(h: TestHelper) =>
-    let info = _TestConnectionConfiguration(h.env.vars)
+    let info = _ConnectionTestConfiguration(h.env.vars)
 
     let session = Session(
       lori.TCPConnectAuth(h.env.root),
@@ -49,7 +49,7 @@ class \nodoc\ iso _Authenticate is UnitTest
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
 
-class \nodoc\ iso _AuthenticateFailure is UnitTest
+class \nodoc\ iso _TestAuthenticateFailure is UnitTest
   """
   Test to verify when we fail to authenticate with a Postgres server that are
   handling the failure correctly. This test assumes that connecting is working
@@ -59,7 +59,7 @@ class \nodoc\ iso _AuthenticateFailure is UnitTest
     "integration/AuthenicateFailure"
 
   fun apply(h: TestHelper) =>
-    let info = _TestConnectionConfiguration(h.env.vars)
+    let info = _ConnectionTestConfiguration(h.env.vars)
 
     let session = Session(
       lori.TCPConnectAuth(h.env.root),
@@ -90,7 +90,7 @@ actor \nodoc\ _AuthenticateTestNotify is SessionStatusNotify
   =>
     _h.complete(_sucess_expected == false)
 
-class \nodoc\ iso _Connect is UnitTest
+class \nodoc\ iso _TestConnect is UnitTest
   """
   Test to verify that given correct login information that we can connect to
   a Postgres server.
@@ -99,7 +99,7 @@ class \nodoc\ iso _Connect is UnitTest
     "integration/Connect"
 
   fun apply(h: TestHelper) =>
-    let info = _TestConnectionConfiguration(h.env.vars)
+    let info = _ConnectionTestConfiguration(h.env.vars)
 
     let session = Session(
       lori.TCPConnectAuth(h.env.root),
@@ -113,7 +113,7 @@ class \nodoc\ iso _Connect is UnitTest
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
 
-class \nodoc\ iso _ConnectFailure is UnitTest
+class \nodoc\ iso _TestConnectFailure is UnitTest
   """
   Test to verify that connection failures are handled correctly. Currently,
   we set up a bad connect attempt by taking the valid port number that would
@@ -124,7 +124,7 @@ class \nodoc\ iso _ConnectFailure is UnitTest
     "integration/ConnectFailure"
 
   fun apply(h: TestHelper) =>
-    let info = _TestConnectionConfiguration(h.env.vars)
+    let info = _ConnectionTestConfiguration(h.env.vars)
 
     let session = Session(
       lori.TCPConnectAuth(h.env.root),
@@ -152,7 +152,7 @@ actor \nodoc\ _ConnectTestNotify is SessionStatusNotify
   be pg_session_connection_failed(session: Session) =>
     _h.complete(_sucess_expected == false)
 
-class \nodoc\ val _TestConnectionConfiguration
+class \nodoc\ val _ConnectionTestConfiguration
   let host: String
   let port: String
   let username: String

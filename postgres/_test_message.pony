@@ -1,6 +1,6 @@
 use "pony_test"
 
-class \nodoc\ iso _MessagePassword is UnitTest
+class \nodoc\ iso _TestMessagePassword is UnitTest
   fun name(): String =>
     "Message/Password"
 

@@ -1,8 +1,7 @@
 use "buffered"
 use "collections"
 use "pony_test"
-
-class \nodoc\ iso _ResponseParserEmptyBuffer is UnitTest
+class \nodoc\ iso _TestResponseParserEmptyBuffer is UnitTest
   """
   Verify that handling an empty buffer to the parser returns `None`
   """
@@ -16,7 +15,7 @@ class \nodoc\ iso _ResponseParserEmptyBuffer is UnitTest
       h.fail()
     end
 
-class \nodoc\ iso _ResponseParserIncompleteMessage is UnitTest
+class \nodoc\ iso _TestResponseParserIncompleteMessage is UnitTest
   """
   Verify that handing a buffer that isn't a complete message to the parser
   returns `None`
@@ -25,7 +24,7 @@ class \nodoc\ iso _ResponseParserIncompleteMessage is UnitTest
     "ResponseParser/IncompleteMessage"
 
   fun apply(h: TestHelper) ? =>
-    let bytes = _IncomingAuthenticationOkMessage.bytes()
+    let bytes = _IncomingAuthenticationOkTestMessage.bytes()
     let complete_message_index = bytes.size()
 
     for i in Range(0, complete_message_index) do
@@ -41,7 +40,7 @@ class \nodoc\ iso _ResponseParserIncompleteMessage is UnitTest
       end
     end
 
-class \nodoc\ iso _ResponseParserAuthenticationOkMessage is UnitTest
+class \nodoc\ iso _TestResponseParserAuthenticationOkMessage is UnitTest
   """
   Verify that AuthenticationOk messages are parsed correctly
   """
@@ -49,7 +48,7 @@ class \nodoc\ iso _ResponseParserAuthenticationOkMessage is UnitTest
     "ResponseParser/AuthenticationOkMessage"
 
   fun apply(h: TestHelper) ? =>
-    let bytes = _IncomingAuthenticationOkMessage.bytes()
+    let bytes = _IncomingAuthenticationOkTestMessage.bytes()
     let r: Reader = Reader
     r.append(bytes)
 
@@ -57,7 +56,7 @@ class \nodoc\ iso _ResponseParserAuthenticationOkMessage is UnitTest
       h.fail()
     end
 
-class \nodoc\ iso _ResponseParserAuthenticationMD5PasswordMessage is UnitTest
+class \nodoc\ iso _TestResponseParserAuthenticationMD5PasswordMessage is UnitTest
   """
   Verify that AuthenticationMD5Password messages are parsed correctly
   """
@@ -66,7 +65,7 @@ class \nodoc\ iso _ResponseParserAuthenticationMD5PasswordMessage is UnitTest
 
   fun apply(h: TestHelper) ? =>
     let salt = "7669"
-    let bytes = _IncomingAuthenticationMD5PasswordMessage(salt).bytes()
+    let bytes = _IncomingAuthenticationMD5PasswordTestMessage(salt).bytes()
     let r: Reader = Reader
     r.append(bytes)
 
@@ -79,7 +78,7 @@ class \nodoc\ iso _ResponseParserAuthenticationMD5PasswordMessage is UnitTest
       h.fail("Wrong message returned.")
     end
 
-class \nodoc\ iso _ResponseParserErrorResponseMessage is UnitTest
+class \nodoc\ iso _TestResponseParserErrorResponseMessage is UnitTest
   """
   Verify that ErrorResponse messages are parsed correctly
   """
@@ -88,7 +87,7 @@ class \nodoc\ iso _ResponseParserErrorResponseMessage is UnitTest
 
   fun apply(h: TestHelper) ? =>
     let code = "7669"
-    let bytes = _IncomingErrorResponseMessage(code).bytes()
+    let bytes = _IncomingErrorResponseTestMessage(code).bytes()
     let r: Reader = Reader
     r.append(bytes)
 
@@ -101,7 +100,7 @@ class \nodoc\ iso _ResponseParserErrorResponseMessage is UnitTest
       h.fail("Wrong message returned.")
     end
 
-class \nodoc\ iso _ResponseParserMultipleMessagesAuthenticationOkFirst
+class \nodoc\ iso _TestResponseParserMultipleMessagesAuthenticationOkFirst
   is UnitTest
   """
   Verify that we correctly advance forward from an authentication ok message
@@ -113,8 +112,8 @@ class \nodoc\ iso _ResponseParserMultipleMessagesAuthenticationOkFirst
 
   fun apply(h: TestHelper) ? =>
     let r: Reader = Reader
-    r.append(_IncomingAuthenticationOkMessage.bytes())
-    r.append(_IncomingAuthenticationOkMessage.bytes())
+    r.append(_IncomingAuthenticationOkTestMessage.bytes())
+    r.append(_IncomingAuthenticationOkTestMessage.bytes())
 
     if _ResponseParser(r)? isnt _AuthenticationOkMessage then
       h.fail("Wrong message returned for first message.")
@@ -124,7 +123,8 @@ class \nodoc\ iso _ResponseParserMultipleMessagesAuthenticationOkFirst
       h.fail("Wrong message returned for second message.")
     end
 
-class \nodoc\ iso _ResponseParserMultipleMessagesAuthenticationMD5PasswordFirst
+class \nodoc\ iso
+  _TestResponseParserMultipleMessagesAuthenticationMD5PasswordFirst
   is UnitTest
   """
   Verify that we correctly advance forward from an authentication md5 password message such that it doesn't corrupt the buffer and lead to an incorrect
@@ -136,8 +136,8 @@ class \nodoc\ iso _ResponseParserMultipleMessagesAuthenticationMD5PasswordFirst
   fun apply(h: TestHelper) ? =>
     let salt = "7669"
     let r: Reader = Reader
-    r.append(_IncomingAuthenticationMD5PasswordMessage(salt).bytes())
-    r.append(_IncomingAuthenticationOkMessage.bytes())
+    r.append(_IncomingAuthenticationMD5PasswordTestMessage(salt).bytes())
+    r.append(_IncomingAuthenticationOkTestMessage.bytes())
 
     match _ResponseParser(r)?
     | let m: _AuthenticationMD5PasswordMessage =>
@@ -152,7 +152,7 @@ class \nodoc\ iso _ResponseParserMultipleMessagesAuthenticationMD5PasswordFirst
       h.fail("Wrong message returned for second message.")
     end
 
-class \nodoc\ iso _ResponseParserMultipleMessagesErrorResponseFirst is UnitTest
+class \nodoc\ iso _TestResponseParserMultipleMessagesErrorResponseFirst is UnitTest
   """
   Verify that we correctly advance forward from an error response message such
   that it doesn't corrupt the buffer and lead to an incorrect result for the
@@ -164,8 +164,8 @@ class \nodoc\ iso _ResponseParserMultipleMessagesErrorResponseFirst is UnitTest
   fun apply(h: TestHelper) ? =>
     let code = "7669"
     let r: Reader = Reader
-    r.append(_IncomingErrorResponseMessage(code).bytes())
-    r.append(_IncomingAuthenticationOkMessage.bytes())
+    r.append(_IncomingErrorResponseTestMessage(code).bytes())
+    r.append(_IncomingAuthenticationOkTestMessage.bytes())
 
     match _ResponseParser(r)?
     | let m: _ErrorResponseMessage =>
@@ -180,7 +180,7 @@ class \nodoc\ iso _ResponseParserMultipleMessagesErrorResponseFirst is UnitTest
       h.fail("Wrong message returned for second message.")
     end
 
-class \nodoc\ val _IncomingAuthenticationOkMessage
+class \nodoc\ val _IncomingAuthenticationOkTestMessage
   new val create() =>
     None
 
@@ -198,7 +198,7 @@ class \nodoc\ val _IncomingAuthenticationOkMessage
       out
     end
 
-class \nodoc\ val _IncomingAuthenticationMD5PasswordMessage
+class \nodoc\ val _IncomingAuthenticationMD5PasswordTestMessage
   let _salt: String
 
   new val create(salt: String) =>
@@ -219,7 +219,7 @@ class \nodoc\ val _IncomingAuthenticationMD5PasswordMessage
       out
     end
 
-class \nodoc\ val _IncomingErrorResponseMessage
+class \nodoc\ val _IncomingErrorResponseTestMessage
   let _code: String
 
   new val create(code: String) =>

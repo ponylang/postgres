@@ -22,6 +22,7 @@ actor \nodoc\ Main is TestList
     test(_TestResponseParserEmptyBuffer)
     test(_TestResponseParserErrorResponseMessage)
     test(_TestResponseParserIncompleteMessage)
+    test(_TestResponseParserJunkMessage)
     test(_TestResponseParserMultipleMessagesAuthenticationMD5PasswordFirst)
     test(_TestResponseParserMultipleMessagesAuthenticationOkFirst)
     test(_TestResponseParserMultipleMessagesErrorResponseFirst)

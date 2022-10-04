@@ -1,4 +1,5 @@
 use "buffered"
+use @printf[I32](fmt: Pointer[None] tag, ...)
 
 type _AuthenticationMessages is
   ( _AuthenticationOkMessage
@@ -37,12 +38,22 @@ primitive _ResponseParser
     let message_type = buffer.peek_u8(0)?
     // payload size includes the 4 bytes for the descriptive header on the
     // payload.
+
+    if ((message_type < 'A') or (message_type > 'z')) or
+      ((message_type > 'Z') and (message_type < 'a'))
+    then
+      // All message codes are ascii letters. If we get something that isn't
+      // one then we know we have junk.
+      error
+    end
+
     let payload_size = buffer.peek_u32_be(1)?.usize() - 4
     let message_size = payload_size + 4 + 1
 
     // The message will be `message_size` in length. If we have less than
     // that then there's no point in continuing.
     if buffer.size() < message_size then
+      @printf("1 %d %d\n".cstring(), buffer.size(), message_size)
       return None
     end
 
@@ -78,6 +89,8 @@ primitive _ResponseParser
       let payload = buffer.block(payload_size)?
       return _error_response(consume payload)?
     else
+      @printf("2\n".cstring())
+
       buffer.skip(message_size)?
       return UnsupportedMessage
     end

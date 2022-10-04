@@ -27,3 +27,8 @@ interface tag SessionStatusNotify
     Called if we have failed to successfully authenicate with the server.
     """
     None
+
+  be pg_session_shutdown(session: Session) =>
+    """
+    Called when a session ends.
+    """

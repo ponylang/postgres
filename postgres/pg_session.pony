@@ -170,6 +170,7 @@ trait _ConnectedState is _NotConnectableState
     s.state = _SessionClosed
     s.readbuf.clear()
     s._connection().close()
+    s.notify.pg_session_shutdown(s)
 
 trait _UnconnectedState is _NotAuthenticableState
   """

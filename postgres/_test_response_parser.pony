@@ -197,16 +197,15 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesErrorResponseFirst is UnitT
     end
 
 class \nodoc\ val _IncomingAuthenticationOkTestMessage
-  new val create() =>
-    None
+  let _bytes: Array[U8] val
 
-  fun bytes(): Array[U8] val =>
+  new val create() =>
     let wb: Writer = Writer
     wb.u8(_MessageType.authentication_request())
     wb.u32_be(8)
     wb.i32_be(_AuthenticationRequestType.ok())
 
-    recover val
+    _bytes = recover val
       let out = Array[U8]
       for b in wb.done().values() do
         out.append(b)
@@ -214,20 +213,20 @@ class \nodoc\ val _IncomingAuthenticationOkTestMessage
       out
     end
 
+  fun bytes(): Array[U8] val =>
+    _bytes
+
 class \nodoc\ val _IncomingAuthenticationMD5PasswordTestMessage
-  let _salt: String
+  let _bytes: Array[U8] val
 
   new val create(salt: String) =>
-    _salt = salt
-
-  fun bytes(): Array[U8] val =>
     let wb: Writer = Writer
     wb.u8(_MessageType.authentication_request())
     wb.u32_be(12)
     wb.i32_be(_AuthenticationRequestType.md5_password())
-    wb.write(_salt)
+    wb.write(salt)
 
-    recover val
+    _bytes = recover val
       let out = Array[U8]
       for b in wb.done().values() do
         out.append(b)
@@ -235,39 +234,41 @@ class \nodoc\ val _IncomingAuthenticationMD5PasswordTestMessage
       out
     end
 
+  fun bytes(): Array[U8] val =>
+    _bytes
+
 class \nodoc\ val _IncomingErrorResponseTestMessage
-  let _code: String
+  let _bytes: Array[U8] val
 
   new val create(code: String) =>
-    _code = code
-
-  fun bytes(): Array[U8] val =>
-    let payload_size = 4 + 1 + _code.size() + 1 + 1
+    let payload_size = 4 + 1 + code.size() + 1 + 1
     let wb: Writer = Writer
     wb.u8(_MessageType.error_response())
     wb.u32_be(payload_size.u32())
     wb.u8(_ErrorResponseField.code())
-    wb.write(_code)
+    wb.write(code)
     wb.u8(0)
     wb.u8(0)
 
-    recover val
+    _bytes = recover val
       let out = Array[U8]
       for b in wb.done().values() do
         out.append(b)
       end
       out
     end
+
+  fun bytes(): Array[U8] val =>
+    _bytes
 
 class \nodoc\ val _IncomingJunkTestMessage
   """
   Creates a junk message where "junk" is currently defined as having a message
   type that we don't recognize, aka not an ascii letter.
   """
-  new val create() =>
-    None
+  let _bytes: Array[U8] val
 
-  fun bytes(): Array[U8] val =>
+  new val create() =>
     let rand = Rand
     let wb: Writer = Writer
     wb.u8(1)
@@ -276,10 +277,13 @@ class \nodoc\ val _IncomingJunkTestMessage
       wb.u32_be(rand.u32())
     end
 
-    recover val
+    _bytes = recover val
       let out = Array[U8]
       for b in wb.done().values() do
         out.append(b)
       end
       out
     end
+
+  fun bytes(): Array[U8] val =>
+    _bytes

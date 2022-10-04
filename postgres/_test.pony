@@ -15,6 +15,7 @@ actor \nodoc\ Main is TestList
     test(_TestAuthenticateFailure)
     test(_TestConnect)
     test(_TestConnectFailure)
+    test(_TestHandlingJunkMessages)
     test(_TestMessagePassword)
     test(_TestMessageStartup)
     test(_TestResponseParserAuthenticationMD5PasswordMessage)
@@ -168,3 +169,79 @@ class \nodoc\ val _ConnectionTestConfiguration
     username = try e("POSTGRES_USERNAME")? else "postgres" end
     password = try e("POSTGRES_PASSWORD")? else "postgres" end
     database = try e("POSTGRES_DATABASE")? else "postgres" end
+
+class \nodoc\ iso _TestHandlingJunkMessages is UnitTest
+  """
+  Verifies that a session shuts down when receiving junk from the server.
+  """
+  fun name(): String =>
+    "HandlingJunkMessages"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "7669"
+
+    let listener = _JunkSendingTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port)
+
+    let session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      _HandlingJunkTestNotify(h),
+      host,
+      port,
+      "postgres",
+      "postgres",
+      "postgres")
+
+    // We intentionally don't dispose of the session as the point of this test
+    // is to verify that it shuts down when it gets junk.
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _HandlingJunkTestNotify is SessionStatusNotify
+  let _h: TestHelper
+
+  new create(h: TestHelper) =>
+    _h = h
+
+  be pg_session_shutdown(s: Session) =>
+    _h.complete(true)
+
+actor \nodoc\ _JunkSendingTestListener is lori.TCPListenerActor
+  """
+  Listens for incoming connections and starts a server that will always reply
+  with junk.
+  """
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+
+  new create(listen_auth: lori.TCPListenAuth, host: String, port: String) =>
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
+    _JunkSendingTestServer(_server_auth, fd)
+
+actor \nodoc\ _JunkSendingTestServer is lori.TCPServerActor
+  """
+  Sends junk "postgres messages" in reponse to any incoming activity. This actor
+  is used to test that our client handles getting junk correctly.
+  """
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+
+  new create(auth: lori.TCPServerAuth, fd: U32) =>
+    _tcp_connection = lori.TCPConnection.server(auth, fd, this)
+    let junk = _IncomingJunkTestMessage.bytes()
+    _tcp_connection.send(junk)
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
+
+  fun ref _on_received(data: Array[U8] iso) =>
+    let junk = _IncomingJunkTestMessage.bytes()
+    _tcp_connection.send(junk)

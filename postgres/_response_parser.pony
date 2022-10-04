@@ -1,5 +1,4 @@
 use "buffered"
-use @printf[I32](fmt: Pointer[None] tag, ...)
 
 type _AuthenticationMessages is
   ( _AuthenticationOkMessage
@@ -53,7 +52,6 @@ primitive _ResponseParser
     // The message will be `message_size` in length. If we have less than
     // that then there's no point in continuing.
     if buffer.size() < message_size then
-      @printf("1 %d %d\n".cstring(), buffer.size(), message_size)
       return None
     end
 
@@ -89,8 +87,6 @@ primitive _ResponseParser
       let payload = buffer.block(payload_size)?
       return _error_response(consume payload)?
     else
-      @printf("2\n".cstring())
-
       buffer.skip(message_size)?
       return UnsupportedMessage
     end

@@ -36,19 +36,22 @@ primitive _Message
     end
 
   fun password(pwd: String): Array[U8] val =>
-    // TODO STA: We can know the length ahead of time and size our array
-    // appropriately and not use push
-    recover val
-      let msg: Array[U8] = Array[U8]
-      let length = pwd.size().u32() + 5
-      msg.push('p')
-      ifdef bigendian then
-        msg.push_u32(length)
-      else
-        msg.push_u32(length.bswap())
+    try
+      recover val
+        let payload_length = pwd.size().u32() + 5
+        let msg_length =  (payload_length + 1).usize()
+        let msg: Array[U8] = Array[U8].init(0, msg_length)
+        msg.update_u8(0, 'p')?
+        ifdef bigendian then
+          msg.update_u32(1, payload_length)?
+        else
+          msg.update_u32(1, payload_length.bswap())?
+        end
+        msg.copy_from(pwd.array(), 0, 5, pwd.size())
+        //  space for null left here
+        msg
       end
-
-      msg.append(pwd)
-      msg.push(U8(0))
-      msg
+    else
+      _Unreachable()
+      []
     end

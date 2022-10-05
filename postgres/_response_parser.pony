@@ -22,11 +22,6 @@ primitive _ResponseParser
   be shut down in response.
   """
   fun apply(buffer: Reader): _ResponseParserResult ? =>
-    // TODO STA: we can make progress into examining a message and then realize
-    // that there isn't enough. We don't want to redo all the original examining
-    // every single time. We should take an iterative approach storing the state
-    // we have found so far
-
     // The minimum size for any complete message is 9. If we have less than
     // 9 received bytes buffered than there is no point to continuing as we
     // definitely don't have a full message.

@@ -18,7 +18,7 @@ class \nodoc\ iso _TestMessageStartup is UnitTest
   fun name(): String =>
     "Message/Startup"
 
-  fun apply(h: TestHelper) ? =>
+  fun apply(h: TestHelper) =>
     let username = "pony"
     let password = "7669"
     let expected: Array[U8] = ifdef bigendian then
@@ -29,4 +29,4 @@ class \nodoc\ iso _TestMessageStartup is UnitTest
         100; 97; 116; 97; 98; 97; 115; 101; 0; 55; 54; 54; 57; 0; 0 ]
     end
 
-    h.assert_array_eq[U8](expected, _Message.startup(username, password)?)
+    h.assert_array_eq[U8](expected, _Message.startup(username, password))

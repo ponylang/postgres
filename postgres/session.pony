@@ -98,13 +98,8 @@ trait _ConnectableState is _UnconnectedState
     s.notify.pg_session_connection_failed(s)
 
   fun _send_startup_message(s: Session ref) =>
-     try
-      let msg = _Message.startup(s.user, s.database)?
-      s._connection().send(msg)
-    else
-      _Unreachable()
-      None
-    end
+    let msg = _Message.startup(s.user, s.database)
+    s._connection().send(msg)
 
 trait _NotConnectableState
   """

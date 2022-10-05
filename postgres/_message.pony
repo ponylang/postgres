@@ -1,44 +1,37 @@
 primitive _Message
   fun startup(user: String, database: String): Array[U8] val ? =>
-    // TODO STA: We can know the length ahead of time and size our array
-    // appropriately and not use push and not need a placeholder for packet
-    // size
     recover val
-      let msg: Array[U8] = Array[U8]
+      // 4 + 4 + 4 + 1 + user.size() + 1 + 8 + 1 + database.size() + 1 + 1
+      let length = 25 + user.size() + database.size()
+      let msg: Array[U8] = Array[U8].init(0, length)
       // Placeholder for packet size
       // This will be set when finish up
-      msg.push_u32(0)
+      ifdef bigendian then
+        msg.update_u32(0, length.u32())?
+      else
+        msg.update_u32(0, length.u32().bswap())?
+      end
 
       // Add version numbers.
       // The version numbers are in network byte order, thus the endian check.
       ifdef bigendian then
-        msg.push_u16(U16(3)) // Major Version Number
-        msg.push_u16(U16(0)) // Minor Version Number
+        msg.update_u16(4, U16(3))? // Major Version Number
+        msg.update_u16(6, U16(0))? // Minor Version Number
       else
-        msg.push_u16(U16(3).bswap()) // Major Version Number
-        msg.push_u16(U16(0).bswap()) // Minor Version Number
+        msg.update_u16(4, U16(3).bswap())? // Major Version Number
+        msg.update_u16(6, U16(0).bswap())? // Minor Version Number
       end
 
-      msg.append("user")
-      msg.push(0)
-      msg.append(user)
-      msg.push(0)
+      msg.copy_from("user".array(), 0, 8, 4)
+      // space for null left here at byte 13
+      msg.copy_from(user.array(), 0, 13, user.size())
+      // space for null left here at byte 13 + user.size() + 1
 
-      msg.append("database")
-      msg.push(0)
-      msg.append(database)
-      msg.push(0)
-
-      msg.push(0)
-
-      // Set packet size
-      // The packet size is in written in network byte order, thus the endian
-      // check.
-      ifdef bigendian then
-        msg.update_u32(0, msg.size().u32())?
-      else
-        msg.update_u32(0, msg.size().u32().bswap())?
-      end
+      msg.copy_from("database".array(), 0, 14 + user.size(), 8)
+      // space for null left here at byte 14 + user.size() + 8 + 1
+      msg.copy_from(database.array(), 0, 23 + user.size(), database.size())
+      // space for null left here at
+      // space for null left here at
       msg
     end
 

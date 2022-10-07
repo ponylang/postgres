@@ -216,7 +216,10 @@ trait _NotAuthenticableState
   fun on_authentication_ok(s: Session ref) =>
     _IllegalState()
 
-  fun on_authentication_failed(s: Session ref, r: AuthenticationFailureReason) =>
+  fun on_authentication_failed(
+    s: Session ref,
+    r: AuthenticationFailureReason)
+  =>
     _IllegalState()
 
   fun on_authentication_md5_password(s: Session ref,

@@ -78,20 +78,20 @@ class \nodoc\ iso _TestAuthenticateFailure is UnitTest
 
 actor \nodoc\ _AuthenticateTestNotify is SessionStatusNotify
   let _h: TestHelper
-  let _sucess_expected: Bool
+  let _success_expected: Bool
 
-  new create(h: TestHelper, sucess_expected: Bool) =>
+  new create(h: TestHelper, success_expected: Bool) =>
     _h = h
-    _sucess_expected = sucess_expected
+    _success_expected = success_expected
 
   be pg_session_authenticated(session: Session) =>
-    _h.complete(_sucess_expected == true)
+    _h.complete(_success_expected == true)
 
   be pg_session_authentication_failed(
     s: Session,
     reason: AuthenticationFailureReason)
   =>
-    _h.complete(_sucess_expected == false)
+    _h.complete(_success_expected == false)
 
 class \nodoc\ iso _TestConnect is UnitTest
   """
@@ -143,17 +143,17 @@ class \nodoc\ iso _TestConnectFailure is UnitTest
 
 actor \nodoc\ _ConnectTestNotify is SessionStatusNotify
   let _h: TestHelper
-  let _sucess_expected: Bool
+  let _success_expected: Bool
 
-  new create(h: TestHelper, sucess_expected: Bool) =>
+  new create(h: TestHelper, success_expected: Bool) =>
     _h = h
-    _sucess_expected = sucess_expected
+    _success_expected = success_expected
 
   be pg_session_connected(session: Session) =>
-    _h.complete(_sucess_expected == true)
+    _h.complete(_success_expected == true)
 
   be pg_session_connection_failed(session: Session) =>
-    _h.complete(_sucess_expected == false)
+    _h.complete(_success_expected == false)
 
 class \nodoc\ val _ConnectionTestConfiguration
   let host: String

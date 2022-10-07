@@ -204,9 +204,9 @@ trait _AuthenticableState is _ConnectedState
   fun on_authentication_md5_password(s: Session ref,
     msg: _AuthenticationMD5PasswordMessage)
   =>
-      let md5_password = _MD5Password(s.user, s.password, msg.salt)
-      let reply = _Message.password(md5_password)
-      s._connection().send(reply)
+    let md5_password = _MD5Password(s.user, s.password, msg.salt)
+    let reply = _Message.password(md5_password)
+    s._connection().send(reply)
 
 trait _NotAuthenticableState
   """

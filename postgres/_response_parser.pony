@@ -38,8 +38,9 @@ primitive _ResponseParser
       error
     end
 
-    // payload size includes the 4 bytes for the descriptive header on the
-    // payload.
+    // postgres sends the payload size as the payload plus the 4 bytes for the
+    // descriptive header on the payload. We are calling `payload_size` to be
+    // only the payload, not the header as well.
     let payload_size = buffer.peek_u32_be(1)?.usize() - 4
     let message_size = payload_size + 4 + 1
 

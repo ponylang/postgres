@@ -5,8 +5,6 @@ primitive _Message
         // 4 + 4 + 4 + 1 + user.size() + 1 + 8 + 1 + database.size() + 1 + 1
         let length = 25 + user.size() + database.size()
         let msg: Array[U8] = Array[U8].init(0, length)
-        // Placeholder for packet size
-        // This will be set when finish up
         ifdef bigendian then
           msg.update_u32(0, length.u32())?
         else

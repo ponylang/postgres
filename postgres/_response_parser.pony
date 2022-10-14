@@ -111,5 +111,3 @@ primitive _ResponseParser
     end
 
     _ErrorResponseMessage(code)
-
-

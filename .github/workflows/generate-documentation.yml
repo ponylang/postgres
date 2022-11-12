@@ -1,9 +1,6 @@
 name: Manually generate documentation
 
 on:
-  workflow_dispatchname: Manually generate documentation
-
-on:
   workflow_dispatch
 
 permissions:

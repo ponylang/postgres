@@ -5,7 +5,7 @@
   "deps": [
     {
       "locator": "github.com/ponylang/crypto.git",
-      "version": "1.1.6"
+      "version": "1.2.0"
     },
     {
       "locator": "github.com/seantallen-org/lori.git",

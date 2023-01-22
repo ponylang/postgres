@@ -52,9 +52,27 @@ actor Session is lori.TCPClientActor
 
 // Possible session states
 primitive _SessionUnopened is _ConnectableState
+  fun execute(query: SimpleQuery, receiver: ResultReceiver) =>
+    // TODO SEAN: this should be moved out of the primitive
+    // and it should return an error to the receiver
+    None
+
 primitive _SessionClosed is (_NotConnectableState & _UnconnectedState)
+  fun execute(query: SimpleQuery, receiver: ResultReceiver) =>
+    // TODO SEAN: this should be moved out of the primitive
+    // and it should return an error to the receiver
+    None
+
 primitive _SessionConnected is _AuthenticableState
-primitive _SessionLoggedIn is (_ConnectedState & _NotAuthenticableState)
+  fun execute(query: SimpleQuery, receiver: ResultReceiver) =>
+    // TODO SEAN: this should be moved out of the primitive
+    // and it should return an error to the receiver
+    None
+
+primitive _SessionLoggedIn is _AuthenticatedState
+  fun execute(query: SimpleQuery, receiver: ResultReceiver) =>
+    let result = Result(query)
+    receiver.pg_query_result(result)
 
 interface val _SessionState
   fun on_connected(s: Session ref)
@@ -93,9 +111,6 @@ interface val _SessionState
     """
     Called when a client requests a query execution.
     """
-    // TODO this requires a reworking of states because, we should only be
-    // able to do this when we are _SessionLoggedIn but "parse response" at
-    // the moment is purely for connected state
 
 trait _ConnectableState is _UnconnectedState
   """
@@ -180,6 +195,10 @@ trait _ConnectedState is _NotConnectableState
     s._connection().close()
     s.notify.pg_session_shutdown(s)
 
+  fun execute(query: SimpleQuery, receiver: ResultReceiver) =>
+    // TODO SEAN
+    None
+
 trait _UnconnectedState is _NotAuthenticableState
   """
   A session that isn't connected. Either because it was never opened or because
@@ -239,3 +258,43 @@ trait _NotAuthenticableState
     msg: _AuthenticationMD5PasswordMessage)
   =>
     _IllegalState()
+
+trait _AuthenticatedState is (_NotConnectableState & _NotAuthenticableState)
+  """
+  A connected and authenticated session. Connected sessions are not connectable
+  as they have already been connected. Authenticated sessions are not
+  authenticable as they have already been authenticated.
+  """
+
+  fun on_received(s: Session ref, data: Array[U8] iso) =>
+    s.readbuf.append(consume data)
+    _parse_response(s)
+
+  fun _parse_response(s: Session ref) =>
+    try
+      while true do
+        let message = _ResponseParser(s.readbuf)?
+        match message
+        | UnsupportedMessage =>
+          // Unsupported message of a known type found. Continue on the way.
+          None
+        | None =>
+          // No complete message was found in our received buffer, so we stop
+          // parsing for now.
+          return
+        end
+      end
+    else
+      // An unrecoverable error was encountered while parsing. Once that
+      // happens, there's no way we are going to be able to figure out how
+      // to get the responses back into an understandable state. The only
+      // thing we can do is shut this session down.
+
+      shutdown(s)
+    end
+
+  fun shutdown(s: Session ref) =>
+    s.state = _SessionClosed
+    s.readbuf.clear()
+    s._connection().close()
+    s.notify.pg_session_shutdown(s)

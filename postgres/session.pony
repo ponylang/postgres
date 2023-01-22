@@ -32,6 +32,12 @@ actor Session is lori.TCPClientActor
 
     _tcp_connection = lori.TCPConnection.client(auth', host, service, "", this)
 
+  be execute(query: SimpleQuery, receiver: ResultReceiver) =>
+      // TODO SEAN... this should be behind a state object
+    let result = Result(query)
+    receiver.pg_query_result(result)
+    //state.execute(query, receiver)
+
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
@@ -83,6 +89,13 @@ interface val _SessionState
     """
     Called when we receive data from the server.
     """
+  fun execute(query: SimpleQuery, receiver: ResultReceiver)
+    """
+    Called when a client requests a query execution.
+    """
+    // TODO this requires a reworking of states because, we should only be
+    // able to do this when we are _SessionLoggedIn but "parse response" at
+    // the moment is purely for connected state
 
 trait _ConnectableState is _UnconnectedState
   """

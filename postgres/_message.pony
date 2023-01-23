@@ -58,3 +58,25 @@ primitive _Message
       _Unreachable()
       []
     end
+
+  fun query(string: String): Array[U8] val =>
+    try
+      recover val
+        // 1 + 4 + string.size()
+        let payload_length = string.size().u32() + 5
+        let msg_length = (payload_length + 1).usize()
+        let msg: Array[U8] = Array[U8].init(0, msg_length)
+        msg.update_u8(0, _MessageType.query())?
+        ifdef bigendian then
+          msg.update_u32(1, payload_length)?
+        else
+          msg.update_u32(1, payload_length.bswap())?
+        end
+        msg.copy_from(string.array(), 0, 5, string.size())
+        //  space for null left here
+        msg
+      end
+    else
+      _Unreachable()
+      []
+    end

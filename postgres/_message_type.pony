@@ -9,3 +9,6 @@ primitive _MessageType
 
   fun error_response(): U8 =>
     'E'
+
+  fun query(): U8 =>
+    'Q'

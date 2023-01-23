@@ -29,6 +29,7 @@ actor \nodoc\ Main is TestList
     test(_TestResponseParserMultipleMessagesErrorResponseFirst)
     test(_TestQueryAfterAuthenticationFailure)
     test(_TestQueryAfterConnectionFailure)
+    test(_TestQueryAfterSessionHasBeenClosed)
     test(_TestQueryBeforeAuthentication)
     test(_TestQueryResultsIncludeOriginatingQuery)
 

@@ -34,7 +34,7 @@ actor Session is lori.TCPClientActor
 
   be execute(query: SimpleQuery, receiver: ResultReceiver) =>
     """
-    Execute a query
+    Execute a query.
     """
     state.execute(query, receiver)
 
@@ -43,9 +43,7 @@ actor Session is lori.TCPClientActor
     Hard closes the connection. Terminates as soon as possible without waiting
     for outstanding queries to finish.
     """
-    // TODO SEAN we need to implement closing a session and then a test for
-    // executing a query after we've been shutdown
-    None
+    state.shutdown(this)
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection

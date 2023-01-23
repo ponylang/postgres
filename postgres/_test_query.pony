@@ -205,3 +205,58 @@ actor \nodoc\ _QueryBeforeAuthenticationNotify is
     else
       _h.complete(false)
     end
+
+class \nodoc\ iso _TestQueryAfterSessionHasBeenClosed is UnitTest
+  """
+  Test querying after we've closed the session.
+  """
+  fun name(): String =>
+    "integration/Query/AfterSessionHasBeenClosed"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      _QueryAfterSessionHasBeenClosedNotify(h),
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+    h.dispose_when_done(session)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _QueryAfterSessionHasBeenClosedNotify is
+  ( SessionStatusNotify
+  & ResultReceiver )
+  let _h: TestHelper
+  let _query: SimpleQuery
+
+  new create(h: TestHelper) =>
+    _h = h
+    _query = SimpleQuery("select * from free_candy")
+
+  be pg_session_authenticated(session: Session) =>
+    session.close()
+
+  be pg_session_authentication_failed(
+    session: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unexpected authentication failure")
+
+  be pg_session_shutdown(session: Session) =>
+    session.execute(_query, this)
+
+  be pg_query_result(result: Result) =>
+    _h.fail("Unexpected query result received")
+    _h.complete(false)
+
+  be pg_query_failed(query: SimpleQuery, failure: QueryError) =>
+    if (query is _query) and (failure is SessionClosed) then
+      _h.complete(true)
+    else
+      _h.complete(false)
+    end

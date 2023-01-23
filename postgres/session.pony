@@ -33,6 +33,9 @@ actor Session is lori.TCPClientActor
     _tcp_connection = lori.TCPConnection.client(auth', host, service, "", this)
 
   be execute(query: SimpleQuery, receiver: ResultReceiver) =>
+    """
+    Execute a query
+    """
     state.execute(query, receiver)
 
   be close() =>

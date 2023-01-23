@@ -33,10 +33,7 @@ actor Session is lori.TCPClientActor
     _tcp_connection = lori.TCPConnection.client(auth', host, service, "", this)
 
   be execute(query: SimpleQuery, receiver: ResultReceiver) =>
-      // TODO SEAN... this should be behind a state object
-    let result = Result(query)
-    receiver.pg_query_result(result)
-    //state.execute(query, receiver)
+    state.execute(query, receiver)
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
@@ -53,21 +50,15 @@ actor Session is lori.TCPClientActor
 // Possible session states
 primitive _SessionUnopened is _ConnectableState
   fun execute(query: SimpleQuery, receiver: ResultReceiver) =>
-    // TODO SEAN: this should be moved out of the primitive
-    // and it should return an error to the receiver
-    None
+    receiver.pg_query_failed(query, SesssionNeverOpened)
 
 primitive _SessionClosed is (_NotConnectableState & _UnconnectedState)
   fun execute(query: SimpleQuery, receiver: ResultReceiver) =>
-    // TODO SEAN: this should be moved out of the primitive
-    // and it should return an error to the receiver
-    None
+    receiver.pg_query_failed(query, SessionClosed)
 
 primitive _SessionConnected is _AuthenticableState
   fun execute(query: SimpleQuery, receiver: ResultReceiver) =>
-    // TODO SEAN: this should be moved out of the primitive
-    // and it should return an error to the receiver
-    None
+    receiver.pg_query_failed(query, SessionNotAuthenticated)
 
 primitive _SessionLoggedIn is _AuthenticatedState
   fun execute(query: SimpleQuery, receiver: ResultReceiver) =>

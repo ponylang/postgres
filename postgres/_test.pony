@@ -27,6 +27,9 @@ actor \nodoc\ Main is TestList
     test(_TestResponseParserMultipleMessagesAuthenticationMD5PasswordFirst)
     test(_TestResponseParserMultipleMessagesAuthenticationOkFirst)
     test(_TestResponseParserMultipleMessagesErrorResponseFirst)
+    test(_TestQueryAfterAuthenticationFailure)
+    test(_TestQueryAfterConnectionFailure)
+    test(_TestQueryBeforeAuthentication)
     test(_TestQueryResultsIncludeOriginatingQuery)
 
 class \nodoc\ iso _TestAuthenticate is UnitTest
@@ -132,7 +135,7 @@ class \nodoc\ iso _TestConnectFailure is UnitTest
 
     let session = Session(
       lori.TCPConnectAuth(h.env.root),
-      _ConnectTestNotify(h,false),
+      _ConnectTestNotify(h, false),
       info.host,
       info.port.reverse(),
       info.username,

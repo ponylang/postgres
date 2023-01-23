@@ -35,6 +35,11 @@ actor Session is lori.TCPClientActor
   be execute(query: SimpleQuery, receiver: ResultReceiver) =>
     state.execute(query, receiver)
 
+  be close() =>
+    // TODO SEAN we need to implement closing a session and then a test for
+    // executing a query after we've been shutdown
+    None
+
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 

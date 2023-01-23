@@ -188,7 +188,6 @@ actor \nodoc\ _QueryBeforeAuthenticationNotify is
     _h = h
     _query = SimpleQuery("select * from free_candy")
 
-
   be pg_session_connected(session: Session) =>
     session.execute(_query, this)
 

@@ -36,6 +36,10 @@ actor Session is lori.TCPClientActor
     state.execute(query, receiver)
 
   be close() =>
+    """
+    Hard closes the connection. Terminates as soon as possible without waiting
+    for outstanding queries to finish.
+    """
     // TODO SEAN we need to implement closing a session and then a test for
     // executing a query after we've been shutdown
     None

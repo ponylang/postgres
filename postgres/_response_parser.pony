@@ -1,5 +1,7 @@
 use "buffered"
 
+use @printf[I32](fmt: Pointer[U8] tag, ...)
+
 type _AuthenticationMessages is
   ( _AuthenticationOkMessage
   | _AuthenticationMD5PasswordMessage )
@@ -7,6 +9,7 @@ type _AuthenticationMessages is
 type _ResponseParserResult is
   ( _AuthenticationMessages
   | _ErrorResponseMessage
+  | _ReadyForQueryMessage
   | UnsupportedMessage
   | None )
 
@@ -22,10 +25,10 @@ primitive _ResponseParser
   be shut down in response.
   """
   fun apply(buffer: Reader): _ResponseParserResult ? =>
-    // The minimum size for any complete message is 9. If we have less than
-    // 9 received bytes buffered than there is no point to continuing as we
+    // The minimum size for any complete message is 6. If we have less than
+    // 6 received bytes buffered than there is no point to continuing as we
     // definitely don't have a full message.
-    if buffer.size() < 9 then
+    if buffer.size() < 6 then
       return None
     end
 
@@ -55,6 +58,7 @@ primitive _ResponseParser
       let auth_type = buffer.peek_i32_be(5)?
 
       if auth_type == _AuthenticationRequestType.ok() then
+        @printf("auth ok\n".cstring())
         // discard the message and type header
         buffer.skip(message_size)?
         // notify that we are authenticated
@@ -81,6 +85,11 @@ primitive _ResponseParser
       // and only get the payload
       let payload = buffer.block(payload_size)?
       return _error_response(consume payload)?
+    | _MessageType.ready_for_query() =>
+      // Slide past the header...
+      buffer.skip(5)?
+      // and only get the status indicator byte
+      return _ReadyForQueryMessage(buffer.u8())
     else
       buffer.skip(message_size)?
       return UnsupportedMessage

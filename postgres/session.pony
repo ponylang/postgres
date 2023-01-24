@@ -152,6 +152,16 @@ trait _ConnectedState is _NotConnectableState
 
   fun _parse_response(s: Session ref) =>
     try
+      // TODO SEAN "true" isnt correct here, we need a way to stop processing
+      // on a state change. probably the best way to do that is to remove
+      // state direct update from session and be able to have the session know
+      // when the state has changed so we can flip out of the loop but, we then
+      // want to continue in the new state, so that's an interesting "how do
+      // we do that" that probably requires a reworking of how parse response is
+      // done. Given that we shouldn't have too many messages that we process,
+      // then doing recursively by calling s.state._parse_response at the end
+      // "of the loop" unless we've jumped out could also work. Then we can
+      // leave the direct update of `state` as is.
       while true do
         let message = _ResponseParser(s.readbuf)?
         match message

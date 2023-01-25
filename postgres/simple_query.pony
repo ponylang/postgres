@@ -1,6 +1,5 @@
 class val SimpleQuery
-  let _query: String
+  let string: String
 
-  new val create(query: String) =>
-    _query = query
-
+  new val create(string': String) =>
+    string = string'

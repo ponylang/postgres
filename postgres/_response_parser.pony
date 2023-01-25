@@ -1,5 +1,4 @@
 use "buffered"
-
 use @printf[I32](fmt: Pointer[U8] tag, ...)
 
 type _AuthenticationMessages is
@@ -53,12 +52,12 @@ primitive _ResponseParser
       return None
     end
 
+    @printf("message type: %c\n".cstring(), message_type)
     match message_type
     | _MessageType.authentication_request() =>
       let auth_type = buffer.peek_i32_be(5)?
 
       if auth_type == _AuthenticationRequestType.ok() then
-        @printf("auth ok\n".cstring())
         // discard the message and type header
         buffer.skip(message_size)?
         // notify that we are authenticated
@@ -89,7 +88,7 @@ primitive _ResponseParser
       // Slide past the header...
       buffer.skip(5)?
       // and only get the status indicator byte
-      return _ReadyForQueryMessage(buffer.u8())
+      return _ReadyForQueryMessage(buffer.u8()?)
     else
       buffer.skip(message_size)?
       return UnsupportedMessage

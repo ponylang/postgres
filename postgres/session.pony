@@ -5,14 +5,16 @@ actor Session is lori.TCPClientActor
   let notify: SessionStatusNotify
   let host: String
   let service: String
+  // TODO SEAN move these 3 into state object(s)
   let user: String
   let password: String
   let database: String
 
+  // TODO SEAN move readbuf into state object(s)
   let readbuf: Reader = Reader
   var state: _SessionState = _SessionUnopened
 
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
 
   new create(
     auth': lori.TCPConnectAuth,
@@ -36,17 +38,22 @@ actor Session is lori.TCPClientActor
     """
     Execute a query.
     """
-    state.execute(query, receiver)
+    state.execute(this, query, receiver)
 
   be close() =>
     """
     Hard closes the connection. Terminates as soon as possible without waiting
     for outstanding queries to finish.
     """
+    // TODO SEAN: because a user can send this message when the actor is in
+    // any state, we need to have a call other than shutdown which will in
+    // states where a close isn't valid, simply ignore it. and for those were
+    // it is valid, call shutdown. this needs to go on each of our states.
+    // probably via closeable and uncloseable traits.
     state.shutdown(this)
 
-  fun ref _connection(): lori.TCPConnection =>
-    _tcp_connection
+  be _process_again() =>
+    _process_responses()
 
   fun ref _on_connected() =>
     state.on_connected(this)
@@ -56,26 +63,129 @@ actor Session is lori.TCPClientActor
 
   fun ref _on_received(data: Array[U8] iso) =>
     state.on_received(this, consume data)
+    _process_responses()
+
+  fun ref _process_responses() =>
+    """
+    Handles all messages regardless of whether they are valid for our current
+    state. The `s.state` calls that result will handle if a message isn't legal
+    for our current state.
+    """
+    // TODO: move all this to its own primitive that takes a
+    // session and readbuffer.
+    // only our state objects that can parse messages will use the
+    // primitive in their process responses handler.
+    // others will do illegal state.
+    // read buffer will be moved into state objects and reference
+    // past as part of transition from connected to logged in, both
+    // of which will need it.
+    try
+      match _ResponseParser(readbuf)?
+      | let msg: _AuthenticationMD5PasswordMessage =>
+        state.on_authentication_md5_password(this, msg)
+      | _AuthenticationOkMessage =>
+        state.on_authentication_ok(this)
+      | let err: _ErrorResponseMessage =>
+        if (err.code == _ErrorCode.invalid_password())
+          or (err.code == _ErrorCode.invalid_authentication_specification())
+        then
+          let reason = if err.code == _ErrorCode.invalid_password() then
+            InvalidPassword
+          else
+            InvalidAuthenticationSpecification
+          end
+
+          state.on_authentication_failed(this, reason)
+          return
+        end
+      | let msg: _ReadyForQueryMessage =>
+        state.on_ready_for_query(this, msg)
+      | None =>
+        // No complete message was found. Stop parsing for now.
+        return
+      end
+    else
+      // An unrecoverable error was encountered while parsing. Once that
+      // happens, there's no way we are going to be able to figure out how
+      // to get the responses back into an understandable state. The only
+      // thing we can do is shut this session down.
+
+      state.shutdown(this)
+      return
+    end
+
+    _process_again()
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
 
 // Possible session states
-primitive _SessionUnopened is _ConnectableState
-  fun execute(query: SimpleQuery, receiver: ResultReceiver) =>
-    receiver.pg_query_failed(query, SesssionNeverOpened)
+class ref _SessionUnopened is _ConnectableState
+  fun ref execute(s: Session ref, q: SimpleQuery, r: ResultReceiver) =>
+    r.pg_query_failed(q, SesssionNeverOpened)
 
-primitive _SessionClosed is (_NotConnectableState & _UnconnectedState)
-  fun execute(query: SimpleQuery, receiver: ResultReceiver) =>
-    receiver.pg_query_failed(query, SessionClosed)
+class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
+  fun ref execute(s: Session ref, q: SimpleQuery, r: ResultReceiver) =>
+    r.pg_query_failed(q, SessionClosed)
 
-primitive _SessionConnected is _AuthenticableState
-  fun execute(query: SimpleQuery, receiver: ResultReceiver) =>
-    receiver.pg_query_failed(query, SessionNotAuthenticated)
+class ref _SessionConnected is _AuthenticableState
+  fun ref execute(s: Session ref, q: SimpleQuery, r: ResultReceiver) =>
+    r.pg_query_failed(q, SessionNotAuthenticated)
 
-primitive _SessionLoggedIn is _AuthenticatedState
-  fun execute(query: SimpleQuery, receiver: ResultReceiver) =>
-    let result = Result(query)
-    receiver.pg_query_result(result)
+class _SessionLoggedIn is _AuthenticatedState
+  var _queryable: Bool = false
+  var _query_in_flight: Bool = false
+  let _query_queue: Array[(SimpleQuery, ResultReceiver)] = _query_queue.create()
 
-interface val _SessionState
+  new ref create() =>
+    None
+
+  fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage) =>
+    @printf("on_ready_for_query\n".cstring())
+    if msg.idle() then
+      // TODO SEAN this isn't correct as it assumes success which might not
+      // happened. We need a state machine for "in flight query".
+      if _query_in_flight then
+        try
+          (let query, let receiver) = _query_queue.shift()?
+          receiver.pg_query_result(Result(query))
+        else
+          // TODO SEAN unreachable
+          None
+        end
+      end
+      _queryable = true
+      _run_query(s)
+    else
+      _queryable = false
+    end
+
+  fun ref execute(s: Session ref,
+    query: SimpleQuery,
+    receiver: ResultReceiver)
+  =>
+    @printf("execute received\n".cstring())
+    _query_queue.push((query, receiver))
+    _run_query(s)
+
+  fun ref _run_query(s: Session ref) =>
+    try
+      if _queryable and (_query_queue.size() > 0) then
+        @printf("running query\n".cstring())
+        _queryable = false
+        _query_in_flight = true
+        (let query, _) = _query_queue(0)?
+        let msg = _Message.query(query.string)
+        s._connection().send(msg)
+      else
+        @printf("not running query\n".cstring())
+      end
+    else
+      // TODO SEAN unreachable
+      None
+    end
+
+interface _SessionState
   fun on_connected(s: Session ref)
     """
     Called when a connection is established with the server.
@@ -108,9 +218,13 @@ interface val _SessionState
     """
     Called when we receive data from the server.
     """
-  fun execute(query: SimpleQuery, receiver: ResultReceiver)
+  fun ref execute(s: Session ref, query: SimpleQuery, receiver: ResultReceiver)
     """
     Called when a client requests a query execution.
+    """
+  fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage)
+    """
+    Called when the server sends a "ready for query" message
     """
 
 trait _ConnectableState is _UnconnectedState
@@ -148,57 +262,6 @@ trait _ConnectedState is _NotConnectableState
   """
   fun on_received(s: Session ref, data: Array[U8] iso) =>
     s.readbuf.append(consume data)
-    _parse_response(s)
-
-  fun _parse_response(s: Session ref) =>
-    try
-      // TODO SEAN "true" isnt correct here, we need a way to stop processing
-      // on a state change. probably the best way to do that is to remove
-      // state direct update from session and be able to have the session know
-      // when the state has changed so we can flip out of the loop but, we then
-      // want to continue in the new state, so that's an interesting "how do
-      // we do that" that probably requires a reworking of how parse response is
-      // done. Given that we shouldn't have too many messages that we process,
-      // then doing recursively by calling s.state._parse_response at the end
-      // "of the loop" unless we've jumped out could also work. Then we can
-      // leave the direct update of `state` as is.
-      while true do
-        let message = _ResponseParser(s.readbuf)?
-        match message
-        | let msg: _AuthenticationMD5PasswordMessage =>
-          s.state.on_authentication_md5_password(s, msg)
-        | _AuthenticationOkMessage =>
-          s.state.on_authentication_ok(s)
-        | let err: _ErrorResponseMessage =>
-          if (err.code == _ErrorCode.invalid_password())
-            or (err.code == _ErrorCode.invalid_authentication_specification())
-          then
-            let reason = if err.code == _ErrorCode.invalid_password() then
-              InvalidPassword
-            else
-              InvalidAuthenticationSpecification
-            end
-
-            s.state.on_authentication_failed(s, reason)
-            shutdown(s)
-          end
-        | UnsupportedMessage =>
-          // Unsupported message of a known type found. Continue on the way.
-          None
-        | None =>
-          // No complete message was found in our received buffer, so we stop
-          // parsing for now.
-          return
-        end
-      end
-    else
-      // An unrecoverable error was encountered while parsing. Once that
-      // happens, there's no way we are going to be able to figure out how
-      // to get the responses back into an understandable state. The only
-      // thing we can do is shut this session down.
-
-      shutdown(s)
-    end
 
   fun shutdown(s: Session ref) =>
     s.state = _SessionClosed
@@ -206,11 +269,7 @@ trait _ConnectedState is _NotConnectableState
     s._connection().close()
     s.notify.pg_session_shutdown(s)
 
-  fun execute(query: SimpleQuery, receiver: ResultReceiver) =>
-    // TODO SEAN
-    None
-
-trait _UnconnectedState is _NotAuthenticableState
+trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
   """
   A session that isn't connected. Either because it was never opened or because
   it has been closed. Unconnected sessions are not eligible to be authenticated
@@ -229,7 +288,7 @@ trait _UnconnectedState is _NotAuthenticableState
       _IllegalState()
     end
 
-trait _AuthenticableState is _ConnectedState
+trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
   """
   A session that can be authenticated. All authenticatible sessions are
   connected sessions, but not all connected sessions are autheticable. Once a
@@ -270,42 +329,13 @@ trait _NotAuthenticableState
   =>
     _IllegalState()
 
-trait _AuthenticatedState is (_NotConnectableState & _NotAuthenticableState)
+trait _AuthenticatedState is (_ConnectedState & _NotAuthenticableState)
   """
   A connected and authenticated session. Connected sessions are not connectable
   as they have already been connected. Authenticated sessions are not
   authenticable as they have already been authenticated.
   """
 
-  fun on_received(s: Session ref, data: Array[U8] iso) =>
-    s.readbuf.append(consume data)
-    _parse_response(s)
-
-  fun _parse_response(s: Session ref) =>
-    try
-      while true do
-        let message = _ResponseParser(s.readbuf)?
-        match message
-        | UnsupportedMessage =>
-          // Unsupported message of a known type found. Continue on the way.
-          None
-        | None =>
-          // No complete message was found in our received buffer, so we stop
-          // parsing for now.
-          return
-        end
-      end
-    else
-      // An unrecoverable error was encountered while parsing. Once that
-      // happens, there's no way we are going to be able to figure out how
-      // to get the responses back into an understandable state. The only
-      // thing we can do is shut this session down.
-
-      shutdown(s)
-    end
-
-  fun shutdown(s: Session ref) =>
-    s.state = _SessionClosed
-    s.readbuf.clear()
-    s._connection().close()
-    s.notify.pg_session_shutdown(s)
+trait _NotAuthenticated
+  fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage) =>
+    _IllegalState()

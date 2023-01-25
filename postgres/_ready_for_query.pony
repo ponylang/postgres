@@ -20,7 +20,7 @@ class val _ReadyForQueryMessage
     """
     _status == 'T'
 
-  fun val idle(): Bool =>
+  fun val failed_transaction(): Bool =>
     """
     Returns true if the backend is in a failed transaction block. Queries will
     be rejected until the transaction has ended.

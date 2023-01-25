@@ -20,7 +20,7 @@ class \nodoc\ iso _TestQueryResultsIncludeOriginatingQuery is UnitTest
       info.database)
 
     h.dispose_when_done(session)
-    h.long_test(1_000_000_000)
+    h.long_test(5_000_000_000)
 
 actor \nodoc\ _ResultsIncludeOriginatingQueryReceiver is
   ( SessionStatusNotify

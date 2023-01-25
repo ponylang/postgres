@@ -12,27 +12,27 @@ actor \nodoc\ Main is TestList
 
   fun tag tests(test: PonyTest) =>
     test(_TestAuthenticate)
-    // test(_TestAuthenticateFailure)
-    // test(_TestConnect)
-    // test(_TestConnectFailure)
-    // test(_TestHandlingJunkMessages)
-    // test(_TestMessagePassword)
-    // test(_TestMessageQuery)
-    // test(_TestMessageStartup)
-    // test(_TestResponseParserAuthenticationMD5PasswordMessage)
-    // test(_TestResponseParserAuthenticationOkMessage)
-    // test(_TestResponseParserEmptyBuffer)
-    // test(_TestResponseParserErrorResponseMessage)
-    // test(_TestResponseParserIncompleteMessage)
-    // test(_TestResponseParserJunkMessage)
-    // test(_TestResponseParserMultipleMessagesAuthenticationMD5PasswordFirst)
-    // test(_TestResponseParserMultipleMessagesAuthenticationOkFirst)
-    // test(_TestResponseParserMultipleMessagesErrorResponseFirst)
-    // test(_TestQueryAfterAuthenticationFailure)
-    // test(_TestQueryAfterConnectionFailure)
-    // test(_TestQueryAfterSessionHasBeenClosed)
-    // test(_TestQueryBeforeAuthentication)
-    // test(_TestQueryResultsIncludeOriginatingQuery)
+    test(_TestAuthenticateFailure)
+    test(_TestConnect)
+    test(_TestConnectFailure)
+    test(_TestHandlingJunkMessages)
+    test(_TestMessagePassword)
+    test(_TestMessageQuery)
+    test(_TestMessageStartup)
+    test(_TestResponseParserAuthenticationMD5PasswordMessage)
+    test(_TestResponseParserAuthenticationOkMessage)
+    test(_TestResponseParserEmptyBuffer)
+    test(_TestResponseParserErrorResponseMessage)
+    test(_TestResponseParserIncompleteMessage)
+    test(_TestResponseParserJunkMessage)
+    test(_TestResponseParserMultipleMessagesAuthenticationMD5PasswordFirst)
+    test(_TestResponseParserMultipleMessagesAuthenticationOkFirst)
+    test(_TestResponseParserMultipleMessagesErrorResponseFirst)
+    test(_TestQueryAfterAuthenticationFailure)
+    test(_TestQueryAfterConnectionFailure)
+    test(_TestQueryAfterSessionHasBeenClosed)
+    test(_TestQueryBeforeAuthentication)
+    test(_TestQueryResultsIncludeOriginatingQuery)
 
 class \nodoc\ iso _TestAuthenticate is UnitTest
   """
@@ -91,8 +91,7 @@ actor \nodoc\ _AuthenticateTestNotify is SessionStatusNotify
     _success_expected = success_expected
 
   be pg_session_authenticated(session: Session) =>
-    //_h.complete(_success_expected == true)
-    None
+    _h.complete(_success_expected == true)
 
   be pg_session_authentication_failed(
     s: Session,

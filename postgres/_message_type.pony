@@ -7,6 +7,9 @@ primitive _MessageType
   fun authentication_request(): U8 =>
     'R'
 
+  fun command_complete(): U8 =>
+    'C'
+
   fun error_response(): U8 =>
     'E'
 

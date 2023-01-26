@@ -30,7 +30,7 @@ actor \nodoc\ _ResultsIncludeOriginatingQueryReceiver is
 
   new create(h: TestHelper) =>
     _h = h
-    _query = SimpleQuery("select * from free_candy")
+    _query = SimpleQuery("SELECT 525600::text")
 
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)

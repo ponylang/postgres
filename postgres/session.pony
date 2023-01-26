@@ -136,21 +136,34 @@ class _SessionLoggedIn is _AuthenticatedState
 
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage) =>
     if msg.idle() then
-      // TODO SEAN this isn't correct as it assumes success which might not
-      // happened. We need a state machine for "in flight query".
       if _query_in_flight then
+        // If there was a query in flight, we are now done with it.
         try
-          (let query, let receiver) = _query_queue.shift()?
-          receiver.pg_query_result(Result(query))
-        else
-          // TODO SEAN unreachable
-          None
+          _query_queue.shift()?
         end
+        _query_in_flight = false
       end
       _queryable = true
       _run_query(s)
     else
       _queryable = false
+    end
+
+  fun ref on_command_complete(s: Session ref, msg: _CommandCompleteMessage) =>
+    """
+    A command has completed, that might mean the active is query is done. At
+    this point we don't know. We grab the active query from the head of the
+    query queue while leaving it in place and inform the receiver of a success
+    for at least one part of the query.
+    """
+    try
+      (let query, let receiver) = _query_queue(0)?
+      // TODO SEAN this isn't correct as it assumes success which might not
+      // happened. We need a state machine for "in flight query".
+      receiver.pg_query_result(Result(query))
+    else
+      // TODO SEAN unreachable
+      None
     end
 
   fun ref execute(s: Session ref,
@@ -163,9 +176,9 @@ class _SessionLoggedIn is _AuthenticatedState
   fun ref _run_query(s: Session ref) =>
     try
       if _queryable and (_query_queue.size() > 0) then
+        (let query, _) = _query_queue(0)?
         _queryable = false
         _query_in_flight = true
-        (let query, _) = _query_queue(0)?
         let msg = _Message.query(query.string)
         s._connection().send(msg)
       end
@@ -221,10 +234,21 @@ interface _SessionState
     """
     Called when the server sends a "ready for query" message
     """
-  fun ref process_responses(s: Session ref) =>
+  fun ref process_responses(s: Session ref)
     """
     Called to process responses we've received from the server after the data
     has been parsed into messages.
+    """
+  fun ref on_command_complete(s: Session ref, msg: _CommandCompleteMessage)
+    """
+    Called when the server has completed running an individual command. If a
+    query was a single command, this will be followed by "ready for query". If
+    the query contained multiple commands then the results of additional
+    commands should be expected. Generally, the arrival of "command complete" is
+    when we would want to notify the client of the results or subset of results
+    available so far for the active query.
+
+    Queries that resulted in a error will not have "command complete" sent.
     """
 
 trait _ConnectableState is _UnconnectedState
@@ -355,6 +379,14 @@ trait _AuthenticatedState is (_ConnectedState & _NotAuthenticableState)
   authenticable as they have already been authenticated.
   """
 
+
 trait _NotAuthenticated
+  """
+  A session that has yet to be authenticated. Before being authenticated, then
+  all "query related" commands should not be received.
+  """
+  fun ref on_command_complete(s: Session ref, msg: _CommandCompleteMessage) =>
+    _IllegalState()
+
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage) =>
     _IllegalState()

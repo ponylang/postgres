@@ -6,6 +6,7 @@ type _AuthenticationMessages is
 
 type _ResponseParserResult is
   ( _AuthenticationMessages
+  | _CommandCompleteMessage
   | _ErrorResponseMessage
   | _ReadyForQueryMessage
   | UnsupportedMessage
@@ -87,6 +88,10 @@ primitive _ResponseParser
       buffer.skip(5)?
       // and only get the status indicator byte
       return _ReadyForQueryMessage(buffer.u8()?)
+    | _MessageType.command_complete() =>
+      // TODO SEAN
+      buffer.skip(message_size)?
+      return _CommandCompleteMessage
     else
       buffer.skip(message_size)?
       return UnsupportedMessage

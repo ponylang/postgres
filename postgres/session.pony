@@ -123,16 +123,22 @@ class ref _SessionConnected is _AuthenticableState
   fun notify(): SessionStatusNotify =>
     _notify
 
+// TODO SEAN
+// some of these callbacks assume we are "in a query" and we should be
+// blowing up if we aren't. An additional level of state machine for query is
+// probably needed.
 class _SessionLoggedIn is _AuthenticatedState
   var _queryable: Bool = false
   var _query_in_flight: Bool = false
   let _query_queue: Array[(SimpleQuery, ResultReceiver)] = _query_queue.create()
   let _notify: SessionStatusNotify
   let _readbuf: Reader
+  var _data_rows: Array[Array[(String|None)] val] iso
 
   new ref create(notify': SessionStatusNotify, readbuf': Reader) =>
     _notify = notify'
     _readbuf = readbuf'
+    _data_rows = recover iso Array[Array[(String|None)] val].create() end
 
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage) =>
     if msg.idle() then
@@ -156,15 +162,21 @@ class _SessionLoggedIn is _AuthenticatedState
     query queue while leaving it in place and inform the receiver of a success
     for at least one part of the query.
     """
+    // TODO SEAN should very query in flight
     try
       (let query, let receiver) = _query_queue(0)?
-      receiver.pg_query_result(Result(query))
+      let rows = _data_rows = recover iso
+        Array[Array[(String|None)] val].create()
+      end
+
+      receiver.pg_query_result(Result(query, consume rows))
     else
       // TODO SEAN unreachable
       None
     end
 
   fun ref on_error_response(s: Session ref, msg: _ErrorResponseMessage) =>
+    // TODO SEAN we should verify query in flight
     try
       (let query, let receiver) = _query_queue(0)?
       receiver.pg_query_failed(query, FreeCandy)
@@ -172,6 +184,10 @@ class _SessionLoggedIn is _AuthenticatedState
       // TODO SEAN unreachable
       None
     end
+
+  fun ref on_data_row(s: Session ref, msg: _DataRowMessage) =>
+    // TODO SEAN we should verify query in flight
+    _data_rows.push(msg.columns)
 
   fun ref execute(s: Session ref,
     query: SimpleQuery,
@@ -264,6 +280,11 @@ interface _SessionState
     using this callback. For example, we intercept authorization errors and
     handle them using a specialized callback. All errors without a specialized
     callback are handled by `on_error_response`.
+    """
+
+  fun ref on_data_row(s: Session ref, msg: _DataRowMessage)
+    """
+    Called when a data row is received from the server.
     """
 
 
@@ -402,6 +423,9 @@ trait _NotAuthenticated
   all "query related" commands should not be received.
   """
   fun ref on_command_complete(s: Session ref, msg: _CommandCompleteMessage) =>
+    _IllegalState()
+
+  fun ref on_data_row(s: Session ref, msg: _DataRowMessage) =>
     _IllegalState()
 
   fun ref on_error_response(s: Session ref, msg: _ErrorResponseMessage) =>

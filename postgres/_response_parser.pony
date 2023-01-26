@@ -1,4 +1,5 @@
 use "buffered"
+use "collections"
 
 type _AuthenticationMessages is
   ( _AuthenticationOkMessage
@@ -7,6 +8,7 @@ type _AuthenticationMessages is
 type _ResponseParserResult is
   ( _AuthenticationMessages
   | _CommandCompleteMessage
+  | _DataRowMessage
   | _ErrorResponseMessage
   | _ReadyForQueryMessage
   | UnsupportedMessage
@@ -96,6 +98,12 @@ primitive _ResponseParser
       // this will need tests
       buffer.skip(message_size)?
       return _CommandCompleteMessage
+    | _MessageType.data_row() =>
+      // Slide past the header...
+      buffer.skip(5)?
+      // and only get the payload
+      let payload = buffer.block(payload_size)?
+      return _data_row(consume payload)?
     else
       buffer.skip(message_size)?
       return UnsupportedMessage
@@ -126,3 +134,29 @@ primitive _ResponseParser
     end
 
     _ErrorResponseMessage(code)
+
+  fun _data_row(payload: Array[U8] val): _DataRowMessage ? =>
+    """
+    Parse data row messages.
+    """
+    let reader: Reader = Reader.>append(payload)
+    let number_of_columns = reader.u16_be()?.usize()
+    let columns: Array[(String| None)] iso = recover iso
+      columns.create(number_of_columns)
+    end
+
+    for column_index in Range(0, number_of_columns) do
+      let column_length = reader.u32_be()?.usize()
+      match column_length
+      | -1 =>
+        columns.push(None)
+      | 0 =>
+        columns.push("")
+      else
+        let column = reader.block(column_length)?
+        let column_as_string = String.from_array(consume column)
+        columns.push(column_as_string)
+      end
+    end
+
+    _DataRowMessage(consume columns)

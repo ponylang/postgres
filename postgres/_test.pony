@@ -32,7 +32,7 @@ actor \nodoc\ Main is TestList
     test(_TestQueryAfterConnectionFailure)
     test(_TestQueryAfterSessionHasBeenClosed)
     test(_TestQueryBeforeAuthentication)
-    test(_TestQueryResultsIncludeOriginatingQuery)
+    test(_TestQueryResults)
     test(_TestQueryOfNonExistantTable)
 
 class \nodoc\ iso _TestAuthenticate is UnitTest

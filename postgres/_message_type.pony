@@ -10,6 +10,9 @@ primitive _MessageType
   fun command_complete(): U8 =>
     'C'
 
+  fun data_row(): U8 =>
+    'D'
+
   fun error_response(): U8 =>
     'E'
 

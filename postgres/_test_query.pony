@@ -1,9 +1,9 @@
 use lori = "lori"
 use "pony_test"
 
-class \nodoc\ iso _TestQueryResultsIncludeOriginatingQuery is UnitTest
+class \nodoc\ iso _TestQueryResults is UnitTest
   fun name(): String =>
-    "integration/Query/ResultsIncludeOriginatingQuery"
+    "integration/Query/Results"
 
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
@@ -43,7 +43,38 @@ actor \nodoc\ _ResultsIncludeOriginatingQueryReceiver is
     _h.complete(false)
 
   be pg_query_result(result: Result) =>
-    _h.complete(result.query() is _query)
+    if result.query() isnt _query then
+      _h.fail("Query in result isn't the expected query.")
+      _h.complete(false)
+      return
+    end
+
+    if result.rows().size() != 1 then
+      _h.fail("Wrong number of result rows.")
+      _h.complete(false)
+      return
+    end
+
+    try
+      match result.rows()(0)?(0)?
+      | let v: String =>
+        if v != "525600" then
+          _h.fail("Unexpected query results.")
+          _h.complete(false)
+          return
+        end
+      | None =>
+        _h.fail("Unexpected query results.")
+        _h.complete(false)
+        return
+      end
+    else
+      _h.fail("Unexpected error accessing result rows.")
+      _h.complete(false)
+      return
+    end
+
+    _h.complete(true)
 
   be pg_query_failed(query: SimpleQuery, failure: QueryError) =>
     _h.fail("Unexpected query failure")

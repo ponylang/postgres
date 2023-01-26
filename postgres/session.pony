@@ -90,7 +90,6 @@ class _SessionLoggedIn is _AuthenticatedState
     None
 
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage) =>
-    @printf("on_ready_for_query\n".cstring())
     if msg.idle() then
       // TODO SEAN this isn't correct as it assumes success which might not
       // happened. We need a state machine for "in flight query".
@@ -113,21 +112,17 @@ class _SessionLoggedIn is _AuthenticatedState
     query: SimpleQuery,
     receiver: ResultReceiver)
   =>
-    @printf("execute received\n".cstring())
     _query_queue.push((query, receiver))
     _run_query(s)
 
   fun ref _run_query(s: Session ref) =>
     try
       if _queryable and (_query_queue.size() > 0) then
-        @printf("running query\n".cstring())
         _queryable = false
         _query_in_flight = true
         (let query, _) = _query_queue(0)?
         let msg = _Message.query(query.string)
         s._connection().send(msg)
-      else
-        @printf("not running query\n".cstring())
       end
     else
       // TODO SEAN unreachable

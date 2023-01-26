@@ -1,5 +1,4 @@
 use "buffered"
-use @printf[I32](fmt: Pointer[U8] tag, ...)
 
 type _AuthenticationMessages is
   ( _AuthenticationOkMessage
@@ -52,7 +51,6 @@ primitive _ResponseParser
       return None
     end
 
-    @printf("message type: %c\n".cstring(), message_type)
     match message_type
     | _MessageType.authentication_request() =>
       let auth_type = buffer.peek_i32_be(5)?

@@ -2,7 +2,6 @@ use "buffered"
 use lori = "lori"
 
 actor Session is lori.TCPClientActor
-  let notify: SessionStatusNotify
   var state: _SessionState
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
 
@@ -15,8 +14,7 @@ actor Session is lori.TCPClientActor
     password': String,
     database': String)
   =>
-    notify = notify'
-    state = _SessionUnopened(user', password', database')
+    state = _SessionUnopened(notify', user', password', database')
 
     _tcp_connection = lori.TCPConnection.client(auth',
       host',
@@ -60,11 +58,17 @@ actor Session is lori.TCPClientActor
 
 // Possible session states
 class ref _SessionUnopened is _ConnectableState
+  let _notify: SessionStatusNotify
   let _user: String
   let _password: String
   let _database: String
 
-  new ref create(user': String, password': String, database': String) =>
+  new ref create(notify': SessionStatusNotify,
+    user': String,
+    password': String,
+    database': String)
+  =>
+    _notify = notify'
     _user = user'
     _password = password'
     _database = database'
@@ -81,17 +85,26 @@ class ref _SessionUnopened is _ConnectableState
   fun database(): String =>
     _database
 
+  fun notify(): SessionStatusNotify =>
+    _notify
+
 class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
   fun ref execute(s: Session ref, q: SimpleQuery, r: ResultReceiver) =>
     r.pg_query_failed(q, SessionClosed)
 
 class ref _SessionConnected is _AuthenticableState
+  let _notify: SessionStatusNotify
   let _user: String
   let _password: String
   let _database: String
   let _readbuf: Reader = _readbuf.create()
 
-  new ref create(user': String, password': String, database': String) =>
+  new ref create(notify': SessionStatusNotify,
+    user': String,
+    password': String,
+    database': String)
+  =>
+    _notify = notify'
     _user = user'
     _password = password'
     _database = database'
@@ -108,13 +121,18 @@ class ref _SessionConnected is _AuthenticableState
   fun ref readbuf(): Reader =>
     _readbuf
 
+  fun notify(): SessionStatusNotify =>
+    _notify
+
 class _SessionLoggedIn is _AuthenticatedState
   var _queryable: Bool = false
   var _query_in_flight: Bool = false
   let _query_queue: Array[(SimpleQuery, ResultReceiver)] = _query_queue.create()
+  let _notify: SessionStatusNotify
   let _readbuf: Reader
 
-  new ref create(readbuf': Reader) =>
+  new ref create(notify': SessionStatusNotify, readbuf': Reader) =>
+    _notify = notify'
     _readbuf = readbuf'
 
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage) =>
@@ -159,6 +177,9 @@ class _SessionLoggedIn is _AuthenticatedState
 
   fun ref readbuf(): Reader =>
     _readbuf
+
+  fun notify(): SessionStatusNotify =>
+    _notify
 
 interface _SessionState
   fun on_connected(s: Session ref)
@@ -212,13 +233,13 @@ trait _ConnectableState is _UnconnectedState
   An unopened session that can be connected to a server.
   """
   fun on_connected(s: Session ref) =>
-    s.state = _SessionConnected(user(), password(), database())
-    s.notify.pg_session_connected(s)
+    s.state = _SessionConnected(notify(), user(), password(), database())
+    notify().pg_session_connected(s)
     _send_startup_message(s)
 
   fun on_failure(s: Session ref) =>
     s.state = _SessionClosed
-    s.notify.pg_session_connection_failed(s)
+    notify().pg_session_connection_failed(s)
 
   fun _send_startup_message(s: Session ref) =>
     let msg = _Message.startup(user(), database())
@@ -227,6 +248,7 @@ trait _ConnectableState is _UnconnectedState
   fun user(): String
   fun password(): String
   fun database(): String
+  fun notify(): SessionStatusNotify
 
 trait _NotConnectableState
   """
@@ -254,9 +276,10 @@ trait _ConnectedState is _NotConnectableState
     s.state = _SessionClosed
     readbuf().clear()
     s._connection().close()
-    s.notify.pg_session_shutdown(s)
+    notify().pg_session_shutdown(s)
 
   fun ref readbuf(): Reader
+  fun notify(): SessionStatusNotify
 
 trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
   """
@@ -288,11 +311,11 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
   to occur.
   """
   fun ref on_authentication_ok(s: Session ref) =>
-    s.state = _SessionLoggedIn(readbuf())
-    s.notify.pg_session_authenticated(s)
+    s.state = _SessionLoggedIn(notify(), readbuf())
+    notify().pg_session_authenticated(s)
 
   fun ref on_authentication_failed(s: Session ref, r: AuthenticationFailureReason) =>
-    s.notify.pg_session_authentication_failed(s, r)
+    notify().pg_session_authentication_failed(s, r)
     shutdown(s)
 
   fun on_authentication_md5_password(s: Session ref,
@@ -304,6 +327,7 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
 
   fun user(): String
   fun password(): String
+  fun notify(): SessionStatusNotify
 
 trait _NotAuthenticableState
   """

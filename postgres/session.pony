@@ -53,7 +53,7 @@ var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
     state.shutdown(this)
 
   be _process_again() =>
-    _process_responses()
+    state.process_responses(this)
 
   fun ref _on_connected() =>
     state.on_connected(this)
@@ -63,58 +63,7 @@ var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
 
   fun ref _on_received(data: Array[U8] iso) =>
     state.on_received(this, consume data)
-    _process_responses()
-
-  fun ref _process_responses() =>
-    """
-    Handles all messages regardless of whether they are valid for our current
-    state. The `s.state` calls that result will handle if a message isn't legal
-    for our current state.
-    """
-    // TODO: move all this to its own primitive that takes a
-    // session and readbuffer.
-    // only our state objects that can parse messages will use the
-    // primitive in their process responses handler.
-    // others will do illegal state.
-    // read buffer will be moved into state objects and reference
-    // past as part of transition from connected to logged in, both
-    // of which will need it.
-    try
-      match _ResponseParser(readbuf)?
-      | let msg: _AuthenticationMD5PasswordMessage =>
-        state.on_authentication_md5_password(this, msg)
-      | _AuthenticationOkMessage =>
-        state.on_authentication_ok(this)
-      | let err: _ErrorResponseMessage =>
-        if (err.code == _ErrorCode.invalid_password())
-          or (err.code == _ErrorCode.invalid_authentication_specification())
-        then
-          let reason = if err.code == _ErrorCode.invalid_password() then
-            InvalidPassword
-          else
-            InvalidAuthenticationSpecification
-          end
-
-          state.on_authentication_failed(this, reason)
-          return
-        end
-      | let msg: _ReadyForQueryMessage =>
-        state.on_ready_for_query(this, msg)
-      | None =>
-        // No complete message was found. Stop parsing for now.
-        return
-      end
-    else
-      // An unrecoverable error was encountered while parsing. Once that
-      // happens, there's no way we are going to be able to figure out how
-      // to get the responses back into an understandable state. The only
-      // thing we can do is shut this session down.
-
-      state.shutdown(this)
-      return
-    end
-
-    _process_again()
+    state.process_responses(this)
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
@@ -226,6 +175,11 @@ interface _SessionState
     """
     Called when the server sends a "ready for query" message
     """
+  fun process_responses(s: Session ref) =>
+    """
+    Called to process responses we've received from the server after the data
+    has been parsed into messages.
+    """
 
 trait _ConnectableState is _UnconnectedState
   """
@@ -263,6 +217,9 @@ trait _ConnectedState is _NotConnectableState
   fun on_received(s: Session ref, data: Array[U8] iso) =>
     s.readbuf.append(consume data)
 
+  fun process_responses(s: Session ref) =>
+    _ResponseMessageParser(s, s.readbuf)
+
   fun shutdown(s: Session ref) =>
     s.state = _SessionClosed
     s.readbuf.clear()
@@ -281,6 +238,9 @@ trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
     // "not yet opened" and "closed" were different states, rather than a single
     // "unconnected" then we would want to call illegal state if `on_received`
     // was called when the state was "not yet opened".
+    None
+
+  fun process_responses(s: Session ref) =>
     None
 
   fun shutdown(s: Session ref) =>

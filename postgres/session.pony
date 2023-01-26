@@ -3,12 +3,10 @@ use lori = "lori"
 
 actor Session is lori.TCPClientActor
   let notify: SessionStatusNotify
-  let host: String
-  let service: String
 
   var state: _SessionState
 
-var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
 
   new create(
     auth': lori.TCPConnectAuth,
@@ -20,11 +18,13 @@ var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
     database': String)
   =>
     notify = notify'
-    host = host'
-    service = service'
     state = _SessionUnopened(user', password', database')
 
-    _tcp_connection = lori.TCPConnection.client(auth', host, service, "", this)
+    _tcp_connection = lori.TCPConnection.client(auth',
+      host',
+      service',
+      "",
+      this)
 
   be execute(query: SimpleQuery, receiver: ResultReceiver) =>
     """

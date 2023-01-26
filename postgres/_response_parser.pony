@@ -87,9 +87,13 @@ primitive _ResponseParser
       // Slide past the header...
       buffer.skip(5)?
       // and only get the status indicator byte
+      // TODO SEAN
+      // this needs a test for message and we should throw
+      // an error if we get an unexpected value.
       return _ReadyForQueryMessage(buffer.u8()?)
     | _MessageType.command_complete() =>
       // TODO SEAN
+      // this will need tests
       buffer.skip(message_size)?
       return _CommandCompleteMessage
     else

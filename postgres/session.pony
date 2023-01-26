@@ -51,7 +51,6 @@ actor Session is lori.TCPClientActor
 
   fun ref _on_received(data: Array[U8] iso) =>
     state.on_received(this, consume data)
-    state.process_responses(this)
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
@@ -268,6 +267,7 @@ trait _ConnectedState is _NotConnectableState
   """
   fun ref on_received(s: Session ref, data: Array[U8] iso) =>
     readbuf().append(consume data)
+    process_responses(s)
 
   fun ref process_responses(s: Session ref) =>
     _ResponseMessageParser(s, readbuf())

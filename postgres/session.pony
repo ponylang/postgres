@@ -5,14 +5,10 @@ actor Session is lori.TCPClientActor
   let notify: SessionStatusNotify
   let host: String
   let service: String
-  // TODO SEAN move these 3 into state object(s)
-  let user: String
-  let password: String
-  let database: String
 
   // TODO SEAN move readbuf into state object(s)
   let readbuf: Reader = Reader
-  var state: _SessionState = _SessionUnopened
+  var state: _SessionState
 
 var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
 
@@ -28,9 +24,7 @@ var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
     notify = notify'
     host = host'
     service = service'
-    user = user'
-    password = password'
-    database = database'
+    state = _SessionUnopened(user', password', database')
 
     _tcp_connection = lori.TCPConnection.client(auth', host, service, "", this)
 
@@ -70,16 +64,49 @@ var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
 
 // Possible session states
 class ref _SessionUnopened is _ConnectableState
+  let _user: String
+  let _password: String
+  let _database: String
+
+  new ref create(user': String, password': String, database': String) =>
+    _user = user'
+    _password = password'
+    _database = database'
+
   fun ref execute(s: Session ref, q: SimpleQuery, r: ResultReceiver) =>
     r.pg_query_failed(q, SesssionNeverOpened)
+
+  fun user(): String =>
+    _user
+
+  fun password(): String =>
+    _password
+
+  fun database(): String =>
+    _database
 
 class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
   fun ref execute(s: Session ref, q: SimpleQuery, r: ResultReceiver) =>
     r.pg_query_failed(q, SessionClosed)
 
 class ref _SessionConnected is _AuthenticableState
+  let _user: String
+  let _password: String
+  let _database: String
+
+  new ref create(user': String, password': String, database': String) =>
+    _user = user'
+    _password = password'
+    _database = database'
+
   fun ref execute(s: Session ref, q: SimpleQuery, r: ResultReceiver) =>
     r.pg_query_failed(q, SessionNotAuthenticated)
+
+  fun user(): String =>
+    _user
+
+  fun password(): String =>
+    _password
 
 class _SessionLoggedIn is _AuthenticatedState
   var _queryable: Bool = false
@@ -181,7 +208,7 @@ trait _ConnectableState is _UnconnectedState
   An unopened session that can be connected to a server.
   """
   fun on_connected(s: Session ref) =>
-    s.state = _SessionConnected
+    s.state = _SessionConnected(user(), password(), database())
     s.notify.pg_session_connected(s)
     _send_startup_message(s)
 
@@ -190,8 +217,12 @@ trait _ConnectableState is _UnconnectedState
     s.notify.pg_session_connection_failed(s)
 
   fun _send_startup_message(s: Session ref) =>
-    let msg = _Message.startup(s.user, s.database)
+    let msg = _Message.startup(user(), database())
     s._connection().send(msg)
+
+  fun user(): String
+  fun password(): String
+  fun database(): String
 
 trait _NotConnectableState
   """
@@ -261,9 +292,12 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
   fun on_authentication_md5_password(s: Session ref,
     msg: _AuthenticationMD5PasswordMessage)
   =>
-    let md5_password = _MD5Password(s.user, s.password, msg.salt)
+    let md5_password = _MD5Password(user(), password(), msg.salt)
     let reply = _Message.password(md5_password)
     s._connection().send(reply)
+
+  fun user(): String
+  fun password(): String
 
 trait _NotAuthenticableState
   """

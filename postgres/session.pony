@@ -3,9 +3,7 @@ use lori = "lori"
 
 actor Session is lori.TCPClientActor
   let notify: SessionStatusNotify
-
   var state: _SessionState
-
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
 
   new create(

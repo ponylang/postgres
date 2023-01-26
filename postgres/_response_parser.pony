@@ -99,6 +99,7 @@ primitive _ResponseParser
       buffer.skip(message_size)?
       return _CommandCompleteMessage
     | _MessageType.data_row() =>
+      // TODO needs tests
       // Slide past the header...
       buffer.skip(5)?
       // and only get the payload

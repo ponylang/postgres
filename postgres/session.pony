@@ -6,8 +6,6 @@ actor Session is lori.TCPClientActor
   let host: String
   let service: String
 
-  // TODO SEAN move readbuf into state object(s)
-  let readbuf: Reader = Reader
   var state: _SessionState
 
 var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
@@ -93,6 +91,7 @@ class ref _SessionConnected is _AuthenticableState
   let _user: String
   let _password: String
   let _database: String
+  let _readbuf: Reader = _readbuf.create()
 
   new ref create(user': String, password': String, database': String) =>
     _user = user'
@@ -108,13 +107,17 @@ class ref _SessionConnected is _AuthenticableState
   fun password(): String =>
     _password
 
+  fun ref readbuf(): Reader =>
+    _readbuf
+
 class _SessionLoggedIn is _AuthenticatedState
   var _queryable: Bool = false
   var _query_in_flight: Bool = false
   let _query_queue: Array[(SimpleQuery, ResultReceiver)] = _query_queue.create()
+  let _readbuf: Reader
 
-  new ref create() =>
-    None
+  new ref create(readbuf': Reader) =>
+    _readbuf = readbuf'
 
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage) =>
     if msg.idle() then
@@ -156,6 +159,9 @@ class _SessionLoggedIn is _AuthenticatedState
       None
     end
 
+  fun ref readbuf(): Reader =>
+    _readbuf
+
 interface _SessionState
   fun on_connected(s: Session ref)
     """
@@ -165,11 +171,11 @@ interface _SessionState
     """
     Called if we fail to establish a connection with the server.
     """
-  fun on_authentication_ok(s: Session ref)
+  fun ref on_authentication_ok(s: Session ref)
     """
     Called when we successfully authenticate with the server.
     """
-  fun on_authentication_failed(
+  fun ref on_authentication_failed(
     s: Session ref,
     reason: AuthenticationFailureReason)
     """
@@ -181,11 +187,11 @@ interface _SessionState
     Called if the server requests we autheticate using the Postgres MD5
     password scheme.
     """
-  fun shutdown(s: Session ref)
+  fun ref shutdown(s: Session ref)
     """
     Called when we are shutting down the session.
     """
-  fun on_received(s: Session ref, data: Array[U8] iso)
+  fun ref on_received(s: Session ref, data: Array[U8] iso)
     """
     Called when we receive data from the server.
     """
@@ -197,7 +203,7 @@ interface _SessionState
     """
     Called when the server sends a "ready for query" message
     """
-  fun process_responses(s: Session ref) =>
+  fun ref process_responses(s: Session ref) =>
     """
     Called to process responses we've received from the server after the data
     has been parsed into messages.
@@ -240,17 +246,19 @@ trait _ConnectedState is _NotConnectableState
   A connected session. Connected sessions are not connectable as they have
   already been connected.
   """
-  fun on_received(s: Session ref, data: Array[U8] iso) =>
-    s.readbuf.append(consume data)
+  fun ref on_received(s: Session ref, data: Array[U8] iso) =>
+    readbuf().append(consume data)
 
-  fun process_responses(s: Session ref) =>
-    _ResponseMessageParser(s, s.readbuf)
+  fun ref process_responses(s: Session ref) =>
+    _ResponseMessageParser(s, readbuf())
 
-  fun shutdown(s: Session ref) =>
+  fun ref shutdown(s: Session ref) =>
     s.state = _SessionClosed
-    s.readbuf.clear()
+    readbuf().clear()
     s._connection().close()
     s.notify.pg_session_shutdown(s)
+
+  fun ref readbuf(): Reader
 
 trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
   """
@@ -258,7 +266,7 @@ trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
   it has been closed. Unconnected sessions are not eligible to be authenticated
   and receiving an authentication event while unconnected is an error.
   """
-  fun on_received(s: Session ref, data: Array[U8] iso) =>
+  fun ref on_received(s: Session ref, data: Array[U8] iso) =>
     // It is possible we will continue to receive data after we have closed
     // so this isn't an invalid state. We should silently drop the data. If
     // "not yet opened" and "closed" were different states, rather than a single
@@ -266,10 +274,10 @@ trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
     // was called when the state was "not yet opened".
     None
 
-  fun process_responses(s: Session ref) =>
+  fun ref process_responses(s: Session ref) =>
     None
 
-  fun shutdown(s: Session ref) =>
+  fun ref shutdown(s: Session ref) =>
     ifdef debug then
       _IllegalState()
     end
@@ -281,11 +289,11 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
   session has been authenticated, it's an error for another authetication event
   to occur.
   """
-  fun on_authentication_ok(s: Session ref) =>
-    s.state = _SessionLoggedIn
+  fun ref on_authentication_ok(s: Session ref) =>
+    s.state = _SessionLoggedIn(readbuf())
     s.notify.pg_session_authenticated(s)
 
-  fun on_authentication_failed(s: Session ref, r: AuthenticationFailureReason) =>
+  fun ref on_authentication_failed(s: Session ref, r: AuthenticationFailureReason) =>
     s.notify.pg_session_authentication_failed(s, r)
     shutdown(s)
 
@@ -304,10 +312,10 @@ trait _NotAuthenticableState
   A session that isn't eligible to be authenticated. Only connected sessions
   that haven't yet been authenticated are eligible to be authenticated.
   """
-  fun on_authentication_ok(s: Session ref) =>
+  fun ref on_authentication_ok(s: Session ref) =>
     _IllegalState()
 
-  fun on_authentication_failed(
+  fun ref on_authentication_failed(
     s: Session ref,
     r: AuthenticationFailureReason)
   =>

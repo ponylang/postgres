@@ -260,3 +260,58 @@ actor \nodoc\ _QueryAfterSessionHasBeenClosedNotify is
     else
       _h.complete(false)
     end
+
+_TestQueryOfNonExistantTable
+
+class \nodoc\ iso _TestQueryOfNonExistantTable is UnitTest
+  fun name(): String =>
+    "integration/Query/OfNonExistantTable"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _NonExistantTableQueryReceiver(h)
+
+    let session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      client,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+    h.dispose_when_done(session)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _NonExistantTableQueryReceiver is
+  ( SessionStatusNotify
+  & ResultReceiver )
+  let _h: TestHelper
+  let _query: SimpleQuery
+
+  new create(h: TestHelper) =>
+    _h = h
+    _query = SimpleQuery("SELECT * from THIS_TABLE_DOESNT_EXIST")
+
+  be pg_session_authenticated(session: Session) =>
+    session.execute(_query, this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to establish connection")
+    _h.complete(false)
+
+  be pg_query_result(result: Result) =>
+    _h.fail("Query unexpectedly succeeded.")
+    _h.complete(false)
+
+  be pg_query_failed(query: SimpleQuery, failure: QueryError) =>
+    if query is _query then
+      _h.complete(true)
+    else
+      _h.fail("Incorrect query paramter received.")
+      _h.complete(false)
+    end

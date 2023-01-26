@@ -158,9 +158,16 @@ class _SessionLoggedIn is _AuthenticatedState
     """
     try
       (let query, let receiver) = _query_queue(0)?
-      // TODO SEAN this isn't correct as it assumes success which might not
-      // happened. We need a state machine for "in flight query".
       receiver.pg_query_result(Result(query))
+    else
+      // TODO SEAN unreachable
+      None
+    end
+
+  fun ref on_error_response(s: Session ref, msg: _ErrorResponseMessage) =>
+    try
+      (let query, let receiver) = _query_queue(0)?
+      receiver.pg_query_failed(query, FreeCandy)
     else
       // TODO SEAN unreachable
       None
@@ -250,6 +257,15 @@ interface _SessionState
 
     Queries that resulted in a error will not have "command complete" sent.
     """
+
+  fun ref on_error_response(s: Session ref, msg: _ErrorResponseMessage)
+    """
+    Called when the server has encountered an error. Not all errors are called
+    using this callback. For example, we intercept authorization errors and
+    handle them using a specialized callback. All errors without a specialized
+    callback are handled by `on_error_response`.
+    """
+
 
 trait _ConnectableState is _UnconnectedState
   """
@@ -386,6 +402,9 @@ trait _NotAuthenticated
   all "query related" commands should not be received.
   """
   fun ref on_command_complete(s: Session ref, msg: _CommandCompleteMessage) =>
+    _IllegalState()
+
+  fun ref on_error_response(s: Session ref, msg: _ErrorResponseMessage) =>
     _IllegalState()
 
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage) =>

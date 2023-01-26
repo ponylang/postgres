@@ -22,6 +22,8 @@ primitive _ResponseMessageParser
 
           s.state.on_authentication_failed(s, reason)
           return
+        else
+          s.state.on_error_response(s, err)
         end
       | let msg: _ReadyForQueryMessage =>
         s.state.on_ready_for_query(s, msg)

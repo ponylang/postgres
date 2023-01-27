@@ -171,7 +171,12 @@ class _SessionLoggedIn is _AuthenticatedState
         Array[Array[(String|None)] val].create()
       end
 
-      receiver.pg_query_result(Result(query, consume rows))
+      try
+        let rows_object = _RowsBuilder(consume rows, _row_description)?
+        receiver.pg_query_result(Result(query, rows_object))
+      else
+        receiver.pg_query_failed(query, FreeCandy)
+      end
     else
       // TODO SEAN unreachable
       None

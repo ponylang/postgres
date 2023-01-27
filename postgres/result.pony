@@ -1,15 +1,13 @@
 class val Result
   let _query: SimpleQuery
-  let _rows: Array[Array[(String|None)] val] val
+  let _rows: Rows
 
-  new val create(query': SimpleQuery,
-    rows': Array[Array[(String|None)] val] val)
-  =>
+  new val create(query': SimpleQuery, rows': Rows) =>
     _query = query'
     _rows = rows'
 
   fun query(): SimpleQuery =>
     _query
 
-  fun rows(): Array[Array[(String|None)] val] val =>
+  fun rows(): Rows =>
     _rows

@@ -27,6 +27,9 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       info.password,
       info.database)
 
+  be close() =>
+    _session.close()
+
   be pg_session_authenticated(session: Session) =>
     _out.print("Authenticated.")
     _out.print("Sending query....")
@@ -42,11 +45,13 @@ actor Client is (SessionStatusNotify & ResultReceiver)
   be pg_query_result(result: Result) =>
     _out.print("Query result received.")
     // We got a result which for our example program is our trigger to shutdown.
-    // You probably wouldn't want to do this in a "real program".
-    _session.close()
+    close()
 
   be pg_query_failed(query: SimpleQuery, failure: QueryError) =>
     _out.print("Query failed.")
+    // Our example program is failing, we want to exit so, let's shut down the
+    // connection.
+    close()
 
 class val ServerInfo
   let host: String

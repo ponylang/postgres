@@ -11,6 +11,7 @@ type _ResponseParserResult is
   | _DataRowMessage
   | _ErrorResponseMessage
   | _ReadyForQueryMessage
+  | _RowDescriptionMessage
   | UnsupportedMessage
   | None )
 
@@ -105,6 +106,13 @@ primitive _ResponseParser
       // and only get the payload
       let payload = buffer.block(payload_size)?
       return _data_row(consume payload)?
+    | _MessageType.row_description() =>
+       // TODO needs tests
+      // Slide past the header...
+      buffer.skip(5)?
+      // and only get the payload
+      let payload = buffer.block(payload_size)?
+      return _row_description(consume payload)?
     else
       buffer.skip(message_size)?
       return UnsupportedMessage
@@ -138,7 +146,7 @@ primitive _ResponseParser
 
   fun _data_row(payload: Array[U8] val): _DataRowMessage ? =>
     """
-    Parse data row messages.
+    Parse a data row message.
     """
     let reader: Reader = Reader.>append(payload)
     let number_of_columns = reader.u16_be()?.usize()
@@ -161,3 +169,28 @@ primitive _ResponseParser
     end
 
     _DataRowMessage(consume columns)
+
+  fun _row_description(payload: Array[U8] val): _RowDescriptionMessage ? =>
+    """
+    Parse a row description message.
+    """
+    let reader: Reader = Reader.>append(payload)
+    let number_of_columns = reader.u16_be()?.usize()
+    let columns: Array[(String, U32)] iso = recover iso
+      columns.create(number_of_columns)
+    end
+
+    for column_index in Range(0, number_of_columns) do
+      // column name is a null terminated string
+      let cn = reader.read_until(0)?
+      let column_name = String.from_array(consume cn)
+      // skip table id (int32) and column attribute number (int16)
+      reader.skip(6)?
+      // column data type
+      let column_data_type = reader.u32_be()?
+      // skip remaining 3 fields int16, int32, int16
+      reader.skip(8)?
+      columns.push((column_name, column_data_type))
+    end
+
+    _RowDescriptionMessage(consume columns)

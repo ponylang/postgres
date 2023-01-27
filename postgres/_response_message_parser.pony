@@ -29,6 +29,8 @@ primitive _ResponseMessageParser
         end
       | let msg: _ReadyForQueryMessage =>
         s.state.on_ready_for_query(s, msg)
+      | let msg: _RowDescriptionMessage =>
+        s.state.on_row_description(s, msg)
       | None =>
         // No complete message was found. Stop parsing for now.
         return

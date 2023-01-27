@@ -134,11 +134,13 @@ class _SessionLoggedIn is _AuthenticatedState
   let _notify: SessionStatusNotify
   let _readbuf: Reader
   var _data_rows: Array[Array[(String|None)] val] iso
+  var _row_description: Array[(String, U32)] val
 
   new ref create(notify': SessionStatusNotify, readbuf': Reader) =>
     _notify = notify'
     _readbuf = readbuf'
-    _data_rows = recover iso Array[Array[(String|None)] val].create() end
+    _data_rows = recover iso Array[Array[(String|None)] val] end
+    _row_description = recover val Array[(String, U32)] end
 
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage) =>
     if msg.idle() then
@@ -195,6 +197,11 @@ class _SessionLoggedIn is _AuthenticatedState
   =>
     _query_queue.push((query, receiver))
     _run_query(s)
+
+  fun ref on_row_description(s: Session ref, msg: _RowDescriptionMessage) =>
+    // TODO SEAN we should verify query in flight
+    // TODO we should very that only get 1 of these per in flight query
+    _row_description = msg.columns
 
   fun ref _run_query(s: Session ref) =>
     try
@@ -287,6 +294,10 @@ interface _SessionState
     Called when a data row is received from the server.
     """
 
+  fun ref on_row_description(s: Session ref, msg: _RowDescriptionMessage)
+    """
+    Called when a row description is receivedfrom the server.
+    """
 
 trait _ConnectableState is _UnconnectedState
   """
@@ -432,4 +443,7 @@ trait _NotAuthenticated
     _IllegalState()
 
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage) =>
+    _IllegalState()
+
+  fun ref on_row_description(s: Session ref, msg: _RowDescriptionMessage) =>
     _IllegalState()

@@ -16,8 +16,11 @@ primitive _MessageType
   fun error_response(): U8 =>
     'E'
 
+  fun query(): U8 =>
+    'Q'
+
   fun ready_for_query(): U8 =>
     'Z'
 
-  fun query(): U8 =>
-    'Q'
+  fun row_description(): U8 =>
+    'T'

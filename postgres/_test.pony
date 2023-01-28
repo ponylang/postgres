@@ -34,6 +34,7 @@ actor \nodoc\ Main is TestList
     test(_TestQueryBeforeAuthentication)
     test(_TestQueryResults)
     test(_TestQueryOfNonExistantTable)
+    test(_TestUnansweredQueriesFailOnShutdown)
 
 class \nodoc\ iso _TestAuthenticate is UnitTest
   """
@@ -271,3 +272,144 @@ actor \nodoc\ _JunkSendingTestServer is lori.TCPServerActor
   fun ref _on_received(data: Array[U8] iso) =>
     let junk = _IncomingJunkTestMessage.bytes()
     _tcp_connection.send(junk)
+
+class \nodoc\ iso _TestUnansweredQueriesFailOnShutdown is UnitTest
+  """
+  Verifies that when a sesison is shutting down, it sends "SessionClosed" query
+  failures for any queries that are queued or haven't completed yet.
+  """
+  fun name(): String =>
+    "UnansweredQueriesFailOnShutdown"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "9667"
+
+    let listener = _DoesntAnswerTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _DoesntAnswerClient is (SessionStatusNotify & ResultReceiver)
+  let _h: TestHelper
+  let _in_flight_queries: SetIs[SimpleQuery] = _in_flight_queries.create()
+
+  new create(h: TestHelper) =>
+    _h = h
+
+  be pg_session_connection_failed(s: Session) =>
+    _h.fail("Unable to establish connection.")
+    _h.complete(false)
+
+  be pg_session_authenticated(session: Session) =>
+    _send_query(session, "select * from free_candy")
+    _send_query(session, "select * from expensive_candy")
+    session.close()
+
+  be pg_session_authentication_failed(
+    session: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate.")
+    _h.complete(false)
+
+  be pg_query_result(result: Result) =>
+    _h.fail("Unexpectedly got a result for a query.")
+    _h.complete(false)
+
+  be pg_query_failed(query: SimpleQuery, failure: QueryError) =>
+    if _in_flight_queries.contains(query) then
+      match failure
+      | SessionClosed =>
+        _in_flight_queries.unset(query)
+        if _in_flight_queries.size() == 0 then
+          _h.complete(true)
+        end
+      else
+        _h.fail("Got an incorrect query failure reason.")
+        _h.complete(false)
+      end
+    else
+      _h.fail("Got a failure for a query we didn't send.")
+      _h.complete(false)
+    end
+
+  fun ref _send_query(session: Session, string: String) =>
+    let q = SimpleQuery(string)
+    _in_flight_queries.set(q)
+    session.execute(q, this)
+
+actor \nodoc\ _DoesntAnswerTestListener is lori.TCPListenerActor
+  """
+  Listens for incoming connections and starts a server that will never reply
+  """
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _h: TestHelper
+  let _host: String
+  let _port: String
+
+  new create(listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper)
+  =>
+    _host = host
+    _port = port
+    _h = h
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): _DoesntAnswerTestServer =>
+    _DoesntAnswerTestServer(_server_auth, fd)
+
+  fun ref _on_listening() =>
+    // Now that we are listening, start a client session
+    Session(
+      lori.TCPConnectAuth(_h.env.root),
+      _DoesntAnswerClient(_h),
+      _host,
+      _port,
+      "postgres",
+      "postgres",
+      "postgres")
+
+  fun ref _on_listen_failure() =>
+    _h.fail("Unable to listen")
+    _h.complete(false)
+
+actor \nodoc\ _DoesntAnswerTestServer is lori.TCPServerActor
+  """
+  Eats all incoming messages. By not answering, it allows us to simulate what
+  happens with unanswered commands.
+
+  Will answer it's "first received message" with an auth ok message.
+  """
+  var _authed: Bool = false
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+
+  new create(auth: lori.TCPServerAuth, fd: U32) =>
+    _tcp_connection = lori.TCPConnection.server(auth, fd, this)
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
+
+  fun ref _on_received(data: Array[U8] iso) =>
+    """
+    We authenticate the user without needing to receive any password etc.
+    You connect, you are authed! This makes dummy server setup much easier but
+    it is possible that eventually this might trip us up. At the moment, this
+    isn't problematic that we are "auto authing".
+    """
+    if not _authed then
+      _authed = true
+      let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
+      _tcp_connection.send(auth_ok)
+    end

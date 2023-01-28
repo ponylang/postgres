@@ -219,11 +219,6 @@ class _SessionLoggedIn is _AuthenticatedState
 
   fun ref on_shutdown(s: Session ref) =>
     _readbuf.clear()
-    // TODO SEAN we need to test this happens correctly. Sending the
-    // notification of "failure" for open queries on shutdown.
-    // To do this, we need a dummy server that will accept the incoming query
-    // messages but never return a result thereby guaranteeing that any queries
-    // we send for the test should get a query failed AFTER a close is sent.
     for queue_item in _query_queue.values() do
       (let query, let receiver) = queue_item
       receiver.pg_query_failed(query, SessionClosed)

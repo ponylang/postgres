@@ -33,12 +33,7 @@ actor Session is lori.TCPClientActor
     Hard closes the connection. Terminates as soon as possible without waiting
     for outstanding queries to finish.
     """
-    // TODO SEAN: because a user can send this message when the actor is in
-    // any state, we need to have a call other than shutdown which will in
-    // states where a close isn't valid, simply ignore it. and for those were
-    // it is valid, call shutdown. this needs to go on each of our states.
-    // probably via closeable and uncloseable traits.
-    state.shutdown(this)
+    state.close(this)
 
   be _process_again() =>
     state.process_responses(this)
@@ -250,6 +245,13 @@ interface _SessionState
     Called if the server requests we autheticate using the Postgres MD5
     password scheme.
     """
+  fun ref close(s: Session ref)
+    """
+    The client received a message to close. Unlike `shutdown`, this should never
+    be an illegal state as we can receive messages to take actions from outside
+    at any point. If received when "illegal", it should be silently ignored. If
+    received when "legal", then `shutdown` should be called.
+    """
   fun ref shutdown(s: Session ref)
     """
     Called when we are shutting down the session.
@@ -346,6 +348,9 @@ trait _ConnectedState is _NotConnectableState
   fun ref process_responses(s: Session ref) =>
     _ResponseMessageParser(s, readbuf())
 
+  fun ref close(s: Session ref) =>
+    shutdown(s)
+
   fun ref shutdown(s: Session ref) =>
     s.state = _SessionClosed
     readbuf().clear()
@@ -370,6 +375,9 @@ trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
     None
 
   fun ref process_responses(s: Session ref) =>
+    None
+
+  fun ref close(s: Session ref) =>
     None
 
   fun ref shutdown(s: Session ref) =>

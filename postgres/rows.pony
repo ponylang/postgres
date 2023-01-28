@@ -5,12 +5,21 @@ class val Rows
     _rows = rows'
 
   fun size(): USize =>
+    """
+    Returns the number of rows.
+    """
     _rows.size()
 
-  fun row(i: USize): Row ? =>
+  fun apply(i: USize): Row ? =>
+    """
+    Returns the `i`th row if it exists. Otherwise, throws an error.
+    """
     _rows(i)?
 
-  fun rows(): RowIterator =>
+  fun values(): RowIterator =>
+    """
+    Returns an iterator over the rows.
+    ""
     RowIterator._create(_rows)
 
 class RowIterator is Iterator[Row]

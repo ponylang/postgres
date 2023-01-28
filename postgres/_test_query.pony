@@ -56,7 +56,7 @@ actor \nodoc\ _ResultsIncludeOriginatingQueryReceiver is
     end
 
     try
-      match result.rows().row(0)?.fields(0)?.value
+      match result.rows()(0)?.fields(0)?.value
       | let v: String =>
         if v != "525600" then
           _h.fail("Unexpected query results.")

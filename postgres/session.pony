@@ -106,6 +106,9 @@ class ref _SessionConnected is _AuthenticableState
   fun ref execute(s: Session ref, q: SimpleQuery, r: ResultReceiver) =>
     r.pg_query_failed(q, SessionNotAuthenticated)
 
+  fun ref on_shutdown(s: Session ref) =>
+    _readbuf.clear()
+
   fun user(): String =>
     _user
 
@@ -213,6 +216,19 @@ class _SessionLoggedIn is _AuthenticatedState
     else
       _Unreachable()
     end
+
+  fun ref on_shutdown(s: Session ref) =>
+    _readbuf.clear()
+    // TODO SEAN we need to test this happens correctly. Sending the
+    // notification of "failure" for open queries on shutdown.
+    // To do this, we need a dummy server that will accept the incoming query
+    // messages but never return a result thereby guaranteeing that any queries
+    // we send for the test should get a query failed AFTER a close is sent.
+    for queue_item in _query_queue.values() do
+      (let query, let receiver) = queue_item
+      receiver.pg_query_failed(query, SessionClosed)
+    end
+    _query_queue.clear()
 
   fun ref readbuf(): Reader =>
     _readbuf
@@ -352,12 +368,18 @@ trait _ConnectedState is _NotConnectableState
     shutdown(s)
 
   fun ref shutdown(s: Session ref) =>
-    s.state = _SessionClosed
-    readbuf().clear()
+    on_shutdown(s)
     s._connection().close()
     notify().pg_session_shutdown(s)
+    s.state = _SessionClosed
+
+  fun ref on_shutdown(s: Session ref) =>
+    """
+    Called on implementers to allow them to clear state when shutting down.
+    """
 
   fun ref readbuf(): Reader
+
   fun notify(): SessionStatusNotify
 
 trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
@@ -409,6 +431,7 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
 
   fun user(): String
   fun password(): String
+  fun ref readbuf(): Reader
   fun notify(): SessionStatusNotify
 
 trait _NotAuthenticableState

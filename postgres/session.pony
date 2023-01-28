@@ -164,7 +164,7 @@ class _SessionLoggedIn is _AuthenticatedState
     query queue while leaving it in place and inform the receiver of a success
     for at least one part of the query.
     """
-    // TODO SEAN should very query in flight
+    // TODO SEAN should check that a query is in flight
     try
       (let query, let receiver) = _query_queue(0)?
       let rows = _data_rows = recover iso
@@ -178,8 +178,7 @@ class _SessionLoggedIn is _AuthenticatedState
         receiver.pg_query_failed(query, FreeCandy)
       end
     else
-      // TODO SEAN unreachable
-      None
+      _Unreachable()
     end
 
   fun ref on_error_response(s: Session ref, msg: _ErrorResponseMessage) =>
@@ -188,8 +187,7 @@ class _SessionLoggedIn is _AuthenticatedState
       (let query, let receiver) = _query_queue(0)?
       receiver.pg_query_failed(query, FreeCandy)
     else
-      // TODO SEAN unreachable
-      None
+      _Unreachable()
     end
 
   fun ref on_data_row(s: Session ref, msg: _DataRowMessage) =>
@@ -218,8 +216,7 @@ class _SessionLoggedIn is _AuthenticatedState
         s._connection().send(msg)
       end
     else
-      // TODO SEAN unreachable
-      None
+      _Unreachable()
     end
 
   fun ref readbuf(): Reader =>

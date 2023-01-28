@@ -19,7 +19,7 @@ class val Rows
   fun values(): RowIterator =>
     """
     Returns an iterator over the rows.
-    ""
+    """
     RowIterator._create(_rows)
 
 class RowIterator is Iterator[Row]

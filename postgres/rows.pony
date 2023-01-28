@@ -1,8 +1,35 @@
 class val Rows
-  let rows: Array[Row] val
+  let _rows: Array[Row] val
 
   new val create(rows': Array[Row] val) =>
-    rows = rows'
+    _rows = rows'
+
+  fun size(): USize =>
+    _rows.size()
+
+  fun row(i: USize): Row ? =>
+    _rows(i)?
+
+  fun rows(): RowIterator =>
+    RowIterator._create(_rows)
+
+class RowIterator is Iterator[Row]
+  let _array: Array[Row] val
+  var _i: USize
+
+  new _create(array: Array[Row] val) =>
+    _array = array
+    _i = 0
+
+  fun has_next(): Bool =>
+    _i < _array.size()
+
+  fun ref next(): Row ? =>
+    _array(_i = _i + 1)?
+
+  fun ref rewind(): RowIterator =>
+    _i = 0
+    this
 
 // TODO need tests for all this
 primitive _RowsBuilder

@@ -49,14 +49,14 @@ actor \nodoc\ _ResultsIncludeOriginatingQueryReceiver is
       return
     end
 
-    if result.rows().rows.size() != 1 then
+    if result.rows().size() != 1 then
       _h.fail("Wrong number of result rows.")
       _h.complete(false)
       return
     end
 
     try
-      match result.rows().rows(0)?.fields(0)?.value
+      match result.rows().row(0)?.fields(0)?.value
       | let v: String =>
         if v != "525600" then
           _h.fail("Unexpected query results.")

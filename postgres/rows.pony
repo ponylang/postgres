@@ -52,7 +52,7 @@ primitive _RowsBuilder
         let desc = row_descriptions'(i)?
         let field_name = desc._1
         let field_type = desc._2
-        let field_value = field_to_type(v, field_type)?
+        let field_value = _field_to_type(v, field_type)?
         let field = Field(field_name, field_value)
         fields.push(field)
       end
@@ -60,7 +60,7 @@ primitive _RowsBuilder
     end
     Rows(consume rows)
 
-  fun field_to_type(field: (String | None), type_id: U32): FieldDataTypes ? =>
+  fun _field_to_type(field: (String | None), type_id: U32): FieldDataTypes ? =>
     match field
     | let f: String =>
       match type_id

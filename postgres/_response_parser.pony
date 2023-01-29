@@ -128,6 +128,7 @@ primitive _ResponseParser
     var code = ""
     var code_index: USize = 0
 
+    let builder = _ErrorResponseMessageBuilder
     while (payload(code_index)? > 0) do
       let field_type = payload(code_index)?
 
@@ -138,14 +139,31 @@ primitive _ResponseParser
           payload.slice(field_index, null_index)
         end)
 
-      if field_type == _ErrorResponseField.code() then
-        code = field_data
+      match field_type
+      | 'S' => builder.severity = field_data
+      | 'V' => builder.localized_severity = field_data
+      | 'C' => builder.code = field_data
+      | 'M' => builder.message = field_data
+      | 'D' => builder.detail = field_data
+      | 'H' => builder.hint = field_data
+      | 'P' => builder.position = field_data
+      | 'p' => builder.internal_position = field_data
+      | 'q' => builder.internal_query = field_data
+      | 'W' => builder.error_where = field_data
+      | 's' => builder.schema_name = field_data
+      | 't' => builder.table_name = field_data
+      | 'c' => builder.column_name = field_data
+      | 'd' => builder.data_type_name = field_data
+      | 'n' => builder.constraint_name = field_data
+      | 'F' => builder.file = field_data
+      | 'L' => builder.line = field_data
+      | 'R' => builder.line = field_data
       end
 
       code_index = null_index + 1
     end
 
-    _ErrorResponseMessage(code)
+    builder.build()?
 
   fun _data_row(payload: Array[U8] val): _DataRowMessage ? =>
     """

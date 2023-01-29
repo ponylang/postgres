@@ -102,15 +102,24 @@ class \nodoc\ iso _TestResponseParserErrorResponseMessage is UnitTest
     "ResponseParser/ErrorResponseMessage"
 
   fun apply(h: TestHelper) ? =>
+    let severity = "ERROR"
     let code = "7669"
-    let bytes = _IncomingErrorResponseTestMessage(code).bytes()
+    let message = "Who's gonna die when the old database dies?"
+    let bytes =
+      _IncomingErrorResponseTestMessage(severity, code, message).bytes()
     let r: Reader = Reader
     r.append(bytes)
 
     match _ResponseParser(r)?
     | let m: _ErrorResponseMessage =>
+      if m.severity != severity then
+        h.fail("Severity not correctly parsed.")
+      end
       if m.code != code then
         h.fail("Code not correctly parsed.")
+      end
+      if m.message != message then
+        h.fail("Message not correctly parsed.")
       end
     else
       h.fail("Wrong message returned.")
@@ -178,15 +187,23 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesErrorResponseFirst is UnitT
     "ResponseParser/MultipleMessages/ErrorResponseFirst"
 
   fun apply(h: TestHelper) ? =>
+    let severity = "ERROR"
     let code = "7669"
+    let message = "Who's gonna die when the old database dies?"
     let r: Reader = Reader
-    r.append(_IncomingErrorResponseTestMessage(code).bytes())
+    r.append(_IncomingErrorResponseTestMessage(severity, code, message).bytes())
     r.append(_IncomingAuthenticationOkTestMessage.bytes())
 
     match _ResponseParser(r)?
     | let m: _ErrorResponseMessage =>
+      if m.severity != severity then
+        h.fail("Severity not correctly parsed.")
+      end
       if m.code != code then
         h.fail("Code not correctly parsed.")
+      end
+      if m.message != message then
+        h.fail("Message not correctly parsed.")
       end
     else
       h.fail("Wrong message returned for first message.")
@@ -240,13 +257,24 @@ class \nodoc\ val _IncomingAuthenticationMD5PasswordTestMessage
 class \nodoc\ val _IncomingErrorResponseTestMessage
   let _bytes: Array[U8] val
 
-  new val create(code: String) =>
-    let payload_size = 4 + 1 + code.size() + 1 + 1
+  new val create(severity: String, code: String, message: String) =>
+    let payload_size = 4 +
+      1 + severity.size() + 1 +
+      1 + code.size() + 1 +
+      1 + message.size() + 1 +
+      1
+
     let wb: Writer = Writer
     wb.u8(_MessageType.error_response())
     wb.u32_be(payload_size.u32())
-    wb.u8(_ErrorResponseField.code())
+    wb.u8('S')
+    wb.write(severity)
+    wb.u8(0)
+    wb.u8('C')
     wb.write(code)
+    wb.u8(0)
+    wb.u8('M')
+    wb.write(message)
     wb.u8(0)
     wb.u8(0)
 

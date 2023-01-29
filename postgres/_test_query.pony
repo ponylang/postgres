@@ -292,16 +292,16 @@ actor \nodoc\ _QueryAfterSessionHasBeenClosedNotify is
       _h.complete(false)
     end
 
-_TestQueryOfNonExistantTable
+_TestQueryOfNonExistentTable
 
-class \nodoc\ iso _TestQueryOfNonExistantTable is UnitTest
+class \nodoc\ iso _TestQueryOfNonExistentTable is UnitTest
   fun name(): String =>
-    "integration/Query/OfNonExistantTable"
+    "integration/Query/OfNonExistentTable"
 
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let client = _NonExistantTableQueryReceiver(h)
+    let client = _NonExistentTableQueryReceiver(h)
 
     let session = Session(
       lori.TCPConnectAuth(h.env.root),
@@ -315,7 +315,7 @@ class \nodoc\ iso _TestQueryOfNonExistantTable is UnitTest
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
 
-actor \nodoc\ _NonExistantTableQueryReceiver is
+actor \nodoc\ _NonExistentTableQueryReceiver is
   ( SessionStatusNotify
   & ResultReceiver )
   let _h: TestHelper

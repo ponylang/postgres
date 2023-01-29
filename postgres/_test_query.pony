@@ -357,33 +357,38 @@ class \nodoc\ _TestCreateAndDropTable is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let client = _CreateAndDropTableClient(h, info)
+    let queries = recover iso
+      Array[SimpleQuery]
+        .>push(
+          SimpleQuery(
+            """
+            CREATE TABLE CreateAndDropTable (
+            fu VARCHAR(50) NOT NULL,
+            bar VARCHAR(50) NOT NULL
+            )
+            """))
+        .>push(SimpleQuery("DROP TABLE CreateAndDropTable"))
+    end
+
+    let client = _AllSuccessQueryRunningClient(h, info, consume queries)
 
     h.dispose_when_done(client)
     h.long_test(5_000_000_000)
 
-actor \nodoc\ _CreateAndDropTableClient is
+actor \nodoc\ _AllSuccessQueryRunningClient is
   ( SessionStatusNotify
   & ResultReceiver )
   let _h: TestHelper
-  let _create_query: SimpleQuery
-  let _drop_query: SimpleQuery
   let _queries: Array[SimpleQuery]
   let _session: Session
 
-  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+  new create(h: TestHelper,
+    info: _ConnectionTestConfiguration,
+    queries: Array[SimpleQuery] iso)
+  =>
     _h = h
-    _create_query = SimpleQuery(
-      """
-      CREATE TABLE CreateAndDropTable (
-        fu VARCHAR(50) NOT NULL,
-        bar VARCHAR(50) NOT NULL
-      )
-      """)
+    _queries = consume queries
 
-    _drop_query = SimpleQuery("DROP TABLE CreateAndDropTable")
-
-    _queries = Array[SimpleQuery].>push(_create_query).>push(_drop_query)
     _session = Session(
       lori.TCPConnectAuth(h.env.root),
       this,
@@ -394,7 +399,13 @@ actor \nodoc\ _CreateAndDropTableClient is
       info.database)
 
   be pg_session_authenticated(session: Session) =>
-    session.execute(_create_query, this)
+    try
+      let q = _queries(0)?
+      session.execute(q, this)
+    else
+      _h.fail("Unexpected failure trying to run first query.")
+      _h.complete(false)
+    end
 
   be pg_session_authentication_failed(
     s: Session,

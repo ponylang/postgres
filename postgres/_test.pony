@@ -15,6 +15,7 @@ actor \nodoc\ Main is TestList
     test(_TestAuthenticateFailure)
     test(_TestConnect)
     test(_TestConnectFailure)
+    test(_TestCreateAndDropTable)
     test(_TestHandlingJunkMessages)
     test(_TestMessagePassword)
     test(_TestMessageQuery)

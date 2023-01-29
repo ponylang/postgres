@@ -346,3 +346,81 @@ actor \nodoc\ _NonExistentTableQueryReceiver is
       _h.fail("Incorrect query paramter received.")
       _h.complete(false)
     end
+
+class \nodoc\ _TestCreateAndDropTable is UnitTest
+  """
+  Tests expecations around client API for creating a table and dropping a table.
+  """
+  fun name(): String =>
+    "integration/Query/CreateAndDropTable"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _CreateAndDropTableClient(h, info)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _CreateAndDropTableClient is
+  ( SessionStatusNotify
+  & ResultReceiver )
+  let _h: TestHelper
+  let _create_query: SimpleQuery
+  let _drop_query: SimpleQuery
+  let _queries: Array[SimpleQuery]
+  let _session: Session
+
+  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+    _h = h
+    _create_query = SimpleQuery(
+      """
+      CREATE TABLE CreateAndDropTable (
+        fu VARCHAR(50) NOT NULL,
+        bar VARCHAR(50) NOT NULL
+      )
+      """)
+
+    _drop_query = SimpleQuery("DROP TABLE CreateAndDropTable")
+
+    _queries = Array[SimpleQuery].>push(_create_query).>push(_drop_query)
+    _session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      this,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+  be pg_session_authenticated(session: Session) =>
+    session.execute(_create_query, this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to establish connection")
+    _h.complete(false)
+
+  be pg_query_result(result: Result) =>
+    try
+      let q = _queries.shift()?
+      if result.query() is q then
+        if _queries.size() > 0 then
+          _session.execute(_queries(0)?, this)
+        else
+          _h.complete(true)
+        end
+      end
+    else
+      _h.fail("Unexpected failure to validate query results.")
+      _h.complete(false)
+    end
+
+  be pg_query_failed(query: SimpleQuery, failure: QueryError) =>
+    _h.fail("Unexpected query failure.")
+    _h.complete(false)
+
+  be dispose() =>
+    _session.close()

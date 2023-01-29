@@ -95,10 +95,13 @@ primitive _ResponseParser
       // an error if we get an unexpected value.
       return _ReadyForQueryMessage(buffer.u8()?)
     | _MessageType.command_complete() =>
-      // TODO SEAN
-      // this will need tests
-      buffer.skip(message_size)?
-      return _CommandCompleteMessage
+      // TODO SEAN: this will need tests
+      // Slide past the header...
+      buffer.skip(5)?
+      // and only get the payload
+      let payload = buffer.block(payload_size)?
+      let id = String.from_array(consume payload)
+      return _CommandCompleteMessage(id)
     | _MessageType.data_row() =>
       // TODO needs tests
       // Slide past the header...

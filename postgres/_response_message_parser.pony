@@ -13,16 +13,13 @@ primitive _ResponseMessageParser
       | let msg: _DataRowMessage =>
         s.state.on_data_row(s, msg)
       | let err: _ErrorResponseMessage =>
-        if (err.code == _ErrorCode.invalid_password())
-          or (err.code == _ErrorCode.invalid_authentication_specification())
-        then
-          let reason = if err.code == _ErrorCode.invalid_password() then
-            InvalidPassword
-          else
-            InvalidAuthenticationSpecification
-          end
-
-          s.state.on_authentication_failed(s, reason)
+        match err.code
+        | "28000" =>
+          s.state.on_authentication_failed(s,
+            InvalidAuthenticationSpecification)
+          return
+        | "28P01" =>
+          s.state.on_authentication_failed(s, InvalidPassword)
           return
         else
           s.state.on_error_response(s, err)
@@ -39,7 +36,7 @@ primitive _ResponseMessageParser
       // An unrecoverable error was encountered while parsing. Once that
       // happens, there's no way we are going to be able to figure out how
       // to get the responses back into an understandable state. The only
-      // thing we can do is shut s session down.
+      // thing we can do is shut the session down.
 
       s.state.shutdown(s)
       return

@@ -12,10 +12,10 @@ type _ResponseParserResult is
   | _ErrorResponseMessage
   | _ReadyForQueryMessage
   | _RowDescriptionMessage
-  | UnsupportedMessage
+  | _UnsupportedMessage
   | None )
 
-primitive UnsupportedMessage
+primitive _UnsupportedMessage
 
 primitive _ResponseParser
   """
@@ -78,7 +78,7 @@ primitive _ResponseParser
         return _AuthenticationMD5PasswordMessage(salt)
       else
         buffer.skip(message_size)?
-        return UnsupportedMessage
+        return _UnsupportedMessage
       end
     | _MessageType.error_response() =>
       // Slide past the header...
@@ -118,7 +118,7 @@ primitive _ResponseParser
       return _row_description(consume payload)?
     else
       buffer.skip(message_size)?
-      return UnsupportedMessage
+      return _UnsupportedMessage
     end
 
   fun _error_response(payload: Array[U8] val): _ErrorResponseMessage ? =>

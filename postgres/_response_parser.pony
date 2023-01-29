@@ -91,9 +91,8 @@ primitive _ResponseParser
       buffer.skip(5)?
       // and only get the status indicator byte
       // TODO SEAN
-      // this needs a test for message and we should throw
-      // an error if we get an unexpected value.
-      return _ReadyForQueryMessage(buffer.u8()?)
+      // this needs a test
+      return _ready_for_query(buffer.u8()?)?
     | _MessageType.command_complete() =>
       // TODO SEAN: this will need tests
       // Slide past the header...
@@ -215,3 +214,13 @@ primitive _ResponseParser
     end
 
     _RowDescriptionMessage(consume columns)
+
+  fun _ready_for_query(status: U8): _ReadyForQueryMessage ? =>
+    if (status == 'I') or
+      (status == 'T') or
+      (status == 'E')
+    then
+      _ReadyForQueryMessage(status)
+    else
+      error
+    end

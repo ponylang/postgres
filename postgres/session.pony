@@ -122,9 +122,9 @@ class ref _SessionConnected is _AuthenticableState
     _notify
 
 // TODO SEAN
-// some of these callbacks assume we are "in a query" and we should be
-// blowing up if we aren't. An additional level of state machine for query is
-// probably needed.
+// some of these callbacks have if statements for if we are "in query", should
+// add an additional level of state machine for query state of "in flight" or
+// "no query in flight"
 class _SessionLoggedIn is _AuthenticatedState
   var _queryable: Bool = false
   var _query_in_flight: Bool = false
@@ -162,35 +162,50 @@ class _SessionLoggedIn is _AuthenticatedState
     query queue while leaving it in place and inform the receiver of a success
     for at least one part of the query.
     """
-    // TODO SEAN should check that a query is in flight
-    try
-      (let query, let receiver) = _query_queue(0)?
-      let rows = _data_rows = recover iso
-        Array[Array[(String|None)] val].create()
-      end
-
+    if _query_in_flight then
       try
-        let rows_object = _RowsBuilder(consume rows, _row_description)?
-        receiver.pg_query_result(Result(query, rows_object))
+        (let query, let receiver) = _query_queue(0)?
+        let rows = _data_rows = recover iso
+          Array[Array[(String|None)] val].create()
+        end
+
+        try
+          let rows_object = _RowsBuilder(consume rows, _row_description)?
+          receiver.pg_query_result(Result(query, rows_object))
+        else
+          receiver.pg_query_failed(query, FreeCandy)
+        end
       else
-        receiver.pg_query_failed(query, FreeCandy)
+        _Unreachable()
       end
     else
-      _Unreachable()
+      // This should never happen. If it does, something has gone horribly
+      // and we need to shutdown.
+      shutdown(s)
     end
 
   fun ref on_error_response(s: Session ref, msg: _ErrorResponseMessage) =>
-    // TODO SEAN we should verify query in flight
-    try
-      (let query, let receiver) = _query_queue(0)?
-      receiver.pg_query_failed(query, FreeCandy)
+    if _query_in_flight then
+      try
+        (let query, let receiver) = _query_queue(0)?
+        receiver.pg_query_failed(query, FreeCandy)
+      else
+        _Unreachable()
+      end
     else
-      _Unreachable()
+      // This should never happen. If it does, something has gone horribly
+      // and we need to shutdown.
+      shutdown(s)
     end
 
   fun ref on_data_row(s: Session ref, msg: _DataRowMessage) =>
-    // TODO SEAN we should verify query in flight
-    _data_rows.push(msg.columns)
+    if _query_in_flight then
+      _data_rows.push(msg.columns)
+    else
+      // This should never happen. If it does, something has gone horribly
+      // and we need to shutdown.
+      shutdown(s)
+    end
 
   fun ref execute(s: Session ref,
     query: SimpleQuery,
@@ -200,9 +215,14 @@ class _SessionLoggedIn is _AuthenticatedState
     _run_query(s)
 
   fun ref on_row_description(s: Session ref, msg: _RowDescriptionMessage) =>
-    // TODO SEAN we should verify query in flight
     // TODO we should very that only get 1 of these per in flight query
-    _row_description = msg.columns
+    if _query_in_flight then
+      _row_description = msg.columns
+    else
+      // This should never happen. If it does, something has gone horribly
+      // and we need to shutdown.
+      shutdown(s)
+    end
 
   fun ref _run_query(s: Session ref) =>
     try

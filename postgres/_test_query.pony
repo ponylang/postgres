@@ -349,7 +349,8 @@ actor \nodoc\ _NonExistentTableQueryReceiver is
 
 class \nodoc\ _TestCreateAndDropTable is UnitTest
   """
-  Tests expecations around client API for creating a table and dropping a table.
+  Tests expectations around client API for creating a table and dropping a
+  table.
   """
   fun name(): String =>
     "integration/Query/CreateAndDropTable"
@@ -368,6 +369,40 @@ class \nodoc\ _TestCreateAndDropTable is UnitTest
             )
             """))
         .>push(SimpleQuery("DROP TABLE CreateAndDropTable"))
+    end
+
+    let client = _AllSuccessQueryRunningClient(h, info, consume queries)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+class \nodoc\ _TestInsertAndDelete is UnitTest
+  """
+  Tests expectations around client API for creating inserting records into a
+  table and then deleting them.
+  """
+  fun name(): String =>
+    "integration/Query/InsertAndDelete"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let queries = recover iso
+      Array[SimpleQuery]
+        .>push(
+          SimpleQuery(
+            """
+            CREATE TABLE i_and_d (
+            fu VARCHAR(50) NOT NULL,
+            bar VARCHAR(50) NOT NULL
+            )
+            """))
+        .>push(SimpleQuery(
+          "INSERT INTO i_and_d (fu, bar) VALUES ('fu', 'bar')"))
+        .>push(SimpleQuery(
+          "INSERT INTO i_and_d (fu, bar) VALUES('pony', 'lang')"))
+        .>push(SimpleQuery("DELETE FROM i_and_d"))
+        .>push(SimpleQuery("DROP TABLE i_and_d"))
     end
 
     let client = _AllSuccessQueryRunningClient(h, info, consume queries)
@@ -430,7 +465,7 @@ actor \nodoc\ _AllSuccessQueryRunningClient is
     end
 
   be pg_query_failed(query: SimpleQuery, failure: QueryError) =>
-    _h.fail("Unexpected query failure.")
+    _h.fail("Unexpected for query: " + query.string)
     _h.complete(false)
 
   be dispose() =>

@@ -170,6 +170,17 @@ class _SessionLoggedIn is _AuthenticatedState
         end
 
         try
+          // TODO SEAN
+          // there are a number of possibilities here.
+          // we have row description but not rows. that's an error.
+          // we have rows but no row description. that's an error.
+          // we have rows and row description but the command isn't a "SELECT"
+          //   or similar command. that's an error.
+          // we have a select with proper data
+          // we have a command that has no rows and the id contains number of
+          //   rows impacted
+          // we have a command that has no rows and the id doesn't contain the
+          //   number of rows impacted
           let rows_object = _RowsBuilder(consume rows, _row_description)?
           receiver.pg_query_result(Result(query, rows_object))
         else

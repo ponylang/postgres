@@ -184,7 +184,7 @@ class _SessionLoggedIn is _AuthenticatedState
           // we have a command that has no rows and the id doesn't contain the
           //   number of rows impacted
           let rows_object = _RowsBuilder(consume rows, _row_description)?
-          receiver.pg_query_result(Result(query, rows_object))
+          receiver.pg_query_result(ResultSet(query, rows_object))
         else
           receiver.pg_query_failed(query, DataError)
         end
@@ -204,11 +204,7 @@ class _SessionLoggedIn is _AuthenticatedState
       //   if we do.
       try
         (let query, let receiver) = _query_queue(0)?
-        // TODO SEAN: this should return a special type rather than an empty
-        //   set of rows.
-        let rows = Rows(recover val Array[Row val] end)
-        let r = Result(query, rows)
-        receiver.pg_query_result(r)
+        receiver.pg_query_result(SimpleResult(query))
       else
         _Unreachable()
       end

@@ -215,7 +215,7 @@ class _SessionLoggedIn is _AuthenticatedState
     _run_query(s)
 
   fun ref on_row_description(s: Session ref, msg: _RowDescriptionMessage) =>
-    // TODO we should very that only get 1 of these per in flight query
+    // TODO we should verify that only get 1 of these per in flight query
     if _query_in_flight then
       _row_description = msg.columns
     else

@@ -9,6 +9,7 @@ type _ResponseParserResult is
   ( _AuthenticationMessages
   | _CommandCompleteMessage
   | _DataRowMessage
+  | _EmptyQueryResponseMessage
   | _ReadyForQueryMessage
   | _RowDescriptionMessage
   | _UnsupportedMessage
@@ -115,6 +116,12 @@ primitive _ResponseParser
       // and only get the payload
       let payload = buffer.block(payload_size)?
       return _row_description(consume payload)?
+    | _MessageType.empty_query_response() =>
+      // TODO needs tests
+      // Slide past the header...
+      buffer.skip(5)?
+      // and there's nothing else
+      return _EmptyQueryResponseMessage
     else
       buffer.skip(message_size)?
       return _UnsupportedMessage

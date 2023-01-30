@@ -125,6 +125,8 @@ class ref _SessionConnected is _AuthenticableState
 // some of these callbacks have if statements for if we are "in query", should
 // add an additional level of state machine for query state of "in flight" or
 // "no query in flight"
+// Also need to handle things like "row data" arrives after "command complete"
+// etc where message ordering is violated in an unexpected way.
 class _SessionLoggedIn is _AuthenticatedState
   var _queryable: Bool = false
   var _query_in_flight: Bool = false
@@ -186,6 +188,27 @@ class _SessionLoggedIn is _AuthenticatedState
         else
           receiver.pg_query_failed(query, DataError)
         end
+      else
+        _Unreachable()
+      end
+    else
+      // This should never happen. If it does, something has gone horribly
+      // and we need to shutdown.
+      shutdown(s)
+    end
+
+  fun ref on_empty_query_response(s: Session ref) =>
+    if _query_in_flight then
+      // TODO SEAN
+      // we should never have any rows or row description, that's an error
+      //   if we do.
+      try
+        (let query, let receiver) = _query_queue(0)?
+        // TODO SEAN: this should return a special type rather than an empty
+        //   set of rows.
+        let rows = Rows(recover val Array[Row val] end)
+        let r = Result(query, rows)
+        receiver.pg_query_result(r)
       else
         _Unreachable()
       end
@@ -326,7 +349,12 @@ interface _SessionState
 
     Queries that resulted in a error will not have "command complete" sent.
     """
-
+  fun ref on_empty_query_response(s: Session ref)
+    """
+    Called when the server has completed running an individual command that was
+    an empty query. This is effectively "command complete" but for the special
+    case of "empty query".
+    """
   fun ref on_error_response(s: Session ref, msg: ErrorResponseMessage)
     """
     Called when the server has encountered an error. Not all errors are called
@@ -496,6 +524,9 @@ trait _NotAuthenticated
     _IllegalState()
 
   fun ref on_data_row(s: Session ref, msg: _DataRowMessage) =>
+    _IllegalState()
+
+  fun ref on_empty_query_response(s: Session ref) =>
     _IllegalState()
 
   fun ref on_error_response(s: Session ref, msg: ErrorResponseMessage) =>

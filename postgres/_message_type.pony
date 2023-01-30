@@ -13,6 +13,9 @@ primitive _MessageType
   fun data_row(): U8 =>
     'D'
 
+  fun empty_query_response(): U8 =>
+    'I'
+
   fun error_response(): U8 =>
     'E'
 

@@ -485,3 +485,59 @@ actor \nodoc\ _AllSuccessQueryRunningClient is
 
   be dispose() =>
     _session.close()
+
+class \nodoc\ iso _TestEmptyQuery is UnitTest
+  fun name(): String =>
+    "integration/Query/EmptyQuery"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _EmptyQueryReceiver(h)
+
+    let session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      client,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+    h.dispose_when_done(session)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _EmptyQueryReceiver is
+  ( SessionStatusNotify
+  & ResultReceiver )
+  let _h: TestHelper
+  let _query: SimpleQuery
+
+  new create(h: TestHelper) =>
+    _h = h
+    _query = SimpleQuery("")
+
+  be pg_session_authenticated(session: Session) =>
+    session.execute(_query, this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to establish connection")
+    _h.complete(false)
+
+  be pg_query_result(result: Result) =>
+    if result.query() isnt _query then
+      _h.fail("Query in result isn't the expected query.")
+      _h.complete(false)
+      return
+    end
+
+    _h.complete(true)
+
+  be pg_query_failed(query: SimpleQuery,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure")
+    _h.complete(false)

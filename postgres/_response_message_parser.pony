@@ -28,6 +28,8 @@ primitive _ResponseMessageParser
         s.state.on_ready_for_query(s, msg)
       | let msg: _RowDescriptionMessage =>
         s.state.on_row_description(s, msg)
+      | let msg: _EmptyQueryResponseMessage =>
+        s.state.on_empty_query_response(s)
       | None =>
         // No complete message was found. Stop parsing for now.
         return

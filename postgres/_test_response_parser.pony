@@ -111,7 +111,7 @@ class \nodoc\ iso _TestResponseParserErrorResponseMessage is UnitTest
     r.append(bytes)
 
     match _ResponseParser(r)?
-    | let m: _ErrorResponseMessage =>
+    | let m: ErrorResponseMessage =>
       if m.severity != severity then
         h.fail("Severity not correctly parsed.")
       end
@@ -195,7 +195,7 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesErrorResponseFirst is UnitT
     r.append(_IncomingAuthenticationOkTestMessage.bytes())
 
     match _ResponseParser(r)?
-    | let m: _ErrorResponseMessage =>
+    | let m: ErrorResponseMessage =>
       if m.severity != severity then
         h.fail("Severity not correctly parsed.")
       end

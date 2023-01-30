@@ -47,7 +47,9 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     // We got a result which for our example program is our trigger to shutdown.
     close()
 
-  be pg_query_failed(query: SimpleQuery, failure: QueryError) =>
+  be pg_query_failed(query: SimpleQuery,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
     _out.print("Query failed.")
     // Our example program is failing, we want to exit so, let's shut down the
     // connection.

@@ -173,7 +173,7 @@ class _SessionLoggedIn is _AuthenticatedState
           let rows_object = _RowsBuilder(consume rows, _row_description)?
           receiver.pg_query_result(Result(query, rows_object))
         else
-          receiver.pg_query_failed(query, FreeCandy)
+          receiver.pg_query_failed(query, DataError)
         end
       else
         _Unreachable()
@@ -184,11 +184,11 @@ class _SessionLoggedIn is _AuthenticatedState
       shutdown(s)
     end
 
-  fun ref on_error_response(s: Session ref, msg: _ErrorResponseMessage) =>
+  fun ref on_error_response(s: Session ref, msg: ErrorResponseMessage) =>
     if _query_in_flight then
       try
         (let query, let receiver) = _query_queue(0)?
-        receiver.pg_query_failed(query, FreeCandy)
+        receiver.pg_query_failed(query, msg)
       else
         _Unreachable()
       end
@@ -316,7 +316,7 @@ interface _SessionState
     Queries that resulted in a error will not have "command complete" sent.
     """
 
-  fun ref on_error_response(s: Session ref, msg: _ErrorResponseMessage)
+  fun ref on_error_response(s: Session ref, msg: ErrorResponseMessage)
     """
     Called when the server has encountered an error. Not all errors are called
     using this callback. For example, we intercept authorization errors and
@@ -487,7 +487,7 @@ trait _NotAuthenticated
   fun ref on_data_row(s: Session ref, msg: _DataRowMessage) =>
     _IllegalState()
 
-  fun ref on_error_response(s: Session ref, msg: _ErrorResponseMessage) =>
+  fun ref on_error_response(s: Session ref, msg: ErrorResponseMessage) =>
     _IllegalState()
 
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage) =>

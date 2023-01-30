@@ -323,7 +323,9 @@ actor \nodoc\ _DoesntAnswerClient is (SessionStatusNotify & ResultReceiver)
     _h.fail("Unexpectedly got a result for a query.")
     _h.complete(false)
 
-  be pg_query_failed(query: SimpleQuery, failure: QueryError) =>
+  be pg_query_failed(query: SimpleQuery,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
     if _in_flight_queries.contains(query) then
       match failure
       | SessionClosed =>

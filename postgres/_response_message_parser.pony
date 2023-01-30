@@ -12,7 +12,7 @@ primitive _ResponseMessageParser
         s.state.on_command_complete(s, msg)
       | let msg: _DataRowMessage =>
         s.state.on_data_row(s, msg)
-      | let err: _ErrorResponseMessage =>
+      | let err: ErrorResponseMessage =>
         match err.code
         | "28000" =>
           s.state.on_authentication_failed(s,

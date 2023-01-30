@@ -9,10 +9,10 @@ type _ResponseParserResult is
   ( _AuthenticationMessages
   | _CommandCompleteMessage
   | _DataRowMessage
-  | _ErrorResponseMessage
   | _ReadyForQueryMessage
   | _RowDescriptionMessage
   | _UnsupportedMessage
+  | ErrorResponseMessage
   | None )
 
 primitive _UnsupportedMessage
@@ -120,7 +120,7 @@ primitive _ResponseParser
       return _UnsupportedMessage
     end
 
-  fun _error_response(payload: Array[U8] val): _ErrorResponseMessage ? =>
+  fun _error_response(payload: Array[U8] val): ErrorResponseMessage ? =>
     """
     Parse error response messages.
     """

@@ -1,4 +1,4 @@
-class val _ErrorResponseMessage
+class val ErrorResponseMessage
   let severity: String
   let localized_severity: (String | None)
   let code: String
@@ -79,13 +79,13 @@ class _ErrorResponseMessageBuilder
   new create() =>
     None
 
-  fun ref build(): _ErrorResponseMessage ? =>
+  fun ref build(): ErrorResponseMessage ? =>
     // Three fields are required to build. All others are optional.
     let s = severity as String
     let c = code as String
     let m = message as String
 
-    _ErrorResponseMessage(s,
+    ErrorResponseMessage(s,
       localized_severity,
       c,
       m,

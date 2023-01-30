@@ -76,7 +76,9 @@ actor \nodoc\ _ResultsIncludeOriginatingQueryReceiver is
 
     _h.complete(true)
 
-  be pg_query_failed(query: SimpleQuery, failure: QueryError) =>
+  be pg_query_failed(query: SimpleQuery,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
     _h.fail("Unexpected query failure")
     _h.complete(false)
 
@@ -126,7 +128,9 @@ actor \nodoc\ _QueryAfterAuthenticationFailureNotify is
     _h.fail("Unexpected query result received")
     _h.complete(false)
 
-  be pg_query_failed(query: SimpleQuery, failure: QueryError) =>
+  be pg_query_failed(query: SimpleQuery,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
     if (query is _query) and (failure is SessionClosed) then
       _h.complete(true)
     else
@@ -177,7 +181,9 @@ actor \nodoc\ _QueryAfterConnectionFailureNotify is
     _h.fail("Unexpected query result received")
     _h.complete(false)
 
-  be pg_query_failed(query: SimpleQuery, failure: QueryError) =>
+  be pg_query_failed(query: SimpleQuery,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
     if (query is _query) and (failure is SessionClosed) then
       _h.complete(true)
     else
@@ -230,7 +236,9 @@ actor \nodoc\ _QueryBeforeAuthenticationNotify is
     _h.fail("Unexpected query result received")
     _h.complete(false)
 
-  be pg_query_failed(query: SimpleQuery, failure: QueryError) =>
+  be pg_query_failed(query: SimpleQuery,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
     if (query is _query) and (failure is SessionNotAuthenticated) then
       _h.complete(true)
     else
@@ -285,7 +293,9 @@ actor \nodoc\ _QueryAfterSessionHasBeenClosedNotify is
     _h.fail("Unexpected query result received")
     _h.complete(false)
 
-  be pg_query_failed(query: SimpleQuery, failure: QueryError) =>
+  be pg_query_failed(query: SimpleQuery,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
     if (query is _query) and (failure is SessionClosed) then
       _h.complete(true)
     else
@@ -339,7 +349,10 @@ actor \nodoc\ _NonExistentTableQueryReceiver is
     _h.fail("Query unexpectedly succeeded.")
     _h.complete(false)
 
-  be pg_query_failed(query: SimpleQuery, failure: QueryError) =>
+  be pg_query_failed(query: SimpleQuery,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    // TODO enhance this by checking the failure
     if query is _query then
       _h.complete(true)
     else
@@ -464,7 +477,9 @@ actor \nodoc\ _AllSuccessQueryRunningClient is
       _h.complete(false)
     end
 
-  be pg_query_failed(query: SimpleQuery, failure: QueryError) =>
+  be pg_query_failed(query: SimpleQuery,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
     _h.fail("Unexpected for query: " + query.string)
     _h.complete(false)
 

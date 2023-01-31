@@ -7,12 +7,12 @@ type _AuthenticationMessages is
 
 type _ResponseParserResult is
   ( _AuthenticationMessages
-  | _CommandCompleteMessage
   | _DataRowMessage
   | _EmptyQueryResponseMessage
   | _ReadyForQueryMessage
   | _RowDescriptionMessage
   | _UnsupportedMessage
+  | CommandCompleteMessage
   | ErrorResponseMessage
   | None )
 
@@ -99,9 +99,10 @@ primitive _ResponseParser
       // Slide past the header...
       buffer.skip(5)?
       // and only get the payload
-      let payload = buffer.block(payload_size)?
-      let id = String.from_array(consume payload)
-      return _CommandCompleteMessage(id)
+      let payload = buffer.block(payload_size - 1)?
+      // And skip the null terminator
+      buffer.skip(1)?
+      return _command_complete(consume payload)?
     | _MessageType.data_row() =>
       // TODO needs tests
       // Slide past the header...
@@ -230,4 +231,43 @@ primitive _ResponseParser
       _ReadyForQueryMessage(status)
     else
       error
+    end
+
+  // TODO SEAN this needs tests for known expected types from docs plus
+  // DROP TABLE & CREATE TABLE
+  fun _command_complete(payload: Array[U8] val): CommandCompleteMessage ? =>
+    """
+    Parse a command complete message
+    """
+    let id = String.from_array(payload)
+    let parts = id.split(" ")
+    match parts.size()
+    | 1 =>
+      CommandCompleteMessage(parts(0)?, 0)
+    | 2 =>
+        let first = parts(0)?
+        let second = parts(1)?
+        try
+          let value = second.u64()?.usize()
+          CommandCompleteMessage(first, value)
+        else
+          CommandCompleteMessage(id, 0)
+        end
+    | 3 =>
+      if parts(0)? == "INSERT" then
+        CommandCompleteMessage(parts(0)?, parts(2)?.u64()?.usize())
+      else
+        let first = parts(0)?
+        let second = parts(1)?
+        let third = parts(2)?
+        let id' = recover val " ".join([first; second].values()) end
+        try
+          let value = third.u64()?.usize()
+          CommandCompleteMessage(id', value)
+        else
+          CommandCompleteMessage(id', 0)
+        end
+      end
+    else
+      CommandCompleteMessage(id, 0)
     end

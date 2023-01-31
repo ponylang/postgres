@@ -4,16 +4,24 @@ trait val Result
 class val ResultSet is Result
   let _query: SimpleQuery
   let _rows: Rows
+  let _command: CommandCompleteMessage
 
-  new val create(query': SimpleQuery, rows': Rows) =>
+  new val create(query': SimpleQuery,
+    rows': Rows,
+    command': CommandCompleteMessage)
+  =>
     _query = query'
     _rows = rows'
+    _command = command'
 
   fun query(): SimpleQuery =>
     _query
 
   fun rows(): Rows =>
     _rows
+
+  fun command(): CommandCompleteMessage =>
+    _command
 
 class val SimpleResult is Result
   let _query: SimpleQuery
@@ -26,14 +34,14 @@ class val SimpleResult is Result
 
 class val RowModifying is Result
   let _query: SimpleQuery
-  let _impacted: USize
+  let _command: CommandCompleteMessage
 
-  new val create(query': SimpleQuery, impacted': USize) =>
+  new val create(query': SimpleQuery, command': CommandCompleteMessage) =>
     _query = query'
-    _impacted = impacted'
+    _command = command'
 
   fun query(): SimpleQuery =>
     _query
 
-  fun impacted(): USize =>
-    _impacted
+  fun command(): CommandCompleteMessage =>
+    _command

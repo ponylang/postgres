@@ -8,7 +8,7 @@ primitive _ResponseMessageParser
         s.state.on_authentication_md5_password(s, msg)
       | _AuthenticationOkMessage =>
         s.state.on_authentication_ok(s)
-      | let msg: _CommandCompleteMessage =>
+      | let msg: CommandCompleteMessage =>
         s.state.on_command_complete(s, msg)
       | let msg: _DataRowMessage =>
         s.state.on_data_row(s, msg)

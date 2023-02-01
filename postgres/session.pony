@@ -157,7 +157,7 @@ class _SessionLoggedIn is _AuthenticatedState
       _queryable = false
     end
 
-  fun ref on_command_complete(s: Session ref, msg: CommandCompleteMessage) =>
+  fun ref on_command_complete(s: Session ref, msg: _CommandCompleteMessage) =>
     """
     A command has completed, that might mean the active is query is done. At
     this point we don't know. We grab the active query from the head of the
@@ -185,9 +185,9 @@ class _SessionLoggedIn is _AuthenticatedState
           //   number of rows impacted
           if rows.size() > 0 then
             let rows_object = _RowsBuilder(consume rows, _row_description)?
-            receiver.pg_query_result(ResultSet(query, rows_object, msg))
+            receiver.pg_query_result(ResultSet(query, rows_object, msg.id))
           else
-            receiver.pg_query_result(RowModifying(query, msg))
+            receiver.pg_query_result(RowModifying(query, msg.id, msg.value))
           end
         else
           receiver.pg_query_failed(query, DataError)
@@ -338,7 +338,7 @@ interface _SessionState
     Called to process responses we've received from the server after the data
     has been parsed into messages.
     """
-  fun ref on_command_complete(s: Session ref, msg: CommandCompleteMessage)
+  fun ref on_command_complete(s: Session ref, msg: _CommandCompleteMessage)
     """
     Called when the server has completed running an individual command. If a
     query was a single command, this will be followed by "ready for query". If
@@ -520,7 +520,7 @@ trait _NotAuthenticated
   A session that has yet to be authenticated. Before being authenticated, then
   all "query related" commands should not be received.
   """
-  fun ref on_command_complete(s: Session ref, msg: CommandCompleteMessage) =>
+  fun ref on_command_complete(s: Session ref, msg: _CommandCompleteMessage) =>
     _IllegalState()
 
   fun ref on_data_row(s: Session ref, msg: _DataRowMessage) =>

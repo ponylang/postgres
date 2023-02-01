@@ -7,12 +7,12 @@ type _AuthenticationMessages is
 
 type _ResponseParserResult is
   ( _AuthenticationMessages
+  | _CommandCompleteMessage
   | _DataRowMessage
   | _EmptyQueryResponseMessage
   | _ReadyForQueryMessage
   | _RowDescriptionMessage
   | _UnsupportedMessage
-  | CommandCompleteMessage
   | ErrorResponseMessage
   | None )
 
@@ -235,7 +235,7 @@ primitive _ResponseParser
 
   // TODO SEAN this needs tests for known expected types from docs plus
   // DROP TABLE & CREATE TABLE
-  fun _command_complete(payload: Array[U8] val): CommandCompleteMessage ? =>
+  fun _command_complete(payload: Array[U8] val): _CommandCompleteMessage ? =>
     """
     Parse a command complete message
     """
@@ -243,19 +243,19 @@ primitive _ResponseParser
     let parts = id.split(" ")
     match parts.size()
     | 1 =>
-      CommandCompleteMessage(parts(0)?, 0)
+      _CommandCompleteMessage(parts(0)?, 0)
     | 2 =>
         let first = parts(0)?
         let second = parts(1)?
         try
           let value = second.u64()?.usize()
-          CommandCompleteMessage(first, value)
+          _CommandCompleteMessage(first, value)
         else
-          CommandCompleteMessage(id, 0)
+          _CommandCompleteMessage(id, 0)
         end
     | 3 =>
       if parts(0)? == "INSERT" then
-        CommandCompleteMessage(parts(0)?, parts(2)?.u64()?.usize())
+        _CommandCompleteMessage(parts(0)?, parts(2)?.u64()?.usize())
       else
         let first = parts(0)?
         let second = parts(1)?
@@ -263,11 +263,11 @@ primitive _ResponseParser
         let id' = recover val " ".join([first; second].values()) end
         try
           let value = third.u64()?.usize()
-          CommandCompleteMessage(id', value)
+          _CommandCompleteMessage(id', value)
         else
-          CommandCompleteMessage(id', 0)
+          _CommandCompleteMessage(id', 0)
         end
       end
     else
-      CommandCompleteMessage(id, 0)
+      _CommandCompleteMessage(id, 0)
     end

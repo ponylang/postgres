@@ -284,6 +284,25 @@ class \nodoc\ iso _TestResponseParserReadyForQueryMessage is UnitTest
 
       _ResponseParser(r)? })
 
+class \nodoc\ iso _TestResponseParserEmptyQueryResponseMessage is UnitTest
+  """
+  Test that we parse incoming empty query response messages correctly.
+  """
+  fun name(): String =>
+    "ResponseParser/EmptyQueryResponseMessage"
+
+  fun apply(h: TestHelper) ? =>
+    let bytes = _IncomingEmptyQueryResponseTestMessage.bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    match _ResponseParser(r)?
+    | let m: _EmptyQueryResponseMessage =>
+      // All good!
+      None
+    else
+      h.fail("Wrong message returned.")
+    end
+
 class \nodoc\ val _IncomingAuthenticationOkTestMessage
     let _bytes: Array[U8] val
 
@@ -395,6 +414,25 @@ class \nodoc\ val _IncomingReadyForQueryTestMessage
     wb.u8(_MessageType.ready_for_query())
     wb.u32_be(5)
     wb.u8(status)
+
+    _bytes = recover val
+      let out = Array[U8]
+      for b in wb.done().values() do
+        out.append(b)
+      end
+      out
+    end
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingEmptyQueryResponseTestMessage
+  let _bytes: Array[U8] val
+
+  new val create() =>
+    let wb: Writer = Writer
+    wb.u8(_MessageType.empty_query_response())
+    wb.u32_be(4)
 
     _bytes = recover val
       let out = Array[U8]

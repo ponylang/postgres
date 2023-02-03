@@ -31,7 +31,7 @@ primitive _ResponseParser
     // The minimum size for any complete message is 6. If we have less than
     // 6 received bytes buffered than there is no point to continuing as we
     // definitely don't have a full message.
-    if buffer.size() < 6 then
+    if buffer.size() < 5 then
       return None
     end
 
@@ -116,7 +116,6 @@ primitive _ResponseParser
       let payload = buffer.block(payload_size)?
       return _row_description(consume payload)?
     | _MessageType.empty_query_response() =>
-      // TODO needs tests
       // Slide past the header...
       buffer.skip(5)?
       // and there's nothing else

@@ -91,8 +91,6 @@ primitive _ResponseParser
       // Slide past the header...
       buffer.skip(5)?
       // and only get the status indicator byte
-      // TODO SEAN
-      // this needs a test
       return _ready_for_query(buffer.u8()?)?
     | _MessageType.command_complete() =>
       // TODO SEAN: this will need tests

@@ -213,25 +213,96 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesErrorResponseFirst is UnitT
       h.fail("Wrong message returned for second message.")
     end
 
-class \nodoc\ val _IncomingAuthenticationOkTestMessage
-  let _bytes: Array[U8] val
+class \nodoc\ iso _TestResponseParserReadyForQueryMessage is UnitTest
+  """
+  Test that we parse incoming ready for query messages correctly.
+  """
+  fun name(): String =>
+    "ResponseParser/ReadyForQueryMessage"
 
-  new val create() =>
-    let wb: Writer = Writer
-    wb.u8(_MessageType.authentication_request())
-    wb.u32_be(8)
-    wb.i32_be(_AuthenticationRequestType.ok())
+  fun apply(h: TestHelper) ? =>
+    _idle_test(h)?
+    _in_transaction_block_test(h)?
+    _failed_transaction_test(h)?
+    _bunk(h)
 
-    _bytes = recover val
-      let out = Array[U8]
-      for b in wb.done().values() do
-        out.append(b)
+  fun _idle_test(h: TestHelper) ? =>
+    let s: U8 = 'I'
+    let bytes =
+      _IncomingReadyForQueryTestMessage(s).bytes()
+    let r: Reader = Reader
+    r.append(bytes)
+
+    match _ResponseParser(r)?
+    | let m: _ReadyForQueryMessage =>
+      if not m.idle() then
+        h.fail("Incorrect status.")
       end
-      out
+    else
+      h.fail("Wrong message returned.")
     end
 
-  fun bytes(): Array[U8] val =>
-    _bytes
+  fun _in_transaction_block_test(h: TestHelper) ? =>
+    let s: U8 = 'T'
+    let bytes =
+      _IncomingReadyForQueryTestMessage(s).bytes()
+    let r: Reader = Reader
+    r.append(bytes)
+
+    match _ResponseParser(r)?
+    | let m: _ReadyForQueryMessage =>
+      if not m.in_transaction_block() then
+        h.fail("Incorrect status.")
+      end
+    else
+      h.fail("Wrong message returned.")
+    end
+
+  fun _failed_transaction_test(h: TestHelper) ? =>
+    let s: U8 = 'E'
+    let bytes =
+      _IncomingReadyForQueryTestMessage(s).bytes()
+    let r: Reader = Reader
+    r.append(bytes)
+
+    match _ResponseParser(r)?
+    | let m: _ReadyForQueryMessage =>
+      if not m.failed_transaction() then
+        h.fail("Incorrect status.")
+      end
+    else
+      h.fail("Wrong message returned.")
+    end
+
+  fun _bunk(h: TestHelper) =>
+    h.assert_error({() ? =>
+      let s: U8 = 'A'
+      let bytes =
+        _IncomingReadyForQueryTestMessage(s).bytes()
+      let r: Reader = Reader
+      r.append(bytes)
+
+      _ResponseParser(r)? })
+
+class \nodoc\ val _IncomingAuthenticationOkTestMessage
+    let _bytes: Array[U8] val
+
+    new val create() =>
+      let wb: Writer = Writer
+      wb.u8(_MessageType.authentication_request())
+      wb.u32_be(8)
+      wb.i32_be(_AuthenticationRequestType.ok())
+
+      _bytes = recover val
+        let out = Array[U8]
+        for b in wb.done().values() do
+          out.append(b)
+        end
+        out
+      end
+
+    fun bytes(): Array[U8] val =>
+      _bytes
 
 class \nodoc\ val _IncomingAuthenticationMD5PasswordTestMessage
   let _bytes: Array[U8] val
@@ -304,6 +375,26 @@ class \nodoc\ val _IncomingJunkTestMessage
     for i in Range(0, 100_000) do
       wb.u32_be(rand.u32())
     end
+
+    _bytes = recover val
+      let out = Array[U8]
+      for b in wb.done().values() do
+        out.append(b)
+      end
+      out
+    end
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingReadyForQueryTestMessage
+  let _bytes: Array[U8] val
+
+  new val create(status: U8) =>
+    let wb: Writer = Writer
+    wb.u8(_MessageType.ready_for_query())
+    wb.u32_be(5)
+    wb.u8(status)
 
     _bytes = recover val
       let out = Array[U8]

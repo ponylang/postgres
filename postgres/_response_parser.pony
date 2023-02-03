@@ -28,8 +28,8 @@ primitive _ResponseParser
   be shut down in response.
   """
   fun apply(buffer: Reader): _ResponseParserResult ? =>
-    // The minimum size for any complete message is 6. If we have less than
-    // 6 received bytes buffered than there is no point to continuing as we
+    // The minimum size for any complete message is 5. If we have less than
+    // 5 received bytes buffered than there is no point to continuing as we
     // definitely don't have a full message.
     if buffer.size() < 5 then
       return None

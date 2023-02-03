@@ -1,8 +1,8 @@
 use "pony_test"
 
-class \nodoc\ iso _TestMessagePassword is UnitTest
+class \nodoc\ iso _TestFrontendMessagePassword is UnitTest
   fun name(): String =>
-    "Message/Password"
+    "FrontendMessage/Password"
 
   fun apply(h: TestHelper) =>
     let password = "pwd"
@@ -12,11 +12,11 @@ class \nodoc\ iso _TestMessagePassword is UnitTest
       ['p'; 0; 0; 0; 8; 'p'; 'w'; 'd'; 0]
     end
 
-    h.assert_array_eq[U8](expected, _Message.password(password))
+    h.assert_array_eq[U8](expected, _FrontendMessage.password(password))
 
-class \nodoc\ iso _TestMessageQuery is UnitTest
+class \nodoc\ iso _TestFrontendMessageQuery is UnitTest
   fun name(): String =>
-    "Message/Query"
+    "FrontendMessage/Query"
 
   fun apply(h: TestHelper) =>
     let query = "select * from free_candy"
@@ -28,11 +28,11 @@ class \nodoc\ iso _TestMessageQuery is UnitTest
         111; 109; 32; 102; 114; 101; 101; 95; 99; 97; 110; 100; 121; 0 ]
     end
 
-    h.assert_array_eq[U8](expected, _Message.query(query))
+    h.assert_array_eq[U8](expected, _FrontendMessage.query(query))
 
-class \nodoc\ iso _TestMessageStartup is UnitTest
+class \nodoc\ iso _TestFrontendMessageStartup is UnitTest
   fun name(): String =>
-    "Message/Startup"
+    "FrontendMessage/Startup"
 
   fun apply(h: TestHelper) =>
     let username = "pony"
@@ -45,4 +45,4 @@ class \nodoc\ iso _TestMessageStartup is UnitTest
         100; 97; 116; 97; 98; 97; 115; 101; 0; 55; 54; 54; 57; 0; 0 ]
     end
 
-    h.assert_array_eq[U8](expected, _Message.startup(username, password))
+    h.assert_array_eq[U8](expected, _FrontendMessage.startup(username, password))

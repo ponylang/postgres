@@ -1,4 +1,4 @@
-primitive _Message
+primitive _FrontendMessage
   fun startup(user: String, database: String): Array[U8] val =>
     try
       recover val

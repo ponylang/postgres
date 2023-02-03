@@ -264,7 +264,7 @@ class _SessionLoggedIn is _AuthenticatedState
         (let query, _) = _query_queue(0)?
         _queryable = false
         _query_in_flight = true
-        let msg = _Message.query(query.string)
+        let msg = _FrontendMessage.query(query.string)
         s._connection().send(msg)
       end
     else
@@ -387,7 +387,7 @@ trait _ConnectableState is _UnconnectedState
     notify().pg_session_connection_failed(s)
 
   fun _send_startup_message(s: Session ref) =>
-    let msg = _Message.startup(user(), database())
+    let msg = _FrontendMessage.startup(user(), database())
     s._connection().send(msg)
 
   fun user(): String
@@ -480,7 +480,7 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
     msg: _AuthenticationMD5PasswordMessage)
   =>
     let md5_password = _MD5Password(user(), password(), msg.salt)
-    let reply = _Message.password(md5_password)
+    let reply = _FrontendMessage.password(md5_password)
     s._connection().send(reply)
 
   fun user(): String

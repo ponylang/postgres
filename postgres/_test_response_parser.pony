@@ -312,13 +312,7 @@ class \nodoc\ val _IncomingAuthenticationOkTestMessage
       wb.u32_be(8)
       wb.i32_be(_AuthenticationRequestType.ok())
 
-      _bytes = recover val
-        let out = Array[U8]
-        for b in wb.done().values() do
-          out.append(b)
-        end
-        out
-      end
+      _bytes = WriterToByteArray(wb)
 
     fun bytes(): Array[U8] val =>
       _bytes
@@ -333,13 +327,7 @@ class \nodoc\ val _IncomingAuthenticationMD5PasswordTestMessage
     wb.i32_be(_AuthenticationRequestType.md5_password())
     wb.write(salt)
 
-    _bytes = recover val
-      let out = Array[U8]
-      for b in wb.done().values() do
-        out.append(b)
-      end
-      out
-    end
+    _bytes = WriterToByteArray(wb)
 
   fun bytes(): Array[U8] val =>
     _bytes
@@ -368,13 +356,7 @@ class \nodoc\ val _IncomingErrorResponseTestMessage
     wb.u8(0)
     wb.u8(0)
 
-    _bytes = recover val
-      let out = Array[U8]
-      for b in wb.done().values() do
-        out.append(b)
-      end
-      out
-    end
+    _bytes = WriterToByteArray(wb)
 
   fun bytes(): Array[U8] val =>
     _bytes
@@ -395,13 +377,7 @@ class \nodoc\ val _IncomingJunkTestMessage
       wb.u32_be(rand.u32())
     end
 
-    _bytes = recover val
-      let out = Array[U8]
-      for b in wb.done().values() do
-        out.append(b)
-      end
-      out
-    end
+    _bytes = WriterToByteArray(wb)
 
   fun bytes(): Array[U8] val =>
     _bytes
@@ -415,13 +391,7 @@ class \nodoc\ val _IncomingReadyForQueryTestMessage
     wb.u32_be(5)
     wb.u8(status)
 
-    _bytes = recover val
-      let out = Array[U8]
-      for b in wb.done().values() do
-        out.append(b)
-      end
-      out
-    end
+    _bytes = WriterToByteArray(wb)
 
   fun bytes(): Array[U8] val =>
     _bytes
@@ -434,13 +404,17 @@ class \nodoc\ val _IncomingEmptyQueryResponseTestMessage
     wb.u8(_MessageType.empty_query_response())
     wb.u32_be(4)
 
-    _bytes = recover val
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+primitive WriterToByteArray
+  fun apply(writer: Writer): Array[U8] val =>
+    recover val
       let out = Array[U8]
-      for b in wb.done().values() do
+      for b in writer.done().values() do
         out.append(b)
       end
       out
     end
-
-  fun bytes(): Array[U8] val =>
-    _bytes

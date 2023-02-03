@@ -93,7 +93,6 @@ primitive _ResponseParser
       // and only get the status indicator byte
       return _ready_for_query(buffer.u8()?)?
     | _MessageType.command_complete() =>
-      // TODO SEAN: this will need tests
       // Slide past the header...
       buffer.skip(5)?
       // and only get the payload
@@ -237,6 +236,10 @@ primitive _ResponseParser
     Parse a command complete message
     """
     let id = String.from_array(payload)
+    if id.size() == 0 then
+      error
+    end
+
     let parts = id.split(" ")
     match parts.size()
     | 1 =>

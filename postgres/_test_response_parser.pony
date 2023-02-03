@@ -3,6 +3,14 @@ use "collections"
 use "pony_test"
 use "random"
 
+// TODO SEAN
+// we need tests that verify a chain of messages and that we get the expected
+// message type. we could validate the contents as well, but i think for a start
+// just validated that we got A, B, C, C, C, D would be good.
+// This would provide protection against not reading full messages correctly
+// which is currently not covered. For example not handling the null terminator
+// from command complete would pass tests herein but would cause the next
+// message to incorrectly parse. That isn't currently covered.
 class \nodoc\ iso _TestResponseParserEmptyBuffer is UnitTest
   """
   Verify that handling an empty buffer to the parser returns `None`
@@ -124,6 +132,47 @@ class \nodoc\ iso _TestResponseParserErrorResponseMessage is UnitTest
     else
       h.fail("Wrong message returned.")
     end
+
+class \nodoc\ iso _TestResponseParserCommandCompleteMessage is UnitTest
+  """
+  Verifies expected handling of various command complete messages.
+  """
+  fun name(): String =>
+    "ResponseParser/CommandCompleteMessage"
+
+  fun apply(h: TestHelper) ? =>
+    _test_expected(h, "INSERT 1 5", "INSERT", 5)?
+    _test_expected(h, "DELETE 18", "DELETE", 18)?
+    _test_expected(h, "UPDATE 2047", "UPDATE", 2047)?
+    _test_expected(h, "SELECT 5012", "SELECT", 5012)?
+    _test_expected(h, "MOVE 11", "MOVE", 11)?
+    _test_expected(h, "FETCH 7", "FETCH", 7)?
+    _test_expected(h, "COPY 7", "COPY", 7)?
+    _test_expected(h, "CREATE TABLE", "CREATE TABLE", 0)?
+    _test_expected(h, "DROP TABLE", "DROP TABLE", 0)?
+    _test_expected(h, "FUTURE PROOF", "FUTURE PROOF", 0)?
+    _test_expected(h, "FUTURE PROOF 2", "FUTURE PROOF", 2)?
+
+    _test_error(h, "")
+
+  fun _test_expected(h: TestHelper, i: String, id: String, value: USize) ? =>
+    let bytes = _IncomingCommandCompleteTestMessage(i).bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    match _ResponseParser(r)?
+    | let m: _CommandCompleteMessage =>
+      h.assert_eq[String](m.id, id)
+      h.assert_eq[USize](m.value, value)
+    else
+      h.fail("Wrong message returned.")
+    end
+
+  fun _test_error(h: TestHelper, i: String) =>
+    h.assert_error({() ? =>
+      let bytes = _IncomingCommandCompleteTestMessage(i).bytes()
+      let r: Reader = Reader.>append(bytes)
+
+    _ResponseParser(r)? }, ("Assert error failed for " + i))
 
 class \nodoc\ iso _TestResponseParserMultipleMessagesAuthenticationOkFirst
   is UnitTest
@@ -403,6 +452,22 @@ class \nodoc\ val _IncomingEmptyQueryResponseTestMessage
     let wb: Writer = Writer
     wb.u8(_MessageType.empty_query_response())
     wb.u32_be(4)
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingCommandCompleteTestMessage
+  let _bytes: Array[U8] val
+
+  new val create(command: String) =>
+    let payload_size = 4 + command.size() + 1
+    let wb: Writer = Writer
+    wb.u8(_MessageType.command_complete())
+    wb.u32_be(payload_size.u32())
+    wb.write(command)
+    wb.u8(0)
 
     _bytes = WriterToByteArray(wb)
 

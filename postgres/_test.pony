@@ -30,6 +30,7 @@ actor \nodoc\ Main is TestList
     test(_TestQueryOfNonExistentTable)
     test(_TestResponseParserAuthenticationMD5PasswordMessage)
     test(_TestResponseParserAuthenticationOkMessage)
+    test(_TestResponseParserCommandCompleteMessage)
     test(_TestResponseParserEmptyBuffer)
     test(_TestResponseParserEmptyQueryResponseMessage)
     test(_TestResponseParserErrorResponseMessage)

@@ -101,7 +101,6 @@ primitive _ResponseParser
       buffer.skip(1)?
       return _command_complete(consume payload)?
     | _MessageType.data_row() =>
-      // TODO needs tests
       // Slide past the header...
       buffer.skip(5)?
       // and only get the payload
@@ -179,14 +178,14 @@ primitive _ResponseParser
     end
 
     for column_index in Range(0, number_of_columns) do
-      let column_length = reader.u32_be()?.usize()
+      let column_length = reader.u32_be()?
       match column_length
       | -1 =>
         columns.push(None)
       | 0 =>
         columns.push("")
       else
-        let column = reader.block(column_length)?
+        let column = reader.block(column_length.usize())?
         let column_as_string = String.from_array(consume column)
         columns.push(column_as_string)
       end

@@ -352,6 +352,52 @@ class \nodoc\ iso _TestResponseParserEmptyQueryResponseMessage is UnitTest
       h.fail("Wrong message returned.")
     end
 
+class \nodoc\ iso _TestResponseParserDataRowMessage is UnitTest
+  """
+  Test that we parse incoming data row messages correctly.
+  """
+  fun name(): String =>
+    "ResponseParser/DataRowMessage"
+
+  fun apply(h: TestHelper) ? =>
+    let columns: Array[(String | None)] val = recover val
+      Array[(String | None)]
+        .>push("Hello")
+        .>push("There")
+        .>push(None)
+        .>push("")
+    end
+
+    let bytes = _IncomingDataRowTestMessage(columns)?.bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    match _ResponseParser(r)?
+    | let m: _DataRowMessage =>
+      h.assert_eq[USize](4, m.columns.size())
+      match m.columns(0)?
+      | "Hello" => None
+      else
+        h.fail("First column not parsed correctly")
+      end
+      match m.columns(1)?
+      | "There" => None
+      else
+        h.fail("Second column not parsed correctly")
+      end
+      match m.columns(2)?
+      | None => None
+      else
+        h.fail("NULL column not parsed correctly")
+      end
+      match m.columns(3)?
+      | "" => None
+      else
+        h.fail("Empty string column not parsed correctly")
+      end
+    else
+      h.fail("Wrong message returned.")
+    end
+
 class \nodoc\ val _IncomingAuthenticationOkTestMessage
     let _bytes: Array[U8] val
 
@@ -470,6 +516,43 @@ class \nodoc\ val _IncomingCommandCompleteTestMessage
     wb.u8(0)
 
     _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingDataRowTestMessage
+  let _bytes: Array[U8] val
+
+  new val create(columns: Array[(String | None)] val) ? =>
+    let number_of_columns = columns.size()
+    var payload_size: USize = 4 + 2
+    let wb: Writer = Writer
+    wb.u8(_MessageType.data_row())
+    // placeholder
+    wb.u32_be(0)
+    wb.u16_be(number_of_columns.u16())
+    for column_index in Range(0, number_of_columns) do
+      match columns(column_index)?
+      | None =>
+        wb.u32_be(-1)
+        payload_size = payload_size + 4
+      | "" =>
+        wb.u32_be(0)
+        payload_size = payload_size + 4
+      | let c: String =>
+        wb.u32_be(c.size().u32())
+        wb.write(c)
+        payload_size = payload_size + 4 + c.size()
+      end
+    end
+
+    // bytes with placeholder for length
+    let b = WriterToByteArray(wb)
+    // bytes for payload
+    let pw: Writer = Writer.>u32_be(payload_size.u32())
+    let pb = WriterToByteArray(pw)
+    // copy in payload size
+    _bytes = recover val b.clone().>copy_from(pb, 0, 1, 4) end
 
   fun bytes(): Array[U8] val =>
     _bytes

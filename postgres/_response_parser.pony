@@ -229,8 +229,6 @@ primitive _ResponseParser
       error
     end
 
-  // TODO SEAN this needs tests for known expected types from docs plus
-  // DROP TABLE & CREATE TABLE
   fun _command_complete(payload: Array[U8] val): _CommandCompleteMessage ? =>
     """
     Parse a command complete message

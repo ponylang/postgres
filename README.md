@@ -6,7 +6,9 @@ Pure Pony Postgres driver
 
 Postgres is an alpha-level package.
 
-You shouldn't be using this as it is in active development and not ready to be used, at all. Don't. Just don't use it yet.
+We welcome users who are willing to experience errors and possible application shutdowns. Your feedback on API usage and in reporting bugs is greatly appreciated.
+
+Please note that if this library encounters a state that the programmers thought was impossible to hit, it will exit the program immediately with informational messages. Normal errors are handled in standard Pony fashion.
 
 ## Installation
 

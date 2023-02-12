@@ -41,3 +41,14 @@ Basic API commands related to querying are supported at this time. Some function
 - Session encryption
 
 Note the appearance of an item on the above list isn't a guarantee that it will be supported in the future.
+
+### Data Types
+
+The following data types are fully supported and will be converted from their postgres type to the corresponding Pony type. All other data types will be presented as `String`.
+
+- `bool` => `Bool`
+- `int2` => `I16`
+- `int4` => `I32`
+- `int8` => `I64`
+- `float4` => `F32`
+- `float8` => `F64`

@@ -71,7 +71,7 @@ $(coverage_binary): $(SOURCE_FILES) | $(COVERAGE_DIR)
 	$(PONYC) --debug -o $(COVERAGE_DIR) $(SRC_DIR)
 
 start-pg-container:
-	 @docker run --name pg -e POSTGRES_DB=postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_HOST_AUTH_METHOD=md5 -e POSTGRES_INITDB_ARGS="--auth-host=md5" -p 5432:5432 -d postgres:14.5
+	@docker run --name pg -e POSTGRES_DB=postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_HOST_AUTH_METHOD=md5 -e POSTGRES_INITDB_ARGS="--auth-host=md5" -p 5432:5432 -d postgres:14.5
 
 stop-pg-container:
 	@docker stop pg

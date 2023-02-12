@@ -54,3 +54,5 @@ The following data types are fully supported and will be converted from their po
 - `int8` => `I64`
 - `float4` => `F32`
 - `float8` => `F64`
+
+As `String` is our default type, all character types such as `text` are returned to the user as `String` and as such, aren't listed in our supported types.

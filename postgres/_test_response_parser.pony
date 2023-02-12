@@ -400,7 +400,7 @@ class \nodoc\ iso _TestResponseParserDataRowMessage is UnitTest
         .>push("")
     end
 
-    let bytes = _IncomingDataRowTestMessage(columns)?.bytes()
+    let bytes = _IncomingDataRowTestMessage(columns).bytes()
     let r: Reader = Reader.>append(bytes)
 
     match _ResponseParser(r)?
@@ -555,7 +555,7 @@ class \nodoc\ val _IncomingCommandCompleteTestMessage
 class \nodoc\ val _IncomingDataRowTestMessage
   let _bytes: Array[U8] val
 
-  new val create(columns: Array[(String | None)] val) ? =>
+  new val create(columns: Array[(String | None)] val) =>
     let number_of_columns = columns.size()
     var payload_size: USize = 4 + 2
     let wb: Writer = Writer
@@ -563,8 +563,8 @@ class \nodoc\ val _IncomingDataRowTestMessage
     // placeholder
     wb.u32_be(0)
     wb.u16_be(number_of_columns.u16())
-    for column_index in Range(0, number_of_columns) do
-      match columns(column_index)?
+    for column in columns.values() do
+      match column
       | None =>
         wb.u32_be(-1)
         payload_size = payload_size + 4

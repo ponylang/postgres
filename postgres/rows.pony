@@ -41,6 +41,9 @@ class RowIterator is Iterator[Row]
     this
 
 // TODO need tests for all this
+// In order to easily test it though, we need to add a decent chunk of operators
+// to be able to compare the structure of the objects. Really, we need 'eq' on
+// 'Rows', 'Row' and 'Field'.
 primitive _RowsBuilder
   fun apply(rows': Array[Array[(String|None)] val] val,
     row_descriptions': Array[(String, U32)] val): Rows ?

@@ -41,6 +41,7 @@ actor \nodoc\ Main is TestList
     test(_TestResponseParserMultipleMessagesAuthenticationOkFirst)
     test(_TestResponseParserMultipleMessagesErrorResponseFirst)
     test(_TestResponseParserReadyForQueryMessage)
+    test(_TestResponseParserRowDescriptionMessage)
     test(_TestUnansweredQueriesFailOnShutdown)
 
 class \nodoc\ iso _TestAuthenticate is UnitTest

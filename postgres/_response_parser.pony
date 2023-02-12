@@ -107,7 +107,6 @@ primitive _ResponseParser
       let payload = buffer.block(payload_size)?
       return _data_row(consume payload)?
     | _MessageType.row_description() =>
-       // TODO needs tests
       // Slide past the header...
       buffer.skip(5)?
       // and only get the payload

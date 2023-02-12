@@ -174,6 +174,38 @@ class \nodoc\ iso _TestResponseParserCommandCompleteMessage is UnitTest
 
     _ResponseParser(r)? }, ("Assert error failed for " + i))
 
+class \nodoc\ iso _TestResponseParserRowDescriptionMessage is UnitTest
+  """
+  Verifies expected handling of various row description messages.
+  """
+  fun name(): String =>
+    "ResponseParser/RowDescriptionMessage"
+
+  fun apply(h: TestHelper) ? =>
+    let columns: Array[(String, String)] val = recover val
+      [ ("is_it_true", "bool"); ("description", "text"); ("tiny", "int2")
+        ("essay", "text"); ("price", "int4"); ("counter", "int8")
+        ("money", "float4"); ("big_money", "float8") ]
+    end
+    let expected: Array[(String, U32)] val = recover val
+      [ ("is_it_true", 16); ("description", 25); ("tiny", 21); ("essay", 25)
+        ("price", 23); ("counter", 20); ("money", 700); ("big_money", 701) ]
+    end
+
+    let bytes = _IncomingRowDescriptionTestMessage(columns)?.bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    match _ResponseParser(r)?
+    | let m: _RowDescriptionMessage =>
+      h.assert_eq[USize](expected.size(), m.columns.size())
+      for i in Range(0, expected.size()) do
+        h.assert_eq[String](expected(i)?._1, m.columns(i)?._1)
+        h.assert_eq[U32](expected(i)?._2, m.columns(i)?._2)
+      end
+    else
+      h.fail("Wrong message returned.")
+    end
+
 class \nodoc\ iso _TestResponseParserMultipleMessagesAuthenticationOkFirst
   is UnitTest
   """
@@ -544,6 +576,56 @@ class \nodoc\ val _IncomingDataRowTestMessage
         wb.write(c)
         payload_size = payload_size + 4 + c.size()
       end
+    end
+
+    // bytes with placeholder for length
+    let b = WriterToByteArray(wb)
+    // bytes for payload
+    let pw: Writer = Writer.>u32_be(payload_size.u32())
+    let pb = WriterToByteArray(pw)
+    // copy in payload size
+    _bytes = recover val b.clone().>copy_from(pb, 0, 1, 4) end
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingRowDescriptionTestMessage
+  let _bytes: Array[U8] val
+
+  new val create(columns: Array[(String, String)] val) ? =>
+    let number_of_columns = columns.size()
+    var payload_size: USize = 4 + 2
+    let wb: Writer = Writer
+    wb.u8(_MessageType.row_description())
+    // placeholder
+    wb.u32_be(0)
+    wb.u16_be(number_of_columns.u16())
+    for column in columns.values() do
+      let name: String = column._1
+      let column_type: U32 = match column._2
+        | "text" => 25
+        | "bool" => 16
+        | "int2" => 21
+        | "int4" => 23
+        | "int8" => 20
+        | "float4" => 700
+        | "float8" => 701
+        else
+          error
+        end
+      // column name size and null terminator plus additional fields
+      payload_size = payload_size + name.size() + 1 + 18
+      wb.write(name)
+      wb.u8(0)
+      // currently unused in the parser
+      wb.u32_be(0)
+      // currently unused in the parser
+      wb.u16_be(0)
+      wb.u32_be(column_type)
+      // currently unused in the parser
+      wb.u16_be(0)
+      wb.u32_be(0)
+      wb.u16_be(0)
     end
 
     // bytes with placeholder for length

@@ -309,8 +309,6 @@ actor \nodoc\ _QueryAfterSessionHasBeenClosedNotify is
       _h.complete(false)
     end
 
-_TestQueryOfNonExistentTable
-
 class \nodoc\ iso _TestQueryOfNonExistentTable is UnitTest
   fun name(): String =>
     "integration/Query/OfNonExistentTable"

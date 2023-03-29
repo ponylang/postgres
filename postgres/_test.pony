@@ -25,7 +25,6 @@ actor \nodoc\ Main is TestList
     test(_TestQueryAfterAuthenticationFailure)
     test(_TestQueryAfterConnectionFailure)
     test(_TestQueryAfterSessionHasBeenClosed)
-    test(_TestQueryBeforeAuthentication)
     test(_TestQueryResults)
     test(_TestQueryOfNonExistentTable)
     test(_TestResponseParserAuthenticationMD5PasswordMessage)

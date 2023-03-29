@@ -197,61 +197,6 @@ actor \nodoc\ _QueryAfterConnectionFailureNotify is
       _h.complete(false)
     end
 
-class \nodoc\ iso _TestQueryBeforeAuthentication is UnitTest
-  """
-  Test querying before authentication.
-  """
-  // TODO SEAN this test has a race condition in that we can't guarantee that
-  // the query execution will happen before authentication is succesful. It
-  // will almost always happen in the corret order but there is no guarantee.
-  fun name(): String =>
-    "integration/Query/BeforeAuthentication"
-
-  fun apply(h: TestHelper) =>
-    let info = _ConnectionTestConfiguration(h.env.vars)
-
-    let session = Session(
-      lori.TCPConnectAuth(h.env.root),
-      _QueryBeforeAuthenticationNotify(h),
-      info.host,
-      info.port,
-      info.username,
-      info.password,
-      info.database)
-
-    h.dispose_when_done(session)
-    h.long_test(5_000_000_000)
-
-actor \nodoc\ _QueryBeforeAuthenticationNotify is
-  ( SessionStatusNotify
-  & ResultReceiver )
-  let _h: TestHelper
-  let _query: SimpleQuery
-
-  new create(h: TestHelper) =>
-    _h = h
-    _query = SimpleQuery("select * from free_candy")
-
-  be pg_session_connected(session: Session) =>
-    session.execute(_query, this)
-
-  be pg_session_connection_failed(session: Session) =>
-    _h.fail("Unexpected failed connection")
-    _h.complete(false)
-
-  be pg_query_result(result: Result) =>
-    _h.fail("Unexpected query result received")
-    _h.complete(false)
-
-  be pg_query_failed(query: SimpleQuery,
-    failure: (ErrorResponseMessage | ClientQueryError))
-  =>
-    if (query is _query) and (failure is SessionNotAuthenticated) then
-      _h.complete(true)
-    else
-      _h.complete(false)
-    end
-
 class \nodoc\ iso _TestQueryAfterSessionHasBeenClosed is UnitTest
   """
   Test querying after we've closed the session.

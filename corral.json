@@ -8,7 +8,7 @@
       "version": "1.2.0"
     },
     {
-      "locator": "github.com/seantallen-org/lori.git",
+      "locator": "github.com/ponylang/lori.git",
       "version": "0.5.0"
     }
   ],

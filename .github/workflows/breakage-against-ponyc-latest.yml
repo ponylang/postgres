@@ -27,7 +27,7 @@ jobs:
           --health-retries 5
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.1.1
       - name: Unit tests
         run: make unit-tests config=debug
       - name: Integration tests

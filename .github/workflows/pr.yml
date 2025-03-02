@@ -59,9 +59,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4.1.1
       - name: Unit tests
-        run: make unit-tests config=debug
+        run: make unit-tests config=debug ssl=0.9.0
       - name: Integration tests
-        run: make integration-tests config=debug
+        run: make integration-tests config=debug ssl=0.9.0
         env:
           POSTGRES_HOST: postgres
           POSTGRES_PORT: 5432

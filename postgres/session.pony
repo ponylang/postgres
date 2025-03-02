@@ -1,7 +1,7 @@
 use "buffered"
 use lori = "lori"
 
-actor Session is lori.TCPClientActor
+actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   var state: _SessionState
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
 
@@ -20,6 +20,7 @@ actor Session is lori.TCPClientActor
       host',
       service',
       "",
+      this,
       this)
 
   be execute(query: SimpleQuery, receiver: ResultReceiver) =>
@@ -49,6 +50,9 @@ actor Session is lori.TCPClientActor
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _next_lifecycle_event_receiver(): None =>
+    None
 
 // Possible session states
 class ref _SessionUnopened is _ConnectableState

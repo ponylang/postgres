@@ -261,7 +261,8 @@ actor \nodoc\ _JunkSendingTestListener is lori.TCPListenerActor
     _h.fail("Unable to listen")
     _h.complete(false)
 
-actor \nodoc\ _JunkSendingTestServer is lori.TCPServerActor
+actor \nodoc\ _JunkSendingTestServer
+  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
   """
   Sends junk "postgres messages" in reponse to any incoming activity. This actor
   is used to test that our client handles getting junk correctly.
@@ -269,12 +270,15 @@ actor \nodoc\ _JunkSendingTestServer is lori.TCPServerActor
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
 
   new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this)
+    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
     let junk = _IncomingJunkTestMessage.bytes()
     _tcp_connection.send(junk)
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _next_lifecycle_event_receiver(): None =>
+    None
 
   fun ref _on_received(data: Array[U8] iso) =>
     let junk = _IncomingJunkTestMessage.bytes()
@@ -394,7 +398,8 @@ actor \nodoc\ _DoesntAnswerTestListener is lori.TCPListenerActor
     _h.fail("Unable to listen")
     _h.complete(false)
 
-actor \nodoc\ _DoesntAnswerTestServer is lori.TCPServerActor
+actor \nodoc\ _DoesntAnswerTestServer
+  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
   """
   Eats all incoming messages. By not answering, it allows us to simulate what
   happens with unanswered commands.
@@ -405,10 +410,13 @@ actor \nodoc\ _DoesntAnswerTestServer is lori.TCPServerActor
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
 
   new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this)
+    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _next_lifecycle_event_receiver(): None =>
+    None
 
   fun ref _on_received(data: Array[U8] iso) =>
     """

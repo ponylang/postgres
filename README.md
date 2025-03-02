@@ -18,6 +18,8 @@ Please note that if this library encounters a state that the programmers thought
 * `use "postgres"` to include this package
 * `corral run -- ponyc` to compile your application
 
+This library has a transitive dependency on [ponylang/net_ssl](https://github.com/ponylang/net_ssl). It requires a C SSL library to be installed. Please see the [net_ssl installation instructions](https://github.com/ponylang/net_ssl?tab=readme-ov-file#installation) for more information.
+
 ## API Documentation
 
 [https://ponylang.github.io/postgres](https://ponylang.github.io/postgres)

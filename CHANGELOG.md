@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Changed
 
+- Update ponylang/lori dependency to 0.6.1 ([PR #52](https://github.com/ponylang/postgres/pull/52)
 
 ## [0.2.0] - 2025-03-02
 

@@ -2,18 +2,11 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a CHANGELOG](http://keepachangelog.com/).
 
-## [unreleased] - unreleased
-
-### Fixed
-
-
-### Added
-
+## [0.2.2] - 2025-07-16
 
 ### Changed
 
 - Changed SSL dependency ([PR #54](https://github.com/ponylang/postgres/pull/54))
-
 
 ## [0.2.1] - 2025-03-04
 
@@ -38,3 +31,4 @@ All notable changes to this project will be documented in this file. This projec
 ### Added
 
 - Initial version
+

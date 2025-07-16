@@ -4,12 +4,12 @@
   ],
   "deps": [
     {
-      "locator": "github.com/ponylang/crypto.git",
-      "version": "1.2.3"
+      "locator": "github.com/ponylang/ssl.git",
+      "version": "1.0.0"
     },
     {
       "locator": "github.com/ponylang/lori.git",
-      "version": "0.6.1"
+      "version": "0.6.2"
     }
   ],
   "info": {

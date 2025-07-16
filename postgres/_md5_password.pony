@@ -1,4 +1,4 @@
-use "crypto"
+use "ssl/crypto"
 
 primitive _MD5Password
   """

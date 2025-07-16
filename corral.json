@@ -17,7 +17,7 @@
     "homepage": "https://github.com/ponylang/postgres/",
     "license": "BSD-2-Clause",
     "documentation_url": "https://ponylang.github.io/postgres",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "name": "postgres"
   }
 }

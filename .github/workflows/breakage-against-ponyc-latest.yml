@@ -2,7 +2,8 @@ name: Test against ponyc nightly
 
 on:
   repository_dispatch:
-    types: [shared-docker-linux-builders-updated]
+    types:
+      - shared-docker-builders-updated
 
 permissions:
   packages: read

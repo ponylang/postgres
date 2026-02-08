@@ -138,13 +138,13 @@ class _SessionLoggedIn is _AuthenticatedState
   let _notify: SessionStatusNotify
   let _readbuf: Reader
   var _data_rows: Array[Array[(String|None)] val] iso
-  var _row_description: Array[(String, U32)] val
+  var _row_description: (Array[(String, U32)] val | None)
 
   new ref create(notify': SessionStatusNotify, readbuf': Reader) =>
     _notify = notify'
     _readbuf = readbuf'
     _data_rows = recover iso Array[Array[(String|None)] val] end
-    _row_description = recover val Array[(String, U32)] end
+    _row_description = None
 
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage) =>
     if msg.idle() then
@@ -154,6 +154,8 @@ class _SessionLoggedIn is _AuthenticatedState
           _query_queue.shift()?
         end
         _query_in_flight = false
+        _row_description = None
+        _data_rows = recover iso Array[Array[(String|None)] val] end
       end
       _queryable = true
       _run_query(s)
@@ -174,27 +176,22 @@ class _SessionLoggedIn is _AuthenticatedState
         let rows = _data_rows = recover iso
           Array[Array[(String|None)] val].create()
         end
+        let rd = _row_description = None
 
-        try
-          // TODO SEAN
-          // there are a number of possibilities here.
-          // we have row description but not rows. that's an error.
-          // we have rows but no row description. that's an error.
-          // we have rows and row description but the command isn't a "SELECT"
-          //   or similar command. that's an error.
-          // we have a select with proper data
-          // we have a command that has no rows and the id contains number of
-          //   rows impacted
-          // we have a command that has no rows and the id doesn't contain the
-          //   number of rows impacted
-          if rows.size() > 0 then
-            let rows_object = _RowsBuilder(consume rows, _row_description)?
+        match rd
+        | let desc: Array[(String, U32)] val =>
+          try
+            let rows_object = _RowsBuilder(consume rows, desc)?
             receiver.pg_query_result(ResultSet(query, rows_object, msg.id))
+          else
+            receiver.pg_query_failed(query, DataError)
+          end
+        | None =>
+          if rows.size() > 0 then
+            receiver.pg_query_failed(query, DataError)
           else
             receiver.pg_query_result(RowModifying(query, msg.id, msg.value))
           end
-        else
-          receiver.pg_query_failed(query, DataError)
         end
       else
         _Unreachable()
@@ -207,12 +204,17 @@ class _SessionLoggedIn is _AuthenticatedState
 
   fun ref on_empty_query_response(s: Session ref) =>
     if _query_in_flight then
-      // TODO SEAN
-      // we should never have any rows or row description, that's an error
-      //   if we do.
       try
         (let query, let receiver) = _query_queue(0)?
-        receiver.pg_query_result(SimpleResult(query))
+        let rows = _data_rows = recover iso
+          Array[Array[(String|None)] val] end
+        let rd = _row_description = None
+
+        if (rows.size() > 0) or (rd isnt None) then
+          receiver.pg_query_failed(query, DataError)
+        else
+          receiver.pg_query_result(SimpleResult(query))
+        end
       else
         _Unreachable()
       end
@@ -226,6 +228,8 @@ class _SessionLoggedIn is _AuthenticatedState
     if _query_in_flight then
       try
         (let query, let receiver) = _query_queue(0)?
+        _data_rows = recover iso Array[Array[(String|None)] val] end
+        _row_description = None
         receiver.pg_query_failed(query, msg)
       else
         _Unreachable()
@@ -253,6 +257,11 @@ class _SessionLoggedIn is _AuthenticatedState
     _run_query(s)
 
   fun ref on_row_description(s: Session ref, msg: _RowDescriptionMessage) =>
+    // _row_description is set here and consumed (reset to None) by whichever
+    // command-terminating callback fires: on_command_complete,
+    // on_empty_query_response, or on_error_response. Those callbacks must
+    // also consume _data_rows via destructive read. Changing the reset
+    // contract here requires updating all three consumers.
     // TODO we should verify that only get 1 of these per in flight query
     if _query_in_flight then
       _row_description = msg.columns

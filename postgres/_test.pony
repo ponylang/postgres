@@ -465,6 +465,7 @@ class \nodoc\ iso _TestZeroRowSelectReturnsResultSet is UnitTest
 actor \nodoc\ _ZeroRowSelectTestClient is (SessionStatusNotify & ResultReceiver)
   let _h: TestHelper
   let _query: SimpleQuery
+  var _session: (Session | None) = None
 
   new create(h: TestHelper) =>
     _h = h
@@ -475,6 +476,7 @@ actor \nodoc\ _ZeroRowSelectTestClient is (SessionStatusNotify & ResultReceiver)
     _h.complete(false)
 
   be pg_session_authenticated(session: Session) =>
+    _session = session
     session.execute(_query, this)
 
   be pg_session_authentication_failed(
@@ -487,7 +489,7 @@ actor \nodoc\ _ZeroRowSelectTestClient is (SessionStatusNotify & ResultReceiver)
   be pg_query_result(result: Result) =>
     if result.query() isnt _query then
       _h.fail("Query in result isn't the expected query.")
-      _h.complete(false)
+      _close_and_complete(false)
       return
     end
 
@@ -495,27 +497,33 @@ actor \nodoc\ _ZeroRowSelectTestClient is (SessionStatusNotify & ResultReceiver)
     | let r: ResultSet =>
       if r.rows().size() != 0 then
         _h.fail("Expected zero rows but got " + r.rows().size().string())
-        _h.complete(false)
+        _close_and_complete(false)
         return
       end
       if r.command() != "SELECT" then
         _h.fail("Expected command SELECT but got " + r.command())
-        _h.complete(false)
+        _close_and_complete(false)
         return
       end
     else
       _h.fail("Expected ResultSet but got a different result type.")
-      _h.complete(false)
+      _close_and_complete(false)
       return
     end
 
-    _h.complete(true)
+    _close_and_complete(true)
 
   be pg_query_failed(query: SimpleQuery,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure.")
-    _h.complete(false)
+    _close_and_complete(false)
+
+  fun ref _close_and_complete(success: Bool) =>
+    match _session
+    | let s: Session => s.close()
+    end
+    _h.complete(success)
 
 actor \nodoc\ _ZeroRowSelectTestListener is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()

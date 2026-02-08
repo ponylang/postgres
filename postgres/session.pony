@@ -125,178 +125,243 @@ class ref _SessionConnected is _AuthenticableState
   fun notify(): SessionStatusNotify =>
     _notify
 
-// TODO SEAN
-// some of these callbacks have if statements for if we are "in query", should
-// add an additional level of state machine for query state of "in flight" or
-// "no query in flight"
-// Also need to handle things like "row data" arrives after "command complete"
-// etc where message ordering is violated in an unexpected way.
 class _SessionLoggedIn is _AuthenticatedState
-  var _queryable: Bool = false
-  var _query_in_flight: Bool = false
-  let _query_queue: Array[(SimpleQuery, ResultReceiver)] = _query_queue.create()
+  """
+  An authenticated session ready to execute queries. Query execution is
+  managed by a sub-state machine (`_QueryState`) that tracks whether a query
+  is in flight, what protocol is active, and owns per-query accumulation data.
+  """
+  // query_queue and query_state are not underscore-prefixed because the
+  // _QueryState implementations need to access them, and Pony private fields
+  // are type-private.
+  let query_queue: Array[(SimpleQuery, ResultReceiver)] =
+    query_queue.create()
+  var query_state: _QueryState
   let _notify: SessionStatusNotify
   let _readbuf: Reader
-  var _data_rows: Array[Array[(String|None)] val] iso
-  var _row_description: (Array[(String, U32)] val | None)
 
   new ref create(notify': SessionStatusNotify, readbuf': Reader) =>
     _notify = notify'
     _readbuf = readbuf'
-    _data_rows = recover iso Array[Array[(String|None)] val] end
-    _row_description = None
+    query_state = _QueryNotReady
 
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage) =>
-    if msg.idle() then
-      if _query_in_flight then
-        // If there was a query in flight, we are now done with it.
-        try
-          _query_queue.shift()?
-        end
-        _query_in_flight = false
-        _row_description = None
-        _data_rows = recover iso Array[Array[(String|None)] val] end
-      end
-      _queryable = true
-      _run_query(s)
-    else
-      _queryable = false
-    end
+    query_state.on_ready_for_query(s, this, msg)
 
   fun ref on_command_complete(s: Session ref, msg: _CommandCompleteMessage) =>
-    """
-    A command has completed, that might mean the active is query is done. At
-    this point we don't know. We grab the active query from the head of the
-    query queue while leaving it in place and inform the receiver of a success
-    for at least one part of the query.
-    """
-    if _query_in_flight then
-      try
-        (let query, let receiver) = _query_queue(0)?
-        let rows = _data_rows = recover iso
-          Array[Array[(String|None)] val].create()
-        end
-        let rd = _row_description = None
-
-        match rd
-        | let desc: Array[(String, U32)] val =>
-          try
-            let rows_object = _RowsBuilder(consume rows, desc)?
-            receiver.pg_query_result(ResultSet(query, rows_object, msg.id))
-          else
-            receiver.pg_query_failed(query, DataError)
-          end
-        | None =>
-          if rows.size() > 0 then
-            receiver.pg_query_failed(query, DataError)
-          else
-            receiver.pg_query_result(RowModifying(query, msg.id, msg.value))
-          end
-        end
-      else
-        _Unreachable()
-      end
-    else
-      // This should never happen. If it does, something has gone horribly
-      // and we need to shutdown.
-      shutdown(s)
-    end
+    query_state.on_command_complete(s, this, msg)
 
   fun ref on_empty_query_response(s: Session ref) =>
-    if _query_in_flight then
-      try
-        (let query, let receiver) = _query_queue(0)?
-        let rows = _data_rows = recover iso
-          Array[Array[(String|None)] val] end
-        let rd = _row_description = None
-
-        if (rows.size() > 0) or (rd isnt None) then
-          receiver.pg_query_failed(query, DataError)
-        else
-          receiver.pg_query_result(SimpleResult(query))
-        end
-      else
-        _Unreachable()
-      end
-    else
-      // This should never happen. If it does, something has gone horribly
-      // and we need to shutdown.
-      shutdown(s)
-    end
+    query_state.on_empty_query_response(s, this)
 
   fun ref on_error_response(s: Session ref, msg: ErrorResponseMessage) =>
-    if _query_in_flight then
-      try
-        (let query, let receiver) = _query_queue(0)?
-        _data_rows = recover iso Array[Array[(String|None)] val] end
-        _row_description = None
-        receiver.pg_query_failed(query, msg)
-      else
-        _Unreachable()
-      end
-    else
-      // This should never happen. If it does, something has gone horribly
-      // and we need to shutdown.
-      shutdown(s)
-    end
+    query_state.on_error_response(s, this, msg)
 
   fun ref on_data_row(s: Session ref, msg: _DataRowMessage) =>
-    if _query_in_flight then
-      _data_rows.push(msg.columns)
-    else
-      // This should never happen. If it does, something has gone horribly
-      // and we need to shutdown.
-      shutdown(s)
-    end
+    query_state.on_data_row(s, this, msg)
+
+  fun ref on_row_description(s: Session ref, msg: _RowDescriptionMessage) =>
+    query_state.on_row_description(s, this, msg)
 
   fun ref execute(s: Session ref,
     query: SimpleQuery,
     receiver: ResultReceiver)
   =>
-    _query_queue.push((query, receiver))
-    _run_query(s)
-
-  fun ref on_row_description(s: Session ref, msg: _RowDescriptionMessage) =>
-    // _row_description is set here and consumed (reset to None) by whichever
-    // command-terminating callback fires: on_command_complete,
-    // on_empty_query_response, or on_error_response. Those callbacks must
-    // also consume _data_rows via destructive read. Changing the reset
-    // contract here requires updating all three consumers.
-    // TODO we should verify that only get 1 of these per in flight query
-    if _query_in_flight then
-      _row_description = msg.columns
-    else
-      // This should never happen. If it does, something has gone horribly
-      // and we need to shutdown.
-      shutdown(s)
-    end
-
-  fun ref _run_query(s: Session ref) =>
-    try
-      if _queryable and (_query_queue.size() > 0) then
-        (let query, _) = _query_queue(0)?
-        _queryable = false
-        _query_in_flight = true
-        let msg = _FrontendMessage.query(query.string)
-        s._connection().send(msg)
-      end
-    else
-      _Unreachable()
-    end
+    query_queue.push((query, receiver))
+    query_state.try_run_query(s, this)
 
   fun ref on_shutdown(s: Session ref) =>
     _readbuf.clear()
-    for queue_item in _query_queue.values() do
+    for queue_item in query_queue.values() do
       (let query, let receiver) = queue_item
       receiver.pg_query_failed(query, SessionClosed)
     end
-    _query_queue.clear()
+    query_queue.clear()
 
   fun ref readbuf(): Reader =>
     _readbuf
 
   fun notify(): SessionStatusNotify =>
     _notify
+
+// Query sub-state machine
+//
+// Tracks whether a query is in flight and which protocol is active (simple
+// vs extended). The sub-state owns per-query accumulation data, so cleanup
+// is structural — data is destroyed when the state transitions out.
+
+interface _QueryState
+  """
+  Callbacks for query-related protocol messages plus an entry point to
+  attempt starting the next queued query.
+  """
+  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _ReadyForQueryMessage)
+  fun ref on_command_complete(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CommandCompleteMessage)
+  fun ref on_data_row(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _DataRowMessage)
+  fun ref on_row_description(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _RowDescriptionMessage)
+  fun ref on_empty_query_response(s: Session ref, li: _SessionLoggedIn ref)
+  fun ref on_error_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: ErrorResponseMessage)
+  fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref)
+
+trait _QueryNoQueryInFlight is _QueryState
+  """
+  Default behavior for states where no query is in flight. Query data
+  callbacks and result callbacks trigger shutdown — receiving them without
+  an active query indicates a protocol anomaly.
+  """
+  fun ref on_command_complete(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CommandCompleteMessage) => li.shutdown(s)
+  fun ref on_data_row(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _DataRowMessage) => li.shutdown(s)
+  fun ref on_row_description(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _RowDescriptionMessage) => li.shutdown(s)
+  fun ref on_empty_query_response(s: Session ref,
+    li: _SessionLoggedIn ref) => li.shutdown(s)
+  fun ref on_error_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: ErrorResponseMessage) => li.shutdown(s)
+  fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
+
+class _QueryNotReady is _QueryNoQueryInFlight
+  """
+  Server has not yet signaled readiness. This is the initial state after
+  authentication and the state after a non-idle ReadyForQuery (failed
+  transaction).
+  """
+  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _ReadyForQueryMessage)
+  =>
+    if msg.idle() then
+      li.query_state = _QueryReady
+      li.query_state.try_run_query(s, li)
+    end
+
+class _QueryReady is _QueryNoQueryInFlight
+  """
+  Server is idle and ready to accept a query. If the queue is non-empty,
+  `try_run_query` immediately transitions to an in-flight state.
+
+  ReadyForQuery while already ready indicates a protocol anomaly — the
+  server only sends ReadyForQuery in response to a query cycle or Sync.
+  """
+  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _ReadyForQueryMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) =>
+    try
+      if li.query_queue.size() > 0 then
+        (let query, _) = li.query_queue(0)?
+        li.query_state = _SimpleQueryInFlight.create()
+        s._connection().send(_FrontendMessage.query(query.string))
+      end
+    else
+      _Unreachable()
+    end
+
+class _SimpleQueryInFlight is _QueryState
+  """
+  Simple query protocol in progress. Owns the per-query accumulation data
+  which is created fresh for each query and destroyed when the state
+  transitions out.
+  """
+  var _data_rows: Array[Array[(String|None)] val] iso
+  var _row_description: (Array[(String, U32)] val | None)
+
+  new create() =>
+    _data_rows = recover iso Array[Array[(String|None)] val] end
+    _row_description = None
+
+  fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
+
+  fun ref on_data_row(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _DataRowMessage)
+  =>
+    _data_rows.push(msg.columns)
+
+  fun ref on_row_description(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _RowDescriptionMessage)
+  =>
+    _row_description = msg.columns
+
+  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _ReadyForQueryMessage)
+  =>
+    try
+      li.query_queue.shift()?
+    else
+      _Unreachable()
+    end
+    if msg.idle() then
+      li.query_state = _QueryReady
+      li.query_state.try_run_query(s, li)
+    else
+      li.query_state = _QueryNotReady
+    end
+
+  fun ref on_command_complete(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CommandCompleteMessage)
+  =>
+    try
+      (let query, let receiver) = li.query_queue(0)?
+      let rows = _data_rows = recover iso
+        Array[Array[(String|None)] val].create()
+      end
+      let rd = _row_description = None
+
+      match rd
+      | let desc: Array[(String, U32)] val =>
+        try
+          let rows_object = _RowsBuilder(consume rows, desc)?
+          receiver.pg_query_result(ResultSet(query, rows_object, msg.id))
+        else
+          receiver.pg_query_failed(query, DataError)
+        end
+      | None =>
+        if rows.size() > 0 then
+          receiver.pg_query_failed(query, DataError)
+        else
+          receiver.pg_query_result(RowModifying(query, msg.id, msg.value))
+        end
+      end
+    else
+      _Unreachable()
+    end
+
+  fun ref on_empty_query_response(s: Session ref,
+    li: _SessionLoggedIn ref)
+  =>
+    try
+      (let query, let receiver) = li.query_queue(0)?
+      let rows = _data_rows = recover iso
+        Array[Array[(String|None)] val] end
+      let rd = _row_description = None
+
+      if (rows.size() > 0) or (rd isnt None) then
+        receiver.pg_query_failed(query, DataError)
+      else
+        receiver.pg_query_result(SimpleResult(query))
+      end
+    else
+      _Unreachable()
+    end
+
+  fun ref on_error_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: ErrorResponseMessage)
+  =>
+    try
+      (let query, let receiver) = li.query_queue(0)?
+      _data_rows = recover iso Array[Array[(String|None)] val] end
+      _row_description = None
+      receiver.pg_query_failed(query, msg)
+    else
+      _Unreachable()
+    end
 
 interface _SessionState
   fun on_connected(s: Session ref)

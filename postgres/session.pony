@@ -72,7 +72,7 @@ class ref _SessionUnopened is _ConnectableState
     _database = database'
 
   fun ref execute(s: Session ref, q: SimpleQuery, r: ResultReceiver) =>
-    r.pg_query_failed(q, SesssionNeverOpened)
+    r.pg_query_failed(q, SessionNeverOpened)
 
   fun user(): String =>
     _user

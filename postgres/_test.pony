@@ -412,9 +412,9 @@ actor \nodoc\ _DoesntAnswerTestServer
   Simulates a misbehaving server that authenticates clients but never becomes
   ready for queries. It sends AuthenticationOk but intentionally omits the
   ReadyForQuery message, so the session transitions to _SessionLoggedIn with
-  _queryable stuck at false. Any queued queries are never sent and remain
-  pending until the client calls close(), at which point shutdown drains the
-  queue and delivers SessionClosed failures to each receiver.
+  query_state stuck at _QueryNotReady. Any queued queries are never sent and
+  remain pending until the client calls close(), at which point shutdown
+  drains the queue and delivers SessionClosed failures to each receiver.
   """
   var _authed: Bool = false
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()

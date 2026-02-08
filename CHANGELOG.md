@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Fixed
 
+- Fix ErrorResponseMessage routine field never being populated ([PR #60](https://github.com/ponylang/postgres/pull/60))
 
 ### Added
 

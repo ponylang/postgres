@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file. This projec
 ### Changed
 
 - Update ponylang/ssl dependency ([PR #55](https://github.com/ponylang/postgres/pull/55))
+- Fix typo in SesssionNeverOpened ([PR #59](https://github.com/ponylang/postgres/pull/59))
 
 ## [0.2.2] - 2025-07-16
 

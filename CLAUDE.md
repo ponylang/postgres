@@ -22,6 +22,11 @@ SSL version is mandatory. Tests run with `--sequential`. Integration tests requi
 
 Managed via `corral`.
 
+## GitHub Labels
+
+- `changelog - added`, `changelog - changed`, `changelog - fixed` — **PR-only labels**. CI uses these to auto-generate CHANGELOG entries on merge. Never apply to issues.
+- `bug`, `help wanted`, `good first issue`, `documentation`, etc. — issue classification labels.
+
 ## Architecture
 
 ### Session State Machine
@@ -123,11 +128,145 @@ Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Sever
 - `_response_parser.pony:161` — Bug: `'R'` error response field sets `builder.line` instead of `builder.routine` (both 'L' and 'R' map to `line`; `routine` is never populated)
 - `query_error.pony:3` — `SesssionNeverOpened` has a typo (three s's); fixing is a breaking change
 
+## Roadmap
+
+Next priority: **prepared statements** (extended query protocol).
+
 ## Supported PostgreSQL Features
 
 **Authentication:** MD5 password only. No SCRAM-SHA-256, Kerberos, SASL, GSS, or certificate auth.
 
 **Protocol:** Simple query protocol only. No extended query protocol (prepared statements, bind, describe, parse). No COPY, LISTEN/NOTIFY, or function calls.
+
+## PostgreSQL Wire Protocol Reference
+
+### Message Structure
+
+Every message (except StartupMessage) follows: `Byte1(type) | Int32(length including self but not type byte) | payload`. All integers are big-endian. Strings are null-terminated.
+
+### Extended Query Protocol (Prepared Statements)
+
+Separates query processing into discrete steps with two objects:
+- **Prepared Statement**: parsed + analyzed query, not yet executable (no parameter values)
+- **Portal**: prepared statement + bound parameter values, ready to execute (like an open cursor)
+
+#### Parse — Create Prepared Statement
+
+**Parse** (`P`): `Byte1('P') Int32(len) String(stmt_name) String(query) Int16(num_param_types) Int32[](param_type_oids)`
+
+- Query must be a single statement. Parameters: `$1`, `$2`, ..., `$n`.
+- `stmt_name` = `""` for unnamed. Named statements persist until Close or session end.
+- Unnamed statement destroyed by next Parse or simple Query.
+- Named statements MUST be Closed before redefinition.
+- OID 0 = let server infer type.
+
+**ParseComplete** (`1`): `Byte1('1') Int32(4)`
+
+#### Bind — Create Portal
+
+**Bind** (`B`): `Byte1('B') Int32(len) String(portal_name) String(stmt_name) Int16(num_param_fmt) Int16[](param_fmts) Int16(num_params) [Int32(val_len) Byte[](val)]* Int16(num_result_fmt) Int16[](result_fmts)`
+
+- Format codes: 0=text, 1=binary. Shorthand: 0 entries=all text, 1 entry=applies to all, N entries=one per column.
+- Named portals persist until Close or transaction end. Unnamed destroyed by next Bind/Query/txn end.
+- ALL portals destroyed at transaction end.
+- Query planning typically happens at Bind time.
+
+**BindComplete** (`2`): `Byte1('2') Int32(4)`
+
+#### Describe — Request Metadata
+
+**Describe** (`D`): `Byte1('D') Int32(len) Byte1('S'|'P') String(name)`
+
+- `'S'` (statement): responds with ParameterDescription then RowDescription/NoData.
+- `'P'` (portal): responds with RowDescription/NoData only.
+
+**ParameterDescription** (`t`): `Byte1('t') Int32(len) Int16(num_params) Int32[](param_oids)`
+
+**NoData** (`n`): `Byte1('n') Int32(4)` — for statements that return no rows.
+
+#### Execute — Run Portal
+
+**Execute** (`E`): `Byte1('E') Int32(len) String(portal_name) Int32(max_rows)`
+
+- `max_rows` 0 = no limit. Only applies to row-returning queries.
+- Responses: `DataRow* + CommandComplete` (done), `DataRow* + PortalSuspended` (more rows available), `EmptyQueryResponse`, or `ErrorResponse`.
+
+**PortalSuspended** (`s`): `Byte1('s') Int32(4)`
+
+#### Close — Destroy Statement/Portal
+
+**Close** (`C`): `Byte1('C') Int32(len) Byte1('S'|'P') String(name)`
+
+- Closing a statement implicitly closes all its portals.
+- Not an error to close nonexistent objects.
+
+**CloseComplete** (`3`): `Byte1('3') Int32(4)`
+
+#### Sync — Synchronization Point
+
+**Sync** (`S`): `Byte1('S') Int32(4)`
+
+- Commits (success) or rolls back (error) implicit transactions.
+- On error: backend discards messages until Sync, then sends ReadyForQuery.
+- Exactly one ReadyForQuery per Sync.
+
+#### Flush — Force Output
+
+**Flush** (`H`): `Byte1('H') Int32(4)`
+
+Forces pending output without ending query cycle or producing ReadyForQuery.
+
+### Extended Query Typical Flow
+
+```
+Client: Parse → Bind → Describe(portal) → Execute → Sync
+Server: ParseComplete → BindComplete → RowDescription → DataRow* → CommandComplete → ReadyForQuery
+```
+
+Equivalence: a simple Query is roughly Parse(unnamed) + Bind(unnamed, no params) + Describe(portal) + Execute(unnamed, 0) + Close(portal) + Sync.
+
+### Named vs Unnamed Lifetime
+
+| Object | Unnamed | Named |
+|--------|---------|-------|
+| Statement | Until next Parse/Query | Until Close or session end |
+| Portal | Until next Bind/Query or txn end | Until Close or txn end |
+
+### Pipelining
+
+Multiple extended query sequences can be sent without waiting. Each Sync is a segment boundary. On error in a segment, backend discards remaining messages until Sync, sends ReadyForQuery, then processes next segment independently.
+
+### Asynchronous Messages
+
+Can arrive between any other messages (must always handle):
+- **NoticeResponse** (`N`): informational, same format as ErrorResponse
+- **NotificationResponse** (`A`): LISTEN/NOTIFY — `Int32(pid) String(channel) String(payload)`
+- **ParameterStatus** (`S`): runtime parameter changes
+
+### Parameter Encoding
+
+- **Text (0)**: default. Human-readable via type's I/O functions. Integers as decimal ASCII, booleans as `"t"`/`"f"`.
+- **Binary (1)**: type-specific, big-endian for multi-byte, IEEE 754 for floats. May vary across PG versions for complex types.
+
+### Common Type OIDs
+
+| Type | OID | Type | OID |
+|------|-----|------|-----|
+| bool | 16 | varchar | 1043 |
+| bytea | 17 | date | 1082 |
+| int8 | 20 | time | 1083 |
+| int2 | 21 | timestamp | 1114 |
+| int4 | 23 | timestamptz | 1184 |
+| text | 25 | interval | 1186 |
+| json | 114 | numeric | 1700 |
+| float4 | 700 | uuid | 2950 |
+| float8 | 701 | jsonb | 3802 |
+
+### Complete Message Type Bytes
+
+**Frontend**: `Q`=Query, `P`=Parse, `B`=Bind, `D`=Describe, `E`=Execute, `C`=Close, `S`=Sync, `H`=Flush, `X`=Terminate, `p`=PasswordMessage
+
+**Backend**: `R`=Auth, `K`=BackendKeyData, `S`=ParameterStatus, `Z`=ReadyForQuery, `T`=RowDescription, `D`=DataRow, `C`=CommandComplete, `I`=EmptyQueryResponse, `1`=ParseComplete, `2`=BindComplete, `3`=CloseComplete, `t`=ParameterDescription, `n`=NoData, `s`=PortalSuspended, `E`=ErrorResponse, `N`=NoticeResponse, `A`=NotificationResponse
 
 ## File Layout
 

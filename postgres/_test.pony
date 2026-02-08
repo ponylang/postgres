@@ -286,8 +286,13 @@ actor \nodoc\ _JunkSendingTestServer
 
 class \nodoc\ iso _TestUnansweredQueriesFailOnShutdown is UnitTest
   """
-  Verifies that when a sesison is shutting down, it sends "SessionClosed" query
+  Verifies that when a session is shutting down, it sends "SessionClosed" query
   failures for any queries that are queued or haven't completed yet.
+
+  Uses a misbehaving server (_DoesntAnswerTestServer) that authenticates but
+  never sends ReadyForQuery, ensuring queries remain queued and never execute.
+  When the client calls close(), the pending queries should all receive
+  SessionClosed failures.
   """
   fun name(): String =>
     "UnansweredQueriesFailOnShutdown"
@@ -401,10 +406,12 @@ actor \nodoc\ _DoesntAnswerTestListener is lori.TCPListenerActor
 actor \nodoc\ _DoesntAnswerTestServer
   is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
   """
-  Eats all incoming messages. By not answering, it allows us to simulate what
-  happens with unanswered commands.
-
-  Will answer it's "first received message" with an auth ok message.
+  Simulates a misbehaving server that authenticates clients but never becomes
+  ready for queries. It sends AuthenticationOk but intentionally omits the
+  ReadyForQuery message, so the session transitions to _SessionLoggedIn with
+  _queryable stuck at false. Any queued queries are never sent and remain
+  pending until the client calls close(), at which point shutdown drains the
+  queue and delivers SessionClosed failures to each receiver.
   """
   var _authed: Bool = false
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
@@ -420,10 +427,9 @@ actor \nodoc\ _DoesntAnswerTestServer
 
   fun ref _on_received(data: Array[U8] iso) =>
     """
-    We authenticate the user without needing to receive any password etc.
-    You connect, you are authed! This makes dummy server setup much easier but
-    it is possible that eventually this might trip us up. At the moment, this
-    isn't problematic that we are "auto authing".
+    Sends AuthenticationOk on first contact without requiring a password.
+    Intentionally does NOT send ReadyForQuery afterward — this is the
+    misbehavior under test.
     """
     if not _authed then
       _authed = true

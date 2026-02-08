@@ -158,7 +158,7 @@ primitive _ResponseParser
       | 'n' => builder.constraint_name = field_data
       | 'F' => builder.file = field_data
       | 'L' => builder.line = field_data
-      | 'R' => builder.line = field_data
+      | 'R' => builder.routine = field_data
       end
 
       code_index = null_index + 1

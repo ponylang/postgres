@@ -118,14 +118,11 @@ Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Sever
 
 ## Known Issues and TODOs in Code
 
-- `session.pony:128-133` — TODO: add sub-state machine for "query in flight" vs "no query in flight" to replace boolean flags
-- `session.pony:179-189` — TODO: validate row/description consistency (e.g., rows without description, description without SELECT)
-- `session.pony:210-211` — TODO: verify no rows/description on empty query response
-- `session.pony:256` — TODO: verify only one row description per in-flight query
+- `session.pony:128-133` — TODO: add sub-state machine for "query in flight" vs "no query in flight" to replace boolean flags (design: discussion #64)
+- `session.pony:265` — TODO: verify only one row description per in-flight query
 - `rows.pony:43-46` — TODO: need tests for Rows/Row/Field (requires implementing `eq`)
 - `_test_response_parser.pony:6-13` — TODO: chain-of-messages tests to verify correct buffer advancement across message sequences
 - `result_receiver.pony:1-4` — TODO: consider passing session to result callbacks so receivers without a session tag can execute follow-up queries
-- `_response_parser.pony:161` — Bug: `'R'` error response field sets `builder.line` instead of `builder.routine` (both 'L' and 'R' map to `line`; `routine` is never populated)
 
 ## Roadmap
 

@@ -491,3 +491,194 @@ actor \nodoc\ _EmptyQueryReceiver is
   =>
     _h.fail("Unexpected query failure")
     _h.complete(false)
+
+class \nodoc\ iso _TestZeroRowSelect is UnitTest
+  """
+  Verifies that a SELECT returning zero rows produces a ResultSet with zero
+  rows rather than a RowModifying result.
+  """
+  fun name(): String =>
+    "integration/Query/ZeroRowSelect"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _ZeroRowSelectReceiver(h)
+
+    let session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      client,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+    h.dispose_when_done(session)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _ZeroRowSelectReceiver is
+  ( SessionStatusNotify
+  & ResultReceiver )
+  let _h: TestHelper
+  let _query: SimpleQuery
+
+  new create(h: TestHelper) =>
+    _h = h
+    _query = SimpleQuery("SELECT 1 WHERE false")
+
+  be pg_session_authenticated(session: Session) =>
+    session.execute(_query, this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate")
+    _h.complete(false)
+
+  be pg_query_result(result: Result) =>
+    if result.query() isnt _query then
+      _h.fail("Query in result isn't the expected query.")
+      _h.complete(false)
+      return
+    end
+
+    match result
+    | let r: ResultSet =>
+      if r.rows().size() != 0 then
+        _h.fail("Expected zero rows but got " + r.rows().size().string())
+        _h.complete(false)
+        return
+      end
+    else
+      _h.fail("Expected ResultSet but got a different result type.")
+      _h.complete(false)
+      return
+    end
+
+    _h.complete(true)
+
+  be pg_query_failed(query: SimpleQuery,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure")
+    _h.complete(false)
+
+class \nodoc\ iso _TestMultiStatementMixedResults is UnitTest
+  """
+  Verifies correct result types when a multi-statement query produces both
+  a zero-row SELECT (ResultSet) and an INSERT (RowModifying).
+  """
+  fun name(): String =>
+    "integration/Query/MultiStatementMixedResults"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _MultiStatementMixedClient(h, info)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _MultiStatementMixedClient is
+  ( SessionStatusNotify
+  & ResultReceiver )
+  let _h: TestHelper
+  let _session: Session
+  var _phase: USize = 0
+
+  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+    _h = h
+
+    _session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      this,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+  be pg_session_authenticated(session: Session) =>
+    // Phase 0: create the table
+    _phase = 0
+    session.execute(
+      SimpleQuery(
+        """
+        CREATE TABLE mixed_test (col VARCHAR(50) NOT NULL)
+        """),
+      this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate")
+    _h.complete(false)
+
+  be pg_query_result(result: Result) =>
+    _phase = _phase + 1
+
+    match _phase
+    | 1 =>
+      // Table created, now send multi-statement query
+      _session.execute(
+        SimpleQuery(
+          "SELECT * FROM mixed_test WHERE false; INSERT INTO mixed_test (col) VALUES ('x')"),
+        this)
+    | 2 =>
+      // First result from multi-statement: should be ResultSet (zero rows)
+      match result
+      | let r: ResultSet =>
+        if r.rows().size() != 0 then
+          _h.fail(
+            "Expected zero rows in SELECT result but got "
+              + r.rows().size().string())
+          _drop_and_finish()
+          return
+        end
+      else
+        _h.fail(
+          "Expected ResultSet for zero-row SELECT but got different type.")
+        _drop_and_finish()
+        return
+      end
+    | 3 =>
+      // Second result from multi-statement: should be RowModifying
+      match result
+      | let r: RowModifying =>
+        if r.impacted() != 1 then
+          _h.fail(
+            "Expected 1 impacted row but got " + r.impacted().string())
+          _drop_and_finish()
+          return
+        end
+      else
+        _h.fail(
+          "Expected RowModifying for INSERT but got different type.")
+        _drop_and_finish()
+        return
+      end
+      // Both results verified, drop table
+      _session.execute(SimpleQuery("DROP TABLE mixed_test"), this)
+    | 4 =>
+      // Table dropped, all done
+      _h.complete(true)
+    else
+      _h.fail("Unexpected phase " + _phase.string())
+      _drop_and_finish()
+    end
+
+  be pg_query_failed(query: SimpleQuery,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure at phase " + _phase.string())
+    _drop_and_finish()
+
+  fun ref _drop_and_finish() =>
+    _session.execute(SimpleQuery("DROP TABLE IF EXISTS mixed_test"), this)
+    _h.complete(false)
+
+  be dispose() =>
+    _session.close()

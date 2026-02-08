@@ -42,6 +42,9 @@ actor \nodoc\ Main is TestList
     test(_TestResponseParserReadyForQueryMessage)
     test(_TestResponseParserRowDescriptionMessage)
     test(_TestUnansweredQueriesFailOnShutdown)
+    test(_TestZeroRowSelectReturnsResultSet)
+    test(_TestZeroRowSelect)
+    test(_TestMultiStatementMixedResults)
 
 class \nodoc\ iso _TestAuthenticate is UnitTest
   """
@@ -435,4 +438,171 @@ actor \nodoc\ _DoesntAnswerTestServer
       _authed = true
       let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
       _tcp_connection.send(auth_ok)
+    end
+
+class \nodoc\ iso _TestZeroRowSelectReturnsResultSet is UnitTest
+  """
+  Verifies that a SELECT returning zero rows produces a ResultSet (not
+  RowModifying). Uses a mock server that sends RowDescription followed by
+  CommandComplete("SELECT 0") with no DataRow messages in between.
+  """
+  fun name(): String =>
+    "ZeroRowSelectReturnsResultSet"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "7670"
+
+    let listener = _ZeroRowSelectTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _ZeroRowSelectTestClient is (SessionStatusNotify & ResultReceiver)
+  let _h: TestHelper
+  let _query: SimpleQuery
+  var _session: (Session | None) = None
+
+  new create(h: TestHelper) =>
+    _h = h
+    _query = SimpleQuery("SELECT * FROM empty_table")
+
+  be pg_session_connection_failed(s: Session) =>
+    _h.fail("Unable to establish connection.")
+    _h.complete(false)
+
+  be pg_session_authenticated(session: Session) =>
+    _session = session
+    session.execute(_query, this)
+
+  be pg_session_authentication_failed(
+    session: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate.")
+    _h.complete(false)
+
+  be pg_query_result(result: Result) =>
+    if result.query() isnt _query then
+      _h.fail("Query in result isn't the expected query.")
+      _close_and_complete(false)
+      return
+    end
+
+    match result
+    | let r: ResultSet =>
+      if r.rows().size() != 0 then
+        _h.fail("Expected zero rows but got " + r.rows().size().string())
+        _close_and_complete(false)
+        return
+      end
+      if r.command() != "SELECT" then
+        _h.fail("Expected command SELECT but got " + r.command())
+        _close_and_complete(false)
+        return
+      end
+    else
+      _h.fail("Expected ResultSet but got a different result type.")
+      _close_and_complete(false)
+      return
+    end
+
+    _close_and_complete(true)
+
+  be pg_query_failed(query: SimpleQuery,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure.")
+    _close_and_complete(false)
+
+  fun ref _close_and_complete(success: Bool) =>
+    match _session
+    | let s: Session => s.close()
+    end
+    _h.complete(success)
+
+actor \nodoc\ _ZeroRowSelectTestListener is lori.TCPListenerActor
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _h: TestHelper
+  let _host: String
+  let _port: String
+
+  new create(listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper)
+  =>
+    _host = host
+    _port = port
+    _h = h
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): _ZeroRowSelectTestServer =>
+    _ZeroRowSelectTestServer(_server_auth, fd)
+
+  fun ref _on_listening() =>
+    Session(
+      lori.TCPConnectAuth(_h.env.root),
+      _ZeroRowSelectTestClient(_h),
+      _host,
+      _port,
+      "postgres",
+      "postgres",
+      "postgres")
+
+  fun ref _on_listen_failure() =>
+    _h.fail("Unable to listen")
+    _h.complete(false)
+
+actor \nodoc\ _ZeroRowSelectTestServer
+  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  """
+  Mock server that authenticates and then responds to a query with
+  RowDescription + CommandComplete("SELECT 0") — simulating a SELECT that
+  returns zero rows.
+  """
+  var _received_count: USize = 0
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+
+  new create(auth: lori.TCPServerAuth, fd: U32) =>
+    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
+
+  fun ref _next_lifecycle_event_receiver(): None =>
+    None
+
+  fun ref _on_received(data: Array[U8] iso) =>
+    _received_count = _received_count + 1
+
+    if _received_count == 1 then
+      // Startup: send AuthOk + ReadyForQuery(idle)
+      let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
+      let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+      _tcp_connection.send(auth_ok)
+      _tcp_connection.send(ready)
+    elseif _received_count == 2 then
+      // Query: send RowDescription (one text column) + CommandComplete +
+      // ReadyForQuery
+      try
+        let columns: Array[(String, String)] val = recover val
+          [("col", "text")]
+        end
+        let row_desc = _IncomingRowDescriptionTestMessage(columns)?.bytes()
+        let cmd_complete = _IncomingCommandCompleteTestMessage("SELECT 0").bytes()
+        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        _tcp_connection.send(row_desc)
+        _tcp_connection.send(cmd_complete)
+        _tcp_connection.send(ready)
+      end
     end

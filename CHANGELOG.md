@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file. This projec
 
 - Fix ErrorResponseMessage routine field never being populated ([PR #60](https://github.com/ponylang/postgres/pull/60))
 - Fix zero-row SELECT producing RowModifying instead of ResultSet ([PR #65](https://github.com/ponylang/postgres/pull/65))
+- Fix double-delivery of pg_query_failed on failed transactions ([PR #67](https://github.com/ponylang/postgres/pull/67))
 
 ### Added
 

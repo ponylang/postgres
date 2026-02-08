@@ -79,7 +79,7 @@ Only one query is in-flight at a time. The queue serializes execution.
 - `FieldDataTypes` = `(Bool | F32 | F64 | I16 | I32 | I64 | None | String)`
 - `SessionStatusNotify` interface (tag) — lifecycle callbacks (connected, connection_failed, authenticated, authentication_failed, shutdown)
 - `ResultReceiver` interface (tag) — `pg_query_result(Result)`, `pg_query_failed(SimpleQuery, (ErrorResponseMessage | ClientQueryError))`
-- `ClientQueryError` trait — `SesssionNeverOpened` (note: typo is in the codebase), `SessionClosed`, `SessionNotAuthenticated`, `DataError`
+- `ClientQueryError` trait — `SessionNeverOpened`, `SessionClosed`, `SessionNotAuthenticated`, `DataError`
 - `ErrorResponseMessage` — full PostgreSQL error with all standard fields
 - `AuthenticationFailureReason` = `(InvalidAuthenticationSpecification | InvalidPassword)`
 
@@ -126,7 +126,6 @@ Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Sever
 - `_test_response_parser.pony:6-13` — TODO: chain-of-messages tests to verify correct buffer advancement across message sequences
 - `result_receiver.pony:1-4` — TODO: consider passing session to result callbacks so receivers without a session tag can execute follow-up queries
 - `_response_parser.pony:161` — Bug: `'R'` error response field sets `builder.line` instead of `builder.routine` (both 'L' and 'R' map to `line`; `routine` is never populated)
-- `query_error.pony:3` — `SesssionNeverOpened` has a typo (three s's); fixing is a breaking change
 
 ## Roadmap
 

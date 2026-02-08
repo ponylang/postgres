@@ -1,6 +1,6 @@
 trait val ClientQueryError
 
-primitive SesssionNeverOpened is ClientQueryError
+primitive SessionNeverOpened is ClientQueryError
   """
   Error returned when a query is attempted for a session that hasn't been opened
   yet or is in the process of being opened.

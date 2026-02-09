@@ -12,6 +12,12 @@ type _ResponseParserResult is
   | _EmptyQueryResponseMessage
   | _ReadyForQueryMessage
   | _RowDescriptionMessage
+  | _ParseCompleteMessage
+  | _BindCompleteMessage
+  | _CloseCompleteMessage
+  | _NoDataMessage
+  | _ParameterDescriptionMessage
+  | _PortalSuspendedMessage
   | _UnsupportedMessage
   | ErrorResponseMessage
   | None )
@@ -36,11 +42,13 @@ primitive _ResponseParser
     end
 
     let message_type = buffer.peek_u8(0)?
-    if ((message_type < 'A') or (message_type > 'z')) or
+    // Digits ('0'-'9') are accepted for ParseComplete('1'),
+    // BindComplete('2'), CloseComplete('3'). Uppercase and lowercase ASCII
+    // letters cover all other valid PostgreSQL backend message types.
+    if (message_type < '0') or (message_type > 'z') or
+      ((message_type > '9') and (message_type < 'A')) or
       ((message_type > 'Z') and (message_type < 'a'))
     then
-      // All message codes are ascii letters. If we get something that isn't
-      // one then we know we have junk.
       error
     end
 
@@ -117,6 +125,27 @@ primitive _ResponseParser
       buffer.skip(5)?
       // and there's nothing else
       return _EmptyQueryResponseMessage
+    | '1' =>
+      buffer.skip(message_size)?
+      return _ParseCompleteMessage
+    | '2' =>
+      buffer.skip(message_size)?
+      return _BindCompleteMessage
+    | '3' =>
+      buffer.skip(message_size)?
+      return _CloseCompleteMessage
+    | 'n' =>
+      buffer.skip(message_size)?
+      return _NoDataMessage
+    | 's' =>
+      buffer.skip(message_size)?
+      return _PortalSuspendedMessage
+    | 't' =>
+      // Slide past the header...
+      buffer.skip(5)?
+      // and parse the parameter description payload
+      let payload = buffer.block(payload_size)?
+      return _parameter_description(consume payload)?
     else
       buffer.skip(message_size)?
       return _UnsupportedMessage
@@ -267,3 +296,19 @@ primitive _ResponseParser
     else
       _CommandCompleteMessage(id, 0)
     end
+
+  fun _parameter_description(payload: Array[U8] val)
+    : _ParameterDescriptionMessage ?
+  =>
+    """
+    Parse a parameter description message.
+    """
+    let reader: Reader = Reader.>append(payload)
+    let num_params = reader.u16_be()?.usize()
+    let oids: Array[U32] iso = recover iso Array[U32](num_params) end
+
+    for i in Range(0, num_params) do
+      oids.push(reader.u32_be()?)
+    end
+
+    _ParameterDescriptionMessage(consume oids)

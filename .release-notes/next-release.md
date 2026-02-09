@@ -38,3 +38,43 @@ When a query error occurred inside a PostgreSQL transaction, the `ResultReceiver
 
 When `close()` was called while the session was between processing an error response and processing the subsequent ready-for-query message, the `ResultReceiver` could receive `pg_query_failed` twice — once with the original error and again with `SessionClosed`. Query cycle messages are now processed synchronously, preventing other operations from interleaving.
 
+## Add parameterized queries via extended query protocol
+
+You can now execute parameterized queries using `PreparedQuery`. Parameters are referenced as `$1`, `$2`, etc. in the query string and passed as an array of `(String | None)` values. Use `None` for SQL NULL.
+
+```pony
+// Parameterized SELECT
+let query = PreparedQuery("SELECT * FROM users WHERE id = $1",
+  recover val [as (String | None): "42"] end)
+session.execute(query, receiver)
+
+// INSERT with NULL parameter
+let insert = PreparedQuery("INSERT INTO items (name, desc) VALUES ($1, $2)",
+  recover val [as (String | None): "widget"; None] end)
+session.execute(insert, receiver)
+```
+
+Each `PreparedQuery` must contain a single SQL statement. For multi-statement execution, use `SimpleQuery`.
+
+## Change ResultReceiver and Result to use Query union type
+
+`ResultReceiver.pg_query_failed` and `Result.query()` now use `Query` (a union of `SimpleQuery | PreparedQuery`) instead of `SimpleQuery`.
+
+Before:
+
+```pony
+be pg_query_failed(query: SimpleQuery,
+  failure: (ErrorResponseMessage | ClientQueryError))
+=>
+  // handle failure
+```
+
+After:
+
+```pony
+be pg_query_failed(query: Query,
+  failure: (ErrorResponseMessage | ClientQueryError))
+=>
+  // handle failure
+```
+

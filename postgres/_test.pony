@@ -41,10 +41,30 @@ actor \nodoc\ Main is TestList
     test(_TestResponseParserMultipleMessagesErrorResponseFirst)
     test(_TestResponseParserReadyForQueryMessage)
     test(_TestResponseParserRowDescriptionMessage)
+    test(_TestResponseParserParseCompleteMessage)
+    test(_TestResponseParserBindCompleteMessage)
+    test(_TestResponseParserNoDataMessage)
+    test(_TestResponseParserCloseCompleteMessage)
+    test(_TestResponseParserParameterDescriptionMessage)
+    test(_TestResponseParserPortalSuspendedMessage)
+    test(_TestResponseParserDigitMessageTypeNotJunk)
+    test(_TestResponseParserMultipleMessagesParseCompleteFirst)
+    test(_TestFrontendMessageParse)
+    test(_TestFrontendMessageParseWithTypes)
+    test(_TestFrontendMessageBind)
+    test(_TestFrontendMessageBindWithNull)
+    test(_TestFrontendMessageDescribePortal)
+    test(_TestFrontendMessageExecute)
+    test(_TestFrontendMessageSync)
     test(_TestUnansweredQueriesFailOnShutdown)
     test(_TestZeroRowSelectReturnsResultSet)
     test(_TestZeroRowSelect)
     test(_TestMultiStatementMixedResults)
+    test(_TestPreparedQueryResults)
+    test(_TestPreparedQueryNullParam)
+    test(_TestPreparedQueryNonExistentTable)
+    test(_TestPreparedQueryInsertAndDelete)
+    test(_TestPreparedQueryMixedWithSimple)
 
 class \nodoc\ iso _TestAuthenticate is UnitTest
   """
@@ -315,7 +335,7 @@ class \nodoc\ iso _TestUnansweredQueriesFailOnShutdown is UnitTest
 
 actor \nodoc\ _DoesntAnswerClient is (SessionStatusNotify & ResultReceiver)
   let _h: TestHelper
-  let _in_flight_queries: SetIs[SimpleQuery] = _in_flight_queries.create()
+  let _in_flight_queries: SetIs[Query] = _in_flight_queries.create()
 
   new create(h: TestHelper) =>
     _h = h
@@ -340,7 +360,7 @@ actor \nodoc\ _DoesntAnswerClient is (SessionStatusNotify & ResultReceiver)
     _h.fail("Unexpectedly got a result for a query.")
     _h.complete(false)
 
-  be pg_query_failed(query: SimpleQuery,
+  be pg_query_failed(query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if _in_flight_queries.contains(query) then
@@ -513,7 +533,7 @@ actor \nodoc\ _ZeroRowSelectTestClient is (SessionStatusNotify & ResultReceiver)
 
     _close_and_complete(true)
 
-  be pg_query_failed(query: SimpleQuery,
+  be pg_query_failed(query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure.")

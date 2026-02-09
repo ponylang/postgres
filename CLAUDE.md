@@ -300,5 +300,8 @@ postgres/                         # Main package (26 files)
   _test_query.pony                # Query integration tests
   _test_response_parser.pony      # Parser unit tests + test message builders
   _test_frontend_message.pony     # Frontend message unit tests
-examples/query/query-example.pony # Usage example
+examples/README.md                # Examples overview
+examples/query/query-example.pony # Simple query with result inspection
+examples/prepared-query/prepared-query-example.pony # PreparedQuery with params and NULL
+examples/crud/crud-example.pony   # Multi-query CRUD workflow
 ```

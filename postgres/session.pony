@@ -111,6 +111,8 @@ class ref _SessionConnected is _AuthenticableState
     r.pg_query_failed(q, SessionNotAuthenticated)
 
   fun ref on_shutdown(s: Session ref) =>
+    // Clearing the readbuf is required for _ResponseMessageParser's
+    // synchronous loop to exit — the next parse returns None.
     _readbuf.clear()
 
   fun user(): String =>
@@ -171,6 +173,8 @@ class _SessionLoggedIn is _AuthenticatedState
     query_state.try_run_query(s, this)
 
   fun ref on_shutdown(s: Session ref) =>
+    // Clearing the readbuf is required for _ResponseMessageParser's
+    // synchronous loop to exit — the next parse returns None.
     _readbuf.clear()
     for queue_item in query_queue.values() do
       (let query, let receiver) = queue_item

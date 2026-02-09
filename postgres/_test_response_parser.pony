@@ -488,6 +488,152 @@ class \nodoc\ val _IncomingErrorResponseTestMessage
   fun bytes(): Array[U8] val =>
     _bytes
 
+class \nodoc\ iso _TestResponseParserParseCompleteMessage is UnitTest
+  fun name(): String =>
+    "ResponseParser/ParseCompleteMessage"
+
+  fun apply(h: TestHelper) ? =>
+    let bytes = _IncomingParseCompleteTestMessage.bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    if _ResponseParser(r)? isnt _ParseCompleteMessage then
+      h.fail("Wrong message returned.")
+    end
+
+class \nodoc\ iso _TestResponseParserBindCompleteMessage is UnitTest
+  fun name(): String =>
+    "ResponseParser/BindCompleteMessage"
+
+  fun apply(h: TestHelper) ? =>
+    let bytes = _IncomingBindCompleteTestMessage.bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    if _ResponseParser(r)? isnt _BindCompleteMessage then
+      h.fail("Wrong message returned.")
+    end
+
+class \nodoc\ iso _TestResponseParserNoDataMessage is UnitTest
+  fun name(): String =>
+    "ResponseParser/NoDataMessage"
+
+  fun apply(h: TestHelper) ? =>
+    let bytes = _IncomingNoDataTestMessage.bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    if _ResponseParser(r)? isnt _NoDataMessage then
+      h.fail("Wrong message returned.")
+    end
+
+class \nodoc\ iso _TestResponseParserCloseCompleteMessage is UnitTest
+  fun name(): String =>
+    "ResponseParser/CloseCompleteMessage"
+
+  fun apply(h: TestHelper) ? =>
+    let bytes = _IncomingCloseCompleteTestMessage.bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    if _ResponseParser(r)? isnt _CloseCompleteMessage then
+      h.fail("Wrong message returned.")
+    end
+
+class \nodoc\ iso _TestResponseParserParameterDescriptionMessage is UnitTest
+  fun name(): String =>
+    "ResponseParser/ParameterDescriptionMessage"
+
+  fun apply(h: TestHelper) ? =>
+    let oids: Array[U32] val = recover val [as U32: 23; 25; 16] end
+    let bytes = _IncomingParameterDescriptionTestMessage(oids).bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    match _ResponseParser(r)?
+    | let m: _ParameterDescriptionMessage =>
+      h.assert_eq[USize](3, m.param_oids.size())
+      h.assert_eq[U32](23, m.param_oids(0)?)
+      h.assert_eq[U32](25, m.param_oids(1)?)
+      h.assert_eq[U32](16, m.param_oids(2)?)
+    else
+      h.fail("Wrong message returned.")
+    end
+
+class \nodoc\ iso _TestResponseParserPortalSuspendedMessage is UnitTest
+  fun name(): String =>
+    "ResponseParser/PortalSuspendedMessage"
+
+  fun apply(h: TestHelper) ? =>
+    let bytes = _IncomingPortalSuspendedTestMessage.bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    if _ResponseParser(r)? isnt _PortalSuspendedMessage then
+      h.fail("Wrong message returned.")
+    end
+
+class \nodoc\ iso _TestResponseParserDigitMessageTypeNotJunk is UnitTest
+  """
+  Verify that digit message types ('1', '2', '3') are accepted by junk
+  detection, while characters just below the digit range are still rejected.
+  """
+  fun name(): String =>
+    "ResponseParser/DigitMessageTypeNotJunk"
+
+  fun apply(h: TestHelper) ? =>
+    // '1' (ParseComplete) should be accepted
+    let bytes = _IncomingParseCompleteTestMessage.bytes()
+    let r: Reader = Reader.>append(bytes)
+    if _ResponseParser(r)? isnt _ParseCompleteMessage then
+      h.fail("Digit '1' was not accepted.")
+    end
+
+    // '/' (47, just below '0'=48) should be rejected as junk
+    h.assert_error({() ? =>
+      let wb: Writer = Writer
+      wb.u8('/')
+      wb.u32_be(4)
+      let junk_bytes = WriterToByteArray(wb)
+      let r': Reader = Reader.>append(junk_bytes)
+      _ResponseParser(r')? })
+
+class \nodoc\ iso
+  _TestResponseParserMultipleMessagesParseCompleteFirst
+  is UnitTest
+  """
+  Verify correct buffer advancement across an extended query response
+  sequence: ParseComplete + BindComplete + CommandComplete + ReadyForQuery.
+  """
+  fun name(): String =>
+    "ResponseParser/MultipleMessages/ParseCompleteFirst"
+
+  fun apply(h: TestHelper) ? =>
+    let r: Reader = Reader
+    r.append(_IncomingParseCompleteTestMessage.bytes())
+    r.append(_IncomingBindCompleteTestMessage.bytes())
+    r.append(_IncomingCommandCompleteTestMessage("INSERT 0 1").bytes())
+    r.append(_IncomingReadyForQueryTestMessage('I').bytes())
+
+    if _ResponseParser(r)? isnt _ParseCompleteMessage then
+      h.fail("Wrong message for ParseComplete.")
+    end
+
+    if _ResponseParser(r)? isnt _BindCompleteMessage then
+      h.fail("Wrong message for BindComplete.")
+    end
+
+    match _ResponseParser(r)?
+    | let m: _CommandCompleteMessage =>
+      h.assert_eq[String]("INSERT", m.id)
+      h.assert_eq[USize](1, m.value)
+    else
+      h.fail("Wrong message for CommandComplete.")
+    end
+
+    match _ResponseParser(r)?
+    | let m: _ReadyForQueryMessage =>
+      if not m.idle() then
+        h.fail("Expected idle status.")
+      end
+    else
+      h.fail("Wrong message for ReadyForQuery.")
+    end
+
 class \nodoc\ val _IncomingJunkTestMessage
   """
   Creates a junk message where "junk" is currently defined as having a message
@@ -635,6 +781,89 @@ class \nodoc\ val _IncomingRowDescriptionTestMessage
     let pb = WriterToByteArray(pw)
     // copy in payload size
     _bytes = recover val b.clone().>copy_from(pb, 0, 1, 4) end
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingParseCompleteTestMessage
+  let _bytes: Array[U8] val
+
+  new val create() =>
+    let wb: Writer = Writer
+    wb.u8('1')
+    wb.u32_be(4)
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingBindCompleteTestMessage
+  let _bytes: Array[U8] val
+
+  new val create() =>
+    let wb: Writer = Writer
+    wb.u8('2')
+    wb.u32_be(4)
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingNoDataTestMessage
+  let _bytes: Array[U8] val
+
+  new val create() =>
+    let wb: Writer = Writer
+    wb.u8('n')
+    wb.u32_be(4)
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingCloseCompleteTestMessage
+  let _bytes: Array[U8] val
+
+  new val create() =>
+    let wb: Writer = Writer
+    wb.u8('3')
+    wb.u32_be(4)
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingParameterDescriptionTestMessage
+  let _bytes: Array[U8] val
+
+  new val create(oids: Array[U32] val) =>
+    let payload_size = 4 + 2 + (oids.size() * 4)
+    let wb: Writer = Writer
+    wb.u8('t')
+    wb.u32_be(payload_size.u32())
+    wb.u16_be(oids.size().u16())
+    for oid in oids.values() do
+      wb.u32_be(oid)
+    end
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingPortalSuspendedTestMessage
+  let _bytes: Array[U8] val
+
+  new val create() =>
+    let wb: Writer = Writer
+    wb.u8('s')
+    wb.u32_be(4)
+
+    _bytes = WriterToByteArray(wb)
 
   fun bytes(): Array[U8] val =>
     _bytes

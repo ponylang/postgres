@@ -7,6 +7,6 @@ interface tag ResultReceiver
     """
     """
 
-  be pg_query_failed(query: SimpleQuery, failure: (ErrorResponseMessage | ClientQueryError))
+  be pg_query_failed(query: Query, failure: (ErrorResponseMessage | ClientQueryError))
     """
     """

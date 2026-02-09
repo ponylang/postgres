@@ -1,12 +1,12 @@
 trait val Result
-  fun query(): SimpleQuery
+  fun query(): Query
 
 class val ResultSet is Result
-  let _query: SimpleQuery
+  let _query: Query
   let _rows: Rows
   let _command: String
 
-  new val create(query': SimpleQuery,
+  new val create(query': Query,
     rows': Rows,
     command': String)
   =>
@@ -14,7 +14,7 @@ class val ResultSet is Result
     _rows = rows'
     _command = command'
 
-  fun query(): SimpleQuery =>
+  fun query(): Query =>
     _query
 
   fun rows(): Rows =>
@@ -24,20 +24,20 @@ class val ResultSet is Result
     _command
 
 class val SimpleResult is Result
-  let _query: SimpleQuery
+  let _query: Query
 
-  new val create(query': SimpleQuery) =>
+  new val create(query': Query) =>
     _query = query'
 
-  fun query(): SimpleQuery =>
+  fun query(): Query =>
     _query
 
 class val RowModifying is Result
-  let _query: SimpleQuery
+  let _query: Query
   let _command: String
   let _impacted: USize
 
-  new val create(query': SimpleQuery,
+  new val create(query': Query,
     command': String,
     impacted': USize)
   =>
@@ -45,7 +45,7 @@ class val RowModifying is Result
     _command = command'
     _impacted = impacted'
 
-  fun query(): SimpleQuery =>
+  fun query(): Query =>
     _query
 
   fun command(): String =>

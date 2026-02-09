@@ -51,34 +51,40 @@ This design makes illegal state transitions call `_IllegalState()` (panic) by de
 
 ### Query Execution Flow
 
-1. Client calls `session.execute(SimpleQuery, ResultReceiver)`
-2. `_SessionLoggedIn` queues `(query, receiver)` pairs in `_query_queue`
-3. When `_queryable` is true and queue is non-empty, sends query via `_FrontendMessage.query()`
+1. Client calls `session.execute(query, ResultReceiver)` where query is `SimpleQuery` or `PreparedQuery`
+2. `_SessionLoggedIn` queues `(query, receiver)` pairs in `query_queue`
+3. The `_QueryState` sub-state machine manages query lifecycle:
+   - `_QueryNotReady`: initial state after auth, waiting for server readiness
+   - `_QueryReady`: server is idle, `try_run_query` dispatches based on query type — `SimpleQuery` transitions to `_SimpleQueryInFlight`, `PreparedQuery` transitions to `_ExtendedQueryInFlight`
+   - `_SimpleQueryInFlight`: owns per-query accumulation data (`_data_rows`, `_row_description`), delivers results on `CommandComplete`
+   - `_ExtendedQueryInFlight`: same data accumulation and result delivery as `_SimpleQueryInFlight` (duplicated because Pony traits can't have iso fields). Entered after sending Parse+Bind+Describe(portal)+Execute+Sync
 4. Response data arrives: `_RowDescriptionMessage` sets column metadata, `_DataRowMessage` accumulates rows
 5. `_CommandCompleteMessage` triggers result delivery to receiver
-6. `_ReadyForQueryMessage` (idle) dequeues completed query, enables next query
+6. `_ReadyForQueryMessage` dequeues completed query, transitions to `_QueryReady` (idle) or `_QueryNotReady` (non-idle)
 
-Only one query is in-flight at a time. The queue serializes execution.
+Only one query is in-flight at a time. The queue serializes execution. `query_queue` and `query_state` are non-underscore-prefixed fields on `_SessionLoggedIn` because the `_QueryState` implementations need cross-type access (Pony private fields are type-private).
 
 ### Protocol Layer
 
 **Frontend (client → server):**
-- `_FrontendMessage` primitive: `startup()`, `password()`, `query()` — builds raw byte arrays with big-endian wire format
+- `_FrontendMessage` primitive: `startup()`, `password()`, `query()`, `parse()`, `bind()`, `describe_portal()`, `execute_msg()`, `sync()` — builds raw byte arrays with big-endian wire format
 
 **Backend (server → client):**
 - `_ResponseParser` primitive: incremental parser consuming from a `Reader` buffer. Returns one parsed message per call, `None` if incomplete, errors on junk.
-- `_ResponseMessageParser` primitive: routes parsed messages to the current session state's callbacks. Uses `s._process_again()` (a behavior call) to process remaining buffered messages without starving other actors.
+- `_ResponseMessageParser` primitive: routes parsed messages to the current session state's callbacks. Processes messages synchronously within a query cycle (looping until `ReadyForQuery` or buffer exhaustion), then yields via `s._process_again()` between cycles. This prevents behaviors like `close()` from interleaving between result delivery and query dequeuing. If a callback triggers shutdown during the loop, `on_shutdown` clears the read buffer, causing the next parse to return `None` and exit the loop.
 
-**Supported message types:** AuthenticationOk, AuthenticationMD5Password, CommandComplete, DataRow, EmptyQueryResponse, ErrorResponse, ReadyForQuery, RowDescription. Unsupported types are silently skipped.
+**Supported message types:** AuthenticationOk, AuthenticationMD5Password, CommandComplete, DataRow, EmptyQueryResponse, ErrorResponse, ReadyForQuery, RowDescription, ParseComplete, BindComplete, NoData, CloseComplete, ParameterDescription, PortalSuspended. Extended query acknowledgment messages (ParseComplete, BindComplete, NoData, etc.) are parsed but silently consumed — they fall through the `_ResponseMessageParser` match without routing since the state machine tracks query lifecycle through data-carrying messages only.
 
 ### Public API Types
 
-- `SimpleQuery` — val class wrapping a query string
+- `Query` — union type `(SimpleQuery | PreparedQuery)`
+- `SimpleQuery` — val class wrapping a query string (simple query protocol)
+- `PreparedQuery` — val class wrapping a query string + `Array[(String | None)] val` params (extended query protocol, single statement only)
 - `Result` trait — `ResultSet` (rows), `SimpleResult` (no rows), `RowModifying` (INSERT/UPDATE/DELETE with count)
 - `Rows` / `Row` / `Field` — result data. `Field.value` is `FieldDataTypes` union
 - `FieldDataTypes` = `(Bool | F32 | F64 | I16 | I32 | I64 | None | String)`
 - `SessionStatusNotify` interface (tag) — lifecycle callbacks (connected, connection_failed, authenticated, authentication_failed, shutdown)
-- `ResultReceiver` interface (tag) — `pg_query_result(Result)`, `pg_query_failed(SimpleQuery, (ErrorResponseMessage | ClientQueryError))`
+- `ResultReceiver` interface (tag) — `pg_query_result(Result)`, `pg_query_failed(Query, (ErrorResponseMessage | ClientQueryError))`
 - `ClientQueryError` trait — `SessionNeverOpened`, `SessionClosed`, `SessionNotAuthenticated`, `DataError`
 - `ErrorResponseMessage` — full PostgreSQL error with all standard fields
 - `AuthenticationFailureReason` = `(InvalidAuthenticationSpecification | InvalidPassword)`
@@ -113,26 +119,26 @@ Tests live in the main `postgres/` package (private test classes).
 - Connect, ConnectFailure, Authenticate, AuthenticateFailure
 - Query/Results, Query/AfterAuthenticationFailure, Query/AfterConnectionFailure, Query/AfterSessionHasBeenClosed
 - Query/OfNonExistentTable, Query/CreateAndDropTable, Query/InsertAndDelete, Query/EmptyQuery
+- PreparedQuery/Results, PreparedQuery/NullParam, PreparedQuery/OfNonExistentTable
+- PreparedQuery/InsertAndDelete, PreparedQuery/MixedWithSimple
 
 Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Several test message builder classes (`_Incoming*TestMessage`) construct raw protocol bytes for unit tests.
 
 ## Known Issues and TODOs in Code
 
-- `session.pony:128-133` — TODO: add sub-state machine for "query in flight" vs "no query in flight" to replace boolean flags (design: discussion #64)
-- `session.pony:265` — TODO: verify only one row description per in-flight query
-- `rows.pony:43-46` — TODO: need tests for Rows/Row/Field (requires implementing `eq`)
-- `_test_response_parser.pony:6-13` — TODO: chain-of-messages tests to verify correct buffer advancement across message sequences
-- `result_receiver.pony:1-4` — TODO: consider passing session to result callbacks so receivers without a session tag can execute follow-up queries
+- `rows.pony:43` — TODO: need tests for Rows/Row/Field (requires implementing `eq`)
+- `_test_response_parser.pony:6` — TODO: chain-of-messages tests to verify correct buffer advancement across message sequences
+- `result_receiver.pony:1` — TODO: consider passing session to result callbacks so receivers without a session tag can execute follow-up queries
 
 ## Roadmap
 
-Next priority: **prepared statements** (extended query protocol).
+Next priority: **named prepared statements** (current implementation uses unnamed statements only — each PreparedQuery creates and immediately executes a fresh statement).
 
 ## Supported PostgreSQL Features
 
 **Authentication:** MD5 password only. No SCRAM-SHA-256, Kerberos, SASL, GSS, or certificate auth.
 
-**Protocol:** Simple query protocol only. No extended query protocol (prepared statements, bind, describe, parse). No COPY, LISTEN/NOTIFY, or function calls.
+**Protocol:** Simple query protocol and extended query protocol (parameterized queries via unnamed prepared statements). Parameters are text-format only; type OIDs are inferred by the server. No named prepared statements, COPY, LISTEN/NOTIFY, or function calls.
 
 ## PostgreSQL Wire Protocol Reference
 
@@ -267,9 +273,11 @@ Can arrive between any other messages (must always handle):
 ## File Layout
 
 ```
-postgres/                         # Main package (24 files)
-  session.pony                    # Session actor + state machine traits
+postgres/                         # Main package (26 files)
+  session.pony                    # Session actor + state machine traits + query sub-state machine
   simple_query.pony               # SimpleQuery class
+  prepared_query.pony             # PreparedQuery class
+  query.pony                      # Query union type
   result.pony                     # Result, ResultSet, SimpleResult, RowModifying
   result_receiver.pony            # ResultReceiver interface
   session_status_notify.pony      # SessionStatusNotify interface

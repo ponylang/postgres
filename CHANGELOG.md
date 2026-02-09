@@ -13,8 +13,11 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Added
 
+- Add parameterized queries via extended query protocol ([PR #70](https://github.com/ponylang/postgres/pull/70))
 
 ### Changed
+
+- Change ResultReceiver and Result to use Query union type instead of SimpleQuery ([PR #70](https://github.com/ponylang/postgres/pull/70))
 
 - Update ponylang/ssl dependency ([PR #55](https://github.com/ponylang/postgres/pull/55))
 - Fix typo in SesssionNeverOpened ([PR #59](https://github.com/ponylang/postgres/pull/59))

@@ -80,3 +80,43 @@ class val _RowDescriptionMessage
   new val create(columns': Array[(String, U32)] val) =>
     columns = columns'
 
+primitive _ParseCompleteMessage
+  """
+  Message from the backend acknowledging that a Parse command has completed
+  successfully.
+  """
+
+primitive _BindCompleteMessage
+  """
+  Message from the backend acknowledging that a Bind command has completed
+  successfully.
+  """
+
+primitive _CloseCompleteMessage
+  """
+  Message from the backend acknowledging that a Close command has completed
+  successfully.
+  """
+
+primitive _NoDataMessage
+  """
+  Message from the backend indicating that the described statement or portal
+  will not return rows.
+  """
+
+class val _ParameterDescriptionMessage
+  """
+  Message from the backend describing the parameter types of a prepared
+  statement. Sent in response to a Describe(Statement) command.
+  """
+  let param_oids: Array[U32] val
+
+  new val create(param_oids': Array[U32] val) =>
+    param_oids = param_oids'
+
+primitive _PortalSuspendedMessage
+  """
+  Message from the backend indicating that an Execute command has been
+  suspended because the specified maximum row count was reached.
+  """
+

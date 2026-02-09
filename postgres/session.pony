@@ -23,7 +23,7 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
       this,
       this)
 
-  be execute(query: SimpleQuery, receiver: ResultReceiver) =>
+  be execute(query: Query, receiver: ResultReceiver) =>
     """
     Execute a query.
     """
@@ -71,7 +71,7 @@ class ref _SessionUnopened is _ConnectableState
     _password = password'
     _database = database'
 
-  fun ref execute(s: Session ref, q: SimpleQuery, r: ResultReceiver) =>
+  fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
     r.pg_query_failed(q, SessionNeverOpened)
 
   fun user(): String =>
@@ -87,7 +87,7 @@ class ref _SessionUnopened is _ConnectableState
     _notify
 
 class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
-  fun ref execute(s: Session ref, q: SimpleQuery, r: ResultReceiver) =>
+  fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
     r.pg_query_failed(q, SessionClosed)
 
 class ref _SessionConnected is _AuthenticableState
@@ -107,7 +107,7 @@ class ref _SessionConnected is _AuthenticableState
     _password = password'
     _database = database'
 
-  fun ref execute(s: Session ref, q: SimpleQuery, r: ResultReceiver) =>
+  fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
     r.pg_query_failed(q, SessionNotAuthenticated)
 
   fun ref on_shutdown(s: Session ref) =>
@@ -136,7 +136,7 @@ class _SessionLoggedIn is _AuthenticatedState
   // query_queue and query_state are not underscore-prefixed because the
   // _QueryState implementations need to access them, and Pony private fields
   // are type-private.
-  let query_queue: Array[(SimpleQuery, ResultReceiver)] =
+  let query_queue: Array[(Query, ResultReceiver)] =
     query_queue.create()
   var query_state: _QueryState
   let _notify: SessionStatusNotify
@@ -166,7 +166,7 @@ class _SessionLoggedIn is _AuthenticatedState
     query_state.on_row_description(s, this, msg)
 
   fun ref execute(s: Session ref,
-    query: SimpleQuery,
+    query: Query,
     receiver: ResultReceiver)
   =>
     query_queue.push((query, receiver))
@@ -261,8 +261,35 @@ class _QueryReady is _QueryNoQueryInFlight
     try
       if li.query_queue.size() > 0 then
         (let query, _) = li.query_queue(0)?
-        li.query_state = _SimpleQueryInFlight.create()
-        s._connection().send(_FrontendMessage.query(query.string))
+        match query
+        | let sq: SimpleQuery =>
+          li.query_state = _SimpleQueryInFlight.create()
+          s._connection().send(_FrontendMessage.query(sq.string))
+        | let pq: PreparedQuery =>
+          li.query_state = _ExtendedQueryInFlight.create()
+          let parse = _FrontendMessage.parse("", pq.string,
+            recover val Array[U32] end)
+          let bind = _FrontendMessage.bind("", "", pq.params)
+          let describe = _FrontendMessage.describe_portal("")
+          let execute = _FrontendMessage.execute_msg("", 0)
+          let sync = _FrontendMessage.sync()
+          let combined = recover val
+            let total = parse.size() + bind.size() + describe.size()
+              + execute.size() + sync.size()
+            let buf = Array[U8](total)
+            buf.copy_from(parse, 0, 0, parse.size())
+            buf.copy_from(bind, 0, parse.size(), bind.size())
+            buf.copy_from(describe, 0,
+              parse.size() + bind.size(), describe.size())
+            buf.copy_from(execute, 0,
+              parse.size() + bind.size() + describe.size(), execute.size())
+            buf.copy_from(sync, 0,
+              parse.size() + bind.size() + describe.size() + execute.size(),
+              sync.size())
+            buf
+          end
+          s._connection().send(consume combined)
+        end
       end
     else
       _Unreachable()
@@ -273,6 +300,110 @@ class _SimpleQueryInFlight is _QueryState
   Simple query protocol in progress. Owns the per-query accumulation data
   which is created fresh for each query and destroyed when the state
   transitions out.
+  """
+  var _data_rows: Array[Array[(String|None)] val] iso
+  var _row_description: (Array[(String, U32)] val | None)
+
+  new create() =>
+    _data_rows = recover iso Array[Array[(String|None)] val] end
+    _row_description = None
+
+  fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
+
+  fun ref on_data_row(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _DataRowMessage)
+  =>
+    _data_rows.push(msg.columns)
+
+  fun ref on_row_description(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _RowDescriptionMessage)
+  =>
+    _row_description = msg.columns
+
+  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _ReadyForQueryMessage)
+  =>
+    try
+      li.query_queue.shift()?
+    else
+      _Unreachable()
+    end
+    if msg.idle() then
+      li.query_state = _QueryReady
+      li.query_state.try_run_query(s, li)
+    else
+      li.query_state = _QueryNotReady
+    end
+
+  fun ref on_command_complete(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CommandCompleteMessage)
+  =>
+    try
+      (let query, let receiver) = li.query_queue(0)?
+      let rows = _data_rows = recover iso
+        Array[Array[(String|None)] val].create()
+      end
+      let rd = _row_description = None
+
+      match rd
+      | let desc: Array[(String, U32)] val =>
+        try
+          let rows_object = _RowsBuilder(consume rows, desc)?
+          receiver.pg_query_result(ResultSet(query, rows_object, msg.id))
+        else
+          receiver.pg_query_failed(query, DataError)
+        end
+      | None =>
+        if rows.size() > 0 then
+          receiver.pg_query_failed(query, DataError)
+        else
+          receiver.pg_query_result(RowModifying(query, msg.id, msg.value))
+        end
+      end
+    else
+      _Unreachable()
+    end
+
+  fun ref on_empty_query_response(s: Session ref,
+    li: _SessionLoggedIn ref)
+  =>
+    try
+      (let query, let receiver) = li.query_queue(0)?
+      let rows = _data_rows = recover iso
+        Array[Array[(String|None)] val] end
+      let rd = _row_description = None
+
+      if (rows.size() > 0) or (rd isnt None) then
+        receiver.pg_query_failed(query, DataError)
+      else
+        receiver.pg_query_result(SimpleResult(query))
+      end
+    else
+      _Unreachable()
+    end
+
+  fun ref on_error_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: ErrorResponseMessage)
+  =>
+    try
+      (let query, let receiver) = li.query_queue(0)?
+      _data_rows = recover iso Array[Array[(String|None)] val] end
+      _row_description = None
+      receiver.pg_query_failed(query, msg)
+    else
+      _Unreachable()
+    end
+
+class _ExtendedQueryInFlight is _QueryState
+  """
+  Extended query protocol in progress. Owns the per-query accumulation data
+  which is created fresh for each query and destroyed when the state
+  transitions out.
+
+  The data accumulation and result delivery logic is identical to
+  `_SimpleQueryInFlight`. The duplication exists because Pony traits cannot
+  have `iso` fields, so the shared `_data_rows` and `_row_description` state
+  cannot be factored into a trait.
   """
   var _data_rows: Array[Array[(String|None)] val] iso
   var _row_description: (Array[(String, U32)] val | None)
@@ -407,7 +538,7 @@ interface _SessionState
     """
     Called when we receive data from the server.
     """
-  fun ref execute(s: Session ref, query: SimpleQuery, receiver: ResultReceiver)
+  fun ref execute(s: Session ref, query: Query, receiver: ResultReceiver)
     """
     Called when a client requests a query execution.
     """

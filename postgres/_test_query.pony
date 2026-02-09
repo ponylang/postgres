@@ -83,7 +83,7 @@ actor \nodoc\ _ResultsIncludeOriginatingQueryReceiver is
 
     _h.complete(true)
 
-  be pg_query_failed(query: SimpleQuery,
+  be pg_query_failed(query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure")
@@ -135,7 +135,7 @@ actor \nodoc\ _QueryAfterAuthenticationFailureNotify is
     _h.fail("Unexpected query result received")
     _h.complete(false)
 
-  be pg_query_failed(query: SimpleQuery,
+  be pg_query_failed(query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if (query is _query) and (failure is SessionClosed) then
@@ -188,7 +188,7 @@ actor \nodoc\ _QueryAfterConnectionFailureNotify is
     _h.fail("Unexpected query result received")
     _h.complete(false)
 
-  be pg_query_failed(query: SimpleQuery,
+  be pg_query_failed(query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if (query is _query) and (failure is SessionClosed) then
@@ -245,7 +245,7 @@ actor \nodoc\ _QueryAfterSessionHasBeenClosedNotify is
     _h.fail("Unexpected query result received")
     _h.complete(false)
 
-  be pg_query_failed(query: SimpleQuery,
+  be pg_query_failed(query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if (query is _query) and (failure is SessionClosed) then
@@ -299,7 +299,7 @@ actor \nodoc\ _NonExistentTableQueryReceiver is
     _h.fail("Query unexpectedly succeeded.")
     _h.complete(false)
 
-  be pg_query_failed(query: SimpleQuery,
+  be pg_query_failed(query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     // TODO enhance this by checking the failure
@@ -427,10 +427,14 @@ actor \nodoc\ _AllSuccessQueryRunningClient is
       _h.complete(false)
     end
 
-  be pg_query_failed(query: SimpleQuery,
+  be pg_query_failed(query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    _h.fail("Unexpected for query: " + query.string)
+    let query_str = match query
+    | let sq: SimpleQuery => sq.string
+    | let pq: PreparedQuery => pq.string
+    end
+    _h.fail("Unexpected for query: " + query_str)
     _h.complete(false)
 
   be dispose() =>
@@ -486,7 +490,7 @@ actor \nodoc\ _EmptyQueryReceiver is
 
     _h.complete(true)
 
-  be pg_query_failed(query: SimpleQuery,
+  be pg_query_failed(query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure")
@@ -559,7 +563,7 @@ actor \nodoc\ _ZeroRowSelectReceiver is
 
     _h.complete(true)
 
-  be pg_query_failed(query: SimpleQuery,
+  be pg_query_failed(query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure")
@@ -670,7 +674,7 @@ actor \nodoc\ _MultiStatementMixedClient is
       _drop_and_finish()
     end
 
-  be pg_query_failed(query: SimpleQuery,
+  be pg_query_failed(query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure at phase " + _phase.string())
@@ -678,6 +682,498 @@ actor \nodoc\ _MultiStatementMixedClient is
 
   fun ref _drop_and_finish() =>
     _session.execute(SimpleQuery("DROP TABLE IF EXISTS mixed_test"), this)
+    _h.complete(false)
+
+  be dispose() =>
+    _session.close()
+
+class \nodoc\ iso _TestPreparedQueryResults is UnitTest
+  """
+  Verifies that a PreparedQuery with a parameter returns the correct result
+  through the extended query protocol.
+  """
+  fun name(): String =>
+    "integration/PreparedQuery/Results"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _PreparedQueryResultsReceiver(h)
+
+    let session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      client,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+    h.dispose_when_done(session)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _PreparedQueryResultsReceiver is
+  ( SessionStatusNotify
+  & ResultReceiver )
+  let _h: TestHelper
+  let _query: PreparedQuery
+
+  new create(h: TestHelper) =>
+    _h = h
+    _query = PreparedQuery("SELECT $1::text",
+      recover val [as (String | None): "525600"] end)
+
+  be pg_session_authenticated(session: Session) =>
+    session.execute(_query, this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to establish connection")
+    _h.complete(false)
+
+  be pg_query_result(result: Result) =>
+    if result.query() isnt _query then
+      _h.fail("Query in result isn't the expected query.")
+      _h.complete(false)
+      return
+    end
+
+    match result
+    | let r: ResultSet =>
+      if r.rows().size() != 1 then
+        _h.fail("Wrong number of result rows.")
+        _h.complete(false)
+        return
+      end
+
+      try
+        match r.rows()(0)?.fields(0)?.value
+        | let v: String =>
+          if v != "525600" then
+            _h.fail("Unexpected query results.")
+            _h.complete(false)
+            return
+          end
+        else
+          _h.fail("Unexpected query results.")
+          _h.complete(false)
+          return
+        end
+      else
+        _h.fail("Unexpected error accessing result rows.")
+        _h.complete(false)
+        return
+      end
+    else
+      _h.fail("Wrong result type.")
+      _h.complete(false)
+      return
+    end
+
+    _h.complete(true)
+
+  be pg_query_failed(query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure")
+    _h.complete(false)
+
+class \nodoc\ iso _TestPreparedQueryNullParam is UnitTest
+  """
+  Verifies that a PreparedQuery with a NULL parameter correctly produces
+  a None field value in the result.
+  """
+  fun name(): String =>
+    "integration/PreparedQuery/NullParam"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _PreparedQueryNullParamReceiver(h)
+
+    let session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      client,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+    h.dispose_when_done(session)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _PreparedQueryNullParamReceiver is
+  ( SessionStatusNotify
+  & ResultReceiver )
+  let _h: TestHelper
+  let _query: PreparedQuery
+
+  new create(h: TestHelper) =>
+    _h = h
+    _query = PreparedQuery("SELECT $1::text",
+      recover val [as (String | None): None] end)
+
+  be pg_session_authenticated(session: Session) =>
+    session.execute(_query, this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to establish connection")
+    _h.complete(false)
+
+  be pg_query_result(result: Result) =>
+    if result.query() isnt _query then
+      _h.fail("Query in result isn't the expected query.")
+      _h.complete(false)
+      return
+    end
+
+    match result
+    | let r: ResultSet =>
+      if r.rows().size() != 1 then
+        _h.fail("Wrong number of result rows.")
+        _h.complete(false)
+        return
+      end
+
+      try
+        match r.rows()(0)?.fields(0)?.value
+        | None => None // expected
+        else
+          _h.fail("Expected None for NULL parameter but got a value.")
+          _h.complete(false)
+          return
+        end
+      else
+        _h.fail("Unexpected error accessing result rows.")
+        _h.complete(false)
+        return
+      end
+    else
+      _h.fail("Wrong result type.")
+      _h.complete(false)
+      return
+    end
+
+    _h.complete(true)
+
+  be pg_query_failed(query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure")
+    _h.complete(false)
+
+class \nodoc\ iso _TestPreparedQueryNonExistentTable is UnitTest
+  """
+  Verifies that errors from the extended query protocol are correctly
+  delivered as pg_query_failed.
+  """
+  fun name(): String =>
+    "integration/PreparedQuery/OfNonExistentTable"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _PreparedQueryNonExistentTableReceiver(h)
+
+    let session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      client,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+    h.dispose_when_done(session)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _PreparedQueryNonExistentTableReceiver is
+  ( SessionStatusNotify
+  & ResultReceiver )
+  let _h: TestHelper
+  let _query: PreparedQuery
+
+  new create(h: TestHelper) =>
+    _h = h
+    _query = PreparedQuery(
+      "SELECT * FROM THIS_TABLE_DOESNT_EXIST WHERE id = $1",
+      recover val [as (String | None): "1"] end)
+
+  be pg_session_authenticated(session: Session) =>
+    session.execute(_query, this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to establish connection")
+    _h.complete(false)
+
+  be pg_query_result(result: Result) =>
+    _h.fail("Query unexpectedly succeeded.")
+    _h.complete(false)
+
+  be pg_query_failed(query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    if query is _query then
+      _h.complete(true)
+    else
+      _h.fail("Incorrect query parameter received.")
+      _h.complete(false)
+    end
+
+class \nodoc\ iso _TestPreparedQueryInsertAndDelete is UnitTest
+  """
+  Verifies INSERT and DELETE through the extended query protocol, confirming
+  that non-SELECT prepared queries produce RowModifying results with the
+  correct impacted row count.
+  """
+  fun name(): String =>
+    "integration/PreparedQuery/InsertAndDelete"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _PreparedQueryInsertAndDeleteClient(h, info)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _PreparedQueryInsertAndDeleteClient is
+  ( SessionStatusNotify
+  & ResultReceiver )
+  let _h: TestHelper
+  let _session: Session
+  var _phase: USize = 0
+
+  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+    _h = h
+
+    _session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      this,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+  be pg_session_authenticated(session: Session) =>
+    _phase = 0
+    session.execute(
+      SimpleQuery(
+        """
+        CREATE TABLE prep_i_and_d (
+        col VARCHAR(50) NOT NULL
+        )
+        """),
+      this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate")
+    _h.complete(false)
+
+  be pg_query_result(result: Result) =>
+    _phase = _phase + 1
+
+    match _phase
+    | 1 =>
+      // Table created, insert with PreparedQuery
+      _session.execute(
+        PreparedQuery(
+          "INSERT INTO prep_i_and_d (col) VALUES ($1)",
+          recover val [as (String | None): "hello"] end),
+        this)
+    | 2 =>
+      // Insert done, verify RowModifying with impacted = 1
+      match result
+      | let r: RowModifying =>
+        if r.impacted() != 1 then
+          _h.fail(
+            "Expected 1 impacted row but got " + r.impacted().string())
+          _drop_and_finish()
+          return
+        end
+      else
+        _h.fail("Expected RowModifying for INSERT but got different type.")
+        _drop_and_finish()
+        return
+      end
+      // Delete with PreparedQuery
+      _session.execute(
+        PreparedQuery(
+          "DELETE FROM prep_i_and_d WHERE col = $1",
+          recover val [as (String | None): "hello"] end),
+        this)
+    | 3 =>
+      // Delete done, verify RowModifying with impacted = 1
+      match result
+      | let r: RowModifying =>
+        if r.impacted() != 1 then
+          _h.fail(
+            "Expected 1 impacted row but got " + r.impacted().string())
+          _drop_and_finish()
+          return
+        end
+      else
+        _h.fail("Expected RowModifying for DELETE but got different type.")
+        _drop_and_finish()
+        return
+      end
+      // Drop table
+      _session.execute(SimpleQuery("DROP TABLE prep_i_and_d"), this)
+    | 4 =>
+      _h.complete(true)
+    else
+      _h.fail("Unexpected phase " + _phase.string())
+      _drop_and_finish()
+    end
+
+  be pg_query_failed(query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure at phase " + _phase.string())
+    _drop_and_finish()
+
+  fun ref _drop_and_finish() =>
+    _session.execute(
+      SimpleQuery("DROP TABLE IF EXISTS prep_i_and_d"), this)
+    _h.complete(false)
+
+  be dispose() =>
+    _session.close()
+
+class \nodoc\ iso _TestPreparedQueryMixedWithSimple is UnitTest
+  """
+  Verifies that SimpleQuery and PreparedQuery can be executed in sequence
+  within the same session, confirming the state machine correctly alternates
+  between the simple and extended query protocols.
+  """
+  fun name(): String =>
+    "integration/PreparedQuery/MixedWithSimple"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _PreparedQueryMixedClient(h, info)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _PreparedQueryMixedClient is
+  ( SessionStatusNotify
+  & ResultReceiver )
+  let _h: TestHelper
+  let _session: Session
+  var _phase: USize = 0
+
+  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+    _h = h
+
+    _session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      this,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+  be pg_session_authenticated(session: Session) =>
+    // Phase 0: SimpleQuery
+    _phase = 0
+    session.execute(SimpleQuery("SELECT 525600::text"), this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate")
+    _h.complete(false)
+
+  be pg_query_result(result: Result) =>
+    _phase = _phase + 1
+
+    match _phase
+    | 1 =>
+      // SimpleQuery result, verify and send PreparedQuery
+      match result
+      | let r: ResultSet =>
+        try
+          match r.rows()(0)?.fields(0)?.value
+          | let v: String =>
+            if v != "525600" then
+              _h.fail("Unexpected SimpleQuery result: " + v)
+              _h.complete(false)
+              return
+            end
+          else
+            _h.fail("Unexpected SimpleQuery result type.")
+            _h.complete(false)
+            return
+          end
+        else
+          _h.fail("Error accessing SimpleQuery result rows.")
+          _h.complete(false)
+          return
+        end
+      else
+        _h.fail("Expected ResultSet from SimpleQuery.")
+        _h.complete(false)
+        return
+      end
+      // Now send PreparedQuery
+      _session.execute(
+        PreparedQuery("SELECT $1::text",
+          recover val [as (String | None): "42"] end),
+        this)
+    | 2 =>
+      // PreparedQuery result, verify
+      match result
+      | let r: ResultSet =>
+        try
+          match r.rows()(0)?.fields(0)?.value
+          | let v: String =>
+            if v != "42" then
+              _h.fail("Unexpected PreparedQuery result: " + v)
+              _h.complete(false)
+              return
+            end
+          else
+            _h.fail("Unexpected PreparedQuery result type.")
+            _h.complete(false)
+            return
+          end
+        else
+          _h.fail("Error accessing PreparedQuery result rows.")
+          _h.complete(false)
+          return
+        end
+      else
+        _h.fail("Expected ResultSet from PreparedQuery.")
+        _h.complete(false)
+        return
+      end
+      _h.complete(true)
+    else
+      _h.fail("Unexpected phase " + _phase.string())
+      _h.complete(false)
+    end
+
+  be pg_query_failed(query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure at phase " + _phase.string())
     _h.complete(false)
 
   be dispose() =>

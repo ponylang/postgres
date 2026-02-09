@@ -32,8 +32,13 @@ actor Client is (SessionStatusNotify & ResultReceiver)
 
   be pg_session_authenticated(session: Session) =>
     _out.print("Authenticated.")
-    _out.print("Sending query....")
-    let q = SimpleQuery("SELECT 525600::text")
+    _out.print("Sending prepared query....")
+    // Parameters are $1, $2, etc. in the query string.
+    // Values are sent as text; the server infers types from the cast.
+    // Use None for NULL parameters.
+    let q = PreparedQuery(
+      "SELECT $1::text AS name, $2::int4 AS age, $3::text AS note",
+      recover val [as (String | None): "Pony"; "10"; None] end)
     session.execute(q, this)
 
   be pg_session_authentication_failed(
@@ -48,7 +53,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       _out.print("ResultSet (" + r.rows().size().string() + " rows):")
       for row in r.rows().values() do
         for field in row.fields.values() do
-          _out.write(field.name + "=")
+          _out.write("  " + field.name + "=")
           match field.value
           | let v: String => _out.print(v)
           | let v: I16 => _out.print(v.string())
@@ -72,8 +77,6 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _out.print("Query failed.")
-    // Our example program is failing, we want to exit so, let's shut down the
-    // connection.
     close()
 
 class val ServerInfo

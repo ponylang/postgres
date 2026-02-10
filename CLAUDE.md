@@ -51,23 +51,25 @@ This design makes illegal state transitions call `_IllegalState()` (panic) by de
 
 ### Query Execution Flow
 
-1. Client calls `session.execute(query, ResultReceiver)` where query is `SimpleQuery` or `PreparedQuery`
-2. `_SessionLoggedIn` queues `(query, receiver)` pairs in `query_queue`
-3. The `_QueryState` sub-state machine manages query lifecycle:
+1. Client calls `session.execute(query, ResultReceiver)` where query is `SimpleQuery`, `PreparedQuery`, or `NamedPreparedQuery`; or `session.prepare(name, sql, PrepareReceiver)` to create a named statement; or `session.close_statement(name)` to destroy one
+2. `_SessionLoggedIn` queues operations as `_QueueItem` — a union of `_QueuedQuery` (execute), `_QueuedPrepare` (prepare), and `_QueuedCloseStatement` (close_statement)
+3. The `_QueryState` sub-state machine manages operation lifecycle:
    - `_QueryNotReady`: initial state after auth, waiting for server readiness
-   - `_QueryReady`: server is idle, `try_run_query` dispatches based on query type — `SimpleQuery` transitions to `_SimpleQueryInFlight`, `PreparedQuery` transitions to `_ExtendedQueryInFlight`
+   - `_QueryReady`: server is idle, `try_run_query` dispatches based on queue item type — `SimpleQuery` transitions to `_SimpleQueryInFlight`, `PreparedQuery` and `NamedPreparedQuery` transition to `_ExtendedQueryInFlight`, `_QueuedPrepare` transitions to `_PrepareInFlight`, `_QueuedCloseStatement` transitions to `_CloseStatementInFlight`
    - `_SimpleQueryInFlight`: owns per-query accumulation data (`_data_rows`, `_row_description`), delivers results on `CommandComplete`
-   - `_ExtendedQueryInFlight`: same data accumulation and result delivery as `_SimpleQueryInFlight` (duplicated because Pony traits can't have iso fields). Entered after sending Parse+Bind+Describe(portal)+Execute+Sync
+   - `_ExtendedQueryInFlight`: same data accumulation and result delivery as `_SimpleQueryInFlight` (duplicated because Pony traits can't have iso fields). Entered after sending Parse+Bind+Describe(portal)+Execute+Sync (unnamed) or Bind+Describe(portal)+Execute+Sync (named)
+   - `_PrepareInFlight`: handles Parse+Describe(statement)+Sync cycle. Notifies `PrepareReceiver` on success/failure via `ReadyForQuery`
+   - `_CloseStatementInFlight`: handles Close(statement)+Sync cycle. Fire-and-forget (no callback); errors silently absorbed
 4. Response data arrives: `_RowDescriptionMessage` sets column metadata, `_DataRowMessage` accumulates rows
 5. `_CommandCompleteMessage` triggers result delivery to receiver
-6. `_ReadyForQueryMessage` dequeues completed query, transitions to `_QueryReady` (idle) or `_QueryNotReady` (non-idle)
+6. `_ReadyForQueryMessage` dequeues completed operation, transitions to `_QueryReady` (idle) or `_QueryNotReady` (non-idle)
 
-Only one query is in-flight at a time. The queue serializes execution. `query_queue` and `query_state` are non-underscore-prefixed fields on `_SessionLoggedIn` because the `_QueryState` implementations need cross-type access (Pony private fields are type-private).
+Only one operation is in-flight at a time. The queue serializes execution. `query_queue` and `query_state` are non-underscore-prefixed fields on `_SessionLoggedIn` because the `_QueryState` implementations need cross-type access (Pony private fields are type-private).
 
 ### Protocol Layer
 
 **Frontend (client → server):**
-- `_FrontendMessage` primitive: `startup()`, `password()`, `query()`, `parse()`, `bind()`, `describe_portal()`, `execute_msg()`, `sync()` — builds raw byte arrays with big-endian wire format
+- `_FrontendMessage` primitive: `startup()`, `password()`, `query()`, `parse()`, `bind()`, `describe_portal()`, `describe_statement()`, `execute_msg()`, `close_statement()`, `sync()` — builds raw byte arrays with big-endian wire format
 
 **Backend (server → client):**
 - `_ResponseParser` primitive: incremental parser consuming from a `Reader` buffer. Returns one parsed message per call, `None` if incomplete, errors on junk.
@@ -77,14 +79,16 @@ Only one query is in-flight at a time. The queue serializes execution. `query_qu
 
 ### Public API Types
 
-- `Query` — union type `(SimpleQuery | PreparedQuery)`
+- `Query` — union type `(SimpleQuery | PreparedQuery | NamedPreparedQuery)`
 - `SimpleQuery` — val class wrapping a query string (simple query protocol)
 - `PreparedQuery` — val class wrapping a query string + `Array[(String | None)] val` params (extended query protocol, single statement only)
+- `NamedPreparedQuery` — val class wrapping a statement name + `Array[(String | None)] val` params (executes a previously prepared named statement)
 - `Result` trait — `ResultSet` (rows), `SimpleResult` (no rows), `RowModifying` (INSERT/UPDATE/DELETE with count)
 - `Rows` / `Row` / `Field` — result data. `Field.value` is `FieldDataTypes` union
 - `FieldDataTypes` = `(Bool | F32 | F64 | I16 | I32 | I64 | None | String)`
 - `SessionStatusNotify` interface (tag) — lifecycle callbacks (connected, connection_failed, authenticated, authentication_failed, shutdown)
 - `ResultReceiver` interface (tag) — `pg_query_result(Result)`, `pg_query_failed(Query, (ErrorResponseMessage | ClientQueryError))`
+- `PrepareReceiver` interface (tag) — `pg_statement_prepared(name)`, `pg_prepare_failed(name, (ErrorResponseMessage | ClientQueryError))`
 - `ClientQueryError` trait — `SessionNeverOpened`, `SessionClosed`, `SessionNotAuthenticated`, `DataError`
 - `ErrorResponseMessage` — full PostgreSQL error with all standard fields
 - `AuthenticationFailureReason` = `(InvalidAuthenticationSpecification | InvalidPassword)`
@@ -114,6 +118,7 @@ Tests live in the main `postgres/` package (private test classes).
 - `_TestResponseParser*` — verify parsing of individual and sequential backend messages
 - `_TestHandlingJunkMessages` — uses a local TCP listener that sends junk; verifies session shuts down
 - `_TestUnansweredQueriesFailOnShutdown` — uses a local TCP listener that auto-auths but never responds to queries; verifies queued queries get `SessionClosed` failures
+- `_TestPrepareShutdownDrainsPrepareQueue` — uses a local TCP listener that auto-auths but never becomes ready; verifies pending prepare operations get `SessionClosed` failures on shutdown
 
 **Integration tests** (require PostgreSQL, names prefixed `integration/`):
 - Connect, ConnectFailure, Authenticate, AuthenticateFailure
@@ -121,6 +126,10 @@ Tests live in the main `postgres/` package (private test classes).
 - Query/OfNonExistentTable, Query/CreateAndDropTable, Query/InsertAndDelete, Query/EmptyQuery
 - PreparedQuery/Results, PreparedQuery/NullParam, PreparedQuery/OfNonExistentTable
 - PreparedQuery/InsertAndDelete, PreparedQuery/MixedWithSimple
+- PreparedStatement/Prepare, PreparedStatement/PrepareAndExecute, PreparedStatement/PrepareAndExecuteMultiple
+- PreparedStatement/PrepareAndClose, PreparedStatement/PrepareFails, PreparedStatement/PrepareAfterClose
+- PreparedStatement/CloseNonexistent, PreparedStatement/PrepareDuplicateName
+- PreparedStatement/MixedWithSimpleAndPrepared
 
 Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Several test message builder classes (`_Incoming*TestMessage`) construct raw protocol bytes for unit tests.
 
@@ -132,15 +141,13 @@ Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Sever
 
 ## Roadmap
 
-Next priority: **named prepared statements** (current implementation uses unnamed statements only — each PreparedQuery creates and immediately executes a fresh statement).
-
 **SSL/TLS negotiation** is tracked but blocked on ponylang/lori#170 (TLS upgrade support for existing TCP connections). Research and design decision: [discussion #76](https://github.com/ponylang/postgres/discussions/76). Full feature roadmap: [discussion #72](https://github.com/ponylang/postgres/discussions/72).
 
 ## Supported PostgreSQL Features
 
 **Authentication:** MD5 password only. No SCRAM-SHA-256, Kerberos, SASL, GSS, or certificate auth.
 
-**Protocol:** Simple query protocol and extended query protocol (parameterized queries via unnamed prepared statements). Parameters are text-format only; type OIDs are inferred by the server. No named prepared statements, COPY, LISTEN/NOTIFY, or function calls.
+**Protocol:** Simple query protocol and extended query protocol (parameterized queries via unnamed and named prepared statements). Parameters are text-format only; type OIDs are inferred by the server. No COPY, LISTEN/NOTIFY, or function calls.
 
 ## PostgreSQL Wire Protocol Reference
 
@@ -275,13 +282,15 @@ Can arrive between any other messages (must always handle):
 ## File Layout
 
 ```
-postgres/                         # Main package (26 files)
+postgres/                         # Main package (28 files)
   session.pony                    # Session actor + state machine traits + query sub-state machine
   simple_query.pony               # SimpleQuery class
   prepared_query.pony             # PreparedQuery class
+  named_prepared_query.pony       # NamedPreparedQuery class
   query.pony                      # Query union type
   result.pony                     # Result, ResultSet, SimpleResult, RowModifying
   result_receiver.pony            # ResultReceiver interface
+  prepare_receiver.pony           # PrepareReceiver interface
   session_status_notify.pony      # SessionStatusNotify interface
   query_error.pony                # ClientQueryError types
   error_response_message.pony     # ErrorResponseMessage + builder
@@ -305,5 +314,6 @@ postgres/                         # Main package (26 files)
 examples/README.md                # Examples overview
 examples/query/query-example.pony # Simple query with result inspection
 examples/prepared-query/prepared-query-example.pony # PreparedQuery with params and NULL
+examples/named-prepared-query/named-prepared-query-example.pony # Named prepared statements with reuse
 examples/crud/crud-example.pony   # Multi-query CRUD workflow
 ```

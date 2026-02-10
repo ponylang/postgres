@@ -166,11 +166,12 @@ class \nodoc\ iso _TestConnectFailure is UnitTest
 
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
+    let host = ifdef linux then "127.0.0.2" else "localhost" end
 
     let session = Session(
       lori.TCPConnectAuth(h.env.root),
       _ConnectTestNotify(h, false),
-      info.host,
+      host,
       info.port.reverse(),
       info.username,
       info.password,

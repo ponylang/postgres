@@ -55,8 +55,11 @@ actor \nodoc\ Main is TestList
     test(_TestFrontendMessageBindWithNull)
     test(_TestFrontendMessageDescribePortal)
     test(_TestFrontendMessageExecute)
+    test(_TestFrontendMessageDescribeStatement)
+    test(_TestFrontendMessageCloseStatement)
     test(_TestFrontendMessageSync)
     test(_TestUnansweredQueriesFailOnShutdown)
+    test(_TestPrepareShutdownDrainsPrepareQueue)
     test(_TestZeroRowSelectReturnsResultSet)
     test(_TestZeroRowSelect)
     test(_TestMultiStatementMixedResults)
@@ -65,6 +68,15 @@ actor \nodoc\ Main is TestList
     test(_TestPreparedQueryNonExistentTable)
     test(_TestPreparedQueryInsertAndDelete)
     test(_TestPreparedQueryMixedWithSimple)
+    test(_TestPrepareStatement)
+    test(_TestPrepareAndExecute)
+    test(_TestPrepareAndExecuteMultiple)
+    test(_TestPrepareAndClose)
+    test(_TestPrepareFails)
+    test(_TestPrepareAfterClose)
+    test(_TestCloseNonexistent)
+    test(_TestPrepareDuplicateName)
+    test(_TestPreparedStatementMixedWithSimpleAndPrepared)
 
 class \nodoc\ iso _TestAuthenticate is UnitTest
   """
@@ -618,3 +630,106 @@ actor \nodoc\ _ZeroRowSelectTestServer
         _tcp_connection.send(ready)
       end
     end
+
+class \nodoc\ iso _TestPrepareShutdownDrainsPrepareQueue is UnitTest
+  """
+  Verifies that when a session shuts down, pending prepare() calls receive
+  pg_prepare_failed with SessionClosed. Uses a misbehaving server that
+  authenticates but never sends ReadyForQuery.
+  """
+  fun name(): String =>
+    "PrepareShutdownDrainsPrepareQueue"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "9668"
+
+    let listener = _PrepareShutdownTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _PrepareShutdownTestClient is
+  (SessionStatusNotify & PrepareReceiver)
+  let _h: TestHelper
+  var _pending: USize = 0
+
+  new create(h: TestHelper) =>
+    _h = h
+
+  be pg_session_connection_failed(s: Session) =>
+    _h.fail("Unable to establish connection.")
+    _h.complete(false)
+
+  be pg_session_authenticated(session: Session) =>
+    _pending = 2
+    session.prepare("s1", "SELECT 1", this)
+    session.prepare("s2", "SELECT 2", this)
+    session.close()
+
+  be pg_session_authentication_failed(
+    session: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate.")
+    _h.complete(false)
+
+  be pg_statement_prepared(name: String) =>
+    _h.fail("Unexpectedly got a prepared statement.")
+    _h.complete(false)
+
+  be pg_prepare_failed(name: String,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    match failure
+    | SessionClosed =>
+      _pending = _pending - 1
+      if _pending == 0 then
+        _h.complete(true)
+      end
+    else
+      _h.fail("Got an incorrect prepare failure reason.")
+      _h.complete(false)
+    end
+
+actor \nodoc\ _PrepareShutdownTestListener is lori.TCPListenerActor
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _h: TestHelper
+  let _host: String
+  let _port: String
+
+  new create(listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper)
+  =>
+    _host = host
+    _port = port
+    _h = h
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): _DoesntAnswerTestServer =>
+    _DoesntAnswerTestServer(_server_auth, fd)
+
+  fun ref _on_listening() =>
+    Session(
+      lori.TCPConnectAuth(_h.env.root),
+      _PrepareShutdownTestClient(_h),
+      _host,
+      _port,
+      "postgres",
+      "postgres",
+      "postgres")
+
+  fun ref _on_listen_failure() =>
+    _h.fail("Unable to listen")
+    _h.complete(false)

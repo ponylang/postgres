@@ -29,6 +29,21 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     """
     state.execute(this, query, receiver)
 
+  be prepare(name: String, sql: String, receiver: PrepareReceiver) =>
+    """
+    Prepare a named server-side statement. The SQL string must contain a single
+    statement. On success, `receiver.pg_statement_prepared(name)` is called.
+    The statement can then be executed with `NamedPreparedQuery(name, params)`.
+    """
+    state.prepare(this, name, sql, receiver)
+
+  be close_statement(name: String) =>
+    """
+    Close (destroy) a named prepared statement on the server. Fire-and-forget:
+    no callback is issued. It is not an error to close a nonexistent statement.
+    """
+    state.close_statement(this, name)
+
   be close() =>
     """
     Hard closes the connection. Terminates as soon as possible without waiting
@@ -71,6 +86,14 @@ class ref _SessionUnopened is _ConnectableState
   fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
     r.pg_query_failed(q, SessionNeverOpened)
 
+  fun ref prepare(s: Session ref, name: String, sql: String,
+    receiver: PrepareReceiver)
+  =>
+    receiver.pg_prepare_failed(name, SessionNeverOpened)
+
+  fun ref close_statement(s: Session ref, name: String) =>
+    None
+
   fun user(): String =>
     _user
 
@@ -86,6 +109,14 @@ class ref _SessionUnopened is _ConnectableState
 class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
   fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
     r.pg_query_failed(q, SessionClosed)
+
+  fun ref prepare(s: Session ref, name: String, sql: String,
+    receiver: PrepareReceiver)
+  =>
+    receiver.pg_prepare_failed(name, SessionClosed)
+
+  fun ref close_statement(s: Session ref, name: String) =>
+    None
 
 class ref _SessionConnected is _AuthenticableState
   let _notify: SessionStatusNotify
@@ -107,6 +138,14 @@ class ref _SessionConnected is _AuthenticableState
   fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
     r.pg_query_failed(q, SessionNotAuthenticated)
 
+  fun ref prepare(s: Session ref, name: String, sql: String,
+    receiver: PrepareReceiver)
+  =>
+    receiver.pg_prepare_failed(name, SessionNotAuthenticated)
+
+  fun ref close_statement(s: Session ref, name: String) =>
+    None
+
   fun ref on_shutdown(s: Session ref) =>
     // Clearing the readbuf is required for _ResponseMessageParser's
     // synchronous loop to exit — the next parse returns None.
@@ -124,6 +163,32 @@ class ref _SessionConnected is _AuthenticableState
   fun notify(): SessionStatusNotify =>
     _notify
 
+class val _QueuedQuery
+  let query: Query
+  let receiver: ResultReceiver
+
+  new val create(query': Query, receiver': ResultReceiver) =>
+    query = query'
+    receiver = receiver'
+
+class val _QueuedPrepare
+  let name: String
+  let sql: String
+  let receiver: PrepareReceiver
+
+  new val create(name': String, sql': String, receiver': PrepareReceiver) =>
+    name = name'
+    sql = sql'
+    receiver = receiver'
+
+class val _QueuedCloseStatement
+  let name: String
+
+  new val create(name': String) =>
+    name = name'
+
+type _QueueItem is (_QueuedQuery | _QueuedPrepare | _QueuedCloseStatement)
+
 class _SessionLoggedIn is _AuthenticatedState
   """
   An authenticated session ready to execute queries. Query execution is
@@ -133,8 +198,7 @@ class _SessionLoggedIn is _AuthenticatedState
   // query_queue and query_state are not underscore-prefixed because the
   // _QueryState implementations need to access them, and Pony private fields
   // are type-private.
-  let query_queue: Array[(Query, ResultReceiver)] =
-    query_queue.create()
+  let query_queue: Array[_QueueItem] = query_queue.create()
   var query_state: _QueryState
   let _notify: SessionStatusNotify
   let _readbuf: Reader
@@ -166,7 +230,17 @@ class _SessionLoggedIn is _AuthenticatedState
     query: Query,
     receiver: ResultReceiver)
   =>
-    query_queue.push((query, receiver))
+    query_queue.push(_QueuedQuery(query, receiver))
+    query_state.try_run_query(s, this)
+
+  fun ref prepare(s: Session ref, name: String, sql: String,
+    receiver: PrepareReceiver)
+  =>
+    query_queue.push(_QueuedPrepare(name, sql, receiver))
+    query_state.try_run_query(s, this)
+
+  fun ref close_statement(s: Session ref, name: String) =>
+    query_queue.push(_QueuedCloseStatement(name))
     query_state.try_run_query(s, this)
 
   fun ref on_shutdown(s: Session ref) =>
@@ -174,8 +248,13 @@ class _SessionLoggedIn is _AuthenticatedState
     // synchronous loop to exit — the next parse returns None.
     _readbuf.clear()
     for queue_item in query_queue.values() do
-      (let query, let receiver) = queue_item
-      receiver.pg_query_failed(query, SessionClosed)
+      match queue_item
+      | let qry: _QueuedQuery =>
+        qry.receiver.pg_query_failed(qry.query, SessionClosed)
+      | let prep: _QueuedPrepare =>
+        prep.receiver.pg_prepare_failed(prep.name, SessionClosed)
+      | let _: _QueuedCloseStatement => None
+      end
     end
     query_queue.clear()
 
@@ -257,32 +336,80 @@ class _QueryReady is _QueryNoQueryInFlight
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) =>
     try
       if li.query_queue.size() > 0 then
-        (let query, _) = li.query_queue(0)?
-        match query
-        | let sq: SimpleQuery =>
-          li.query_state = _SimpleQueryInFlight.create()
-          s._connection().send(_FrontendMessage.query(sq.string))
-        | let pq: PreparedQuery =>
-          li.query_state = _ExtendedQueryInFlight.create()
-          let parse = _FrontendMessage.parse("", pq.string,
+        match li.query_queue(0)?
+        | let qry: _QueuedQuery =>
+          match qry.query
+          | let sq: SimpleQuery =>
+            li.query_state = _SimpleQueryInFlight.create()
+            s._connection().send(_FrontendMessage.query(sq.string))
+          | let pq: PreparedQuery =>
+            li.query_state = _ExtendedQueryInFlight.create()
+            let parse = _FrontendMessage.parse("", pq.string,
+              recover val Array[U32] end)
+            let bind = _FrontendMessage.bind("", "", pq.params)
+            let describe = _FrontendMessage.describe_portal("")
+            let execute = _FrontendMessage.execute_msg("", 0)
+            let sync = _FrontendMessage.sync()
+            let combined = recover val
+              let total = parse.size() + bind.size() + describe.size()
+                + execute.size() + sync.size()
+              let buf = Array[U8](total)
+              buf.copy_from(parse, 0, 0, parse.size())
+              buf.copy_from(bind, 0, parse.size(), bind.size())
+              buf.copy_from(describe, 0,
+                parse.size() + bind.size(), describe.size())
+              buf.copy_from(execute, 0,
+                parse.size() + bind.size() + describe.size(), execute.size())
+              buf.copy_from(sync, 0,
+                parse.size() + bind.size() + describe.size() + execute.size(),
+                sync.size())
+              buf
+            end
+            s._connection().send(consume combined)
+          | let nq: NamedPreparedQuery =>
+            li.query_state = _ExtendedQueryInFlight.create()
+            let bind = _FrontendMessage.bind("", nq.name, nq.params)
+            let describe = _FrontendMessage.describe_portal("")
+            let execute = _FrontendMessage.execute_msg("", 0)
+            let sync = _FrontendMessage.sync()
+            let combined = recover val
+              let total = bind.size() + describe.size()
+                + execute.size() + sync.size()
+              let buf = Array[U8](total)
+              buf.copy_from(bind, 0, 0, bind.size())
+              buf.copy_from(describe, 0, bind.size(), describe.size())
+              buf.copy_from(execute, 0,
+                bind.size() + describe.size(), execute.size())
+              buf.copy_from(sync, 0,
+                bind.size() + describe.size() + execute.size(), sync.size())
+              buf
+            end
+            s._connection().send(consume combined)
+          end
+        | let prep: _QueuedPrepare =>
+          li.query_state = _PrepareInFlight.create()
+          let parse = _FrontendMessage.parse(prep.name, prep.sql,
             recover val Array[U32] end)
-          let bind = _FrontendMessage.bind("", "", pq.params)
-          let describe = _FrontendMessage.describe_portal("")
-          let execute = _FrontendMessage.execute_msg("", 0)
+          let describe = _FrontendMessage.describe_statement(prep.name)
           let sync = _FrontendMessage.sync()
           let combined = recover val
-            let total = parse.size() + bind.size() + describe.size()
-              + execute.size() + sync.size()
+            let total = parse.size() + describe.size() + sync.size()
             let buf = Array[U8](total)
             buf.copy_from(parse, 0, 0, parse.size())
-            buf.copy_from(bind, 0, parse.size(), bind.size())
-            buf.copy_from(describe, 0,
-              parse.size() + bind.size(), describe.size())
-            buf.copy_from(execute, 0,
-              parse.size() + bind.size() + describe.size(), execute.size())
-            buf.copy_from(sync, 0,
-              parse.size() + bind.size() + describe.size() + execute.size(),
-              sync.size())
+            buf.copy_from(describe, 0, parse.size(), describe.size())
+            buf.copy_from(sync, 0, parse.size() + describe.size(), sync.size())
+            buf
+          end
+          s._connection().send(consume combined)
+        | let cs: _QueuedCloseStatement =>
+          li.query_state = _CloseStatementInFlight.create()
+          let close = _FrontendMessage.close_statement(cs.name)
+          let sync = _FrontendMessage.sync()
+          let combined = recover val
+            let total = close.size() + sync.size()
+            let buf = Array[U8](total)
+            buf.copy_from(close, 0, 0, close.size())
+            buf.copy_from(sync, 0, close.size(), sync.size())
             buf
           end
           s._connection().send(consume combined)
@@ -336,26 +463,32 @@ class _SimpleQueryInFlight is _QueryState
     msg: _CommandCompleteMessage)
   =>
     try
-      (let query, let receiver) = li.query_queue(0)?
-      let rows = _data_rows = recover iso
-        Array[Array[(String|None)] val].create()
-      end
-      let rd = _row_description = None
+      match li.query_queue(0)?
+      | let qry: _QueuedQuery =>
+        let rows = _data_rows = recover iso
+          Array[Array[(String|None)] val].create()
+        end
+        let rd = _row_description = None
 
-      match rd
-      | let desc: Array[(String, U32)] val =>
-        try
-          let rows_object = _RowsBuilder(consume rows, desc)?
-          receiver.pg_query_result(ResultSet(query, rows_object, msg.id))
-        else
-          receiver.pg_query_failed(query, DataError)
+        match rd
+        | let desc: Array[(String, U32)] val =>
+          try
+            let rows_object = _RowsBuilder(consume rows, desc)?
+            qry.receiver.pg_query_result(
+              ResultSet(qry.query, rows_object, msg.id))
+          else
+            qry.receiver.pg_query_failed(qry.query, DataError)
+          end
+        | None =>
+          if rows.size() > 0 then
+            qry.receiver.pg_query_failed(qry.query, DataError)
+          else
+            qry.receiver.pg_query_result(
+              RowModifying(qry.query, msg.id, msg.value))
+          end
         end
-      | None =>
-        if rows.size() > 0 then
-          receiver.pg_query_failed(query, DataError)
-        else
-          receiver.pg_query_result(RowModifying(query, msg.id, msg.value))
-        end
+      else
+        _Unreachable()
       end
     else
       _Unreachable()
@@ -365,15 +498,19 @@ class _SimpleQueryInFlight is _QueryState
     li: _SessionLoggedIn ref)
   =>
     try
-      (let query, let receiver) = li.query_queue(0)?
-      let rows = _data_rows = recover iso
-        Array[Array[(String|None)] val] end
-      let rd = _row_description = None
+      match li.query_queue(0)?
+      | let qry: _QueuedQuery =>
+        let rows = _data_rows = recover iso
+          Array[Array[(String|None)] val] end
+        let rd = _row_description = None
 
-      if (rows.size() > 0) or (rd isnt None) then
-        receiver.pg_query_failed(query, DataError)
+        if (rows.size() > 0) or (rd isnt None) then
+          qry.receiver.pg_query_failed(qry.query, DataError)
+        else
+          qry.receiver.pg_query_result(SimpleResult(qry.query))
+        end
       else
-        receiver.pg_query_result(SimpleResult(query))
+        _Unreachable()
       end
     else
       _Unreachable()
@@ -383,10 +520,14 @@ class _SimpleQueryInFlight is _QueryState
     msg: ErrorResponseMessage)
   =>
     try
-      (let query, let receiver) = li.query_queue(0)?
-      _data_rows = recover iso Array[Array[(String|None)] val] end
-      _row_description = None
-      receiver.pg_query_failed(query, msg)
+      match li.query_queue(0)?
+      | let qry: _QueuedQuery =>
+        _data_rows = recover iso Array[Array[(String|None)] val] end
+        _row_description = None
+        qry.receiver.pg_query_failed(qry.query, msg)
+      else
+        _Unreachable()
+      end
     else
       _Unreachable()
     end
@@ -440,26 +581,32 @@ class _ExtendedQueryInFlight is _QueryState
     msg: _CommandCompleteMessage)
   =>
     try
-      (let query, let receiver) = li.query_queue(0)?
-      let rows = _data_rows = recover iso
-        Array[Array[(String|None)] val].create()
-      end
-      let rd = _row_description = None
+      match li.query_queue(0)?
+      | let qry: _QueuedQuery =>
+        let rows = _data_rows = recover iso
+          Array[Array[(String|None)] val].create()
+        end
+        let rd = _row_description = None
 
-      match rd
-      | let desc: Array[(String, U32)] val =>
-        try
-          let rows_object = _RowsBuilder(consume rows, desc)?
-          receiver.pg_query_result(ResultSet(query, rows_object, msg.id))
-        else
-          receiver.pg_query_failed(query, DataError)
+        match rd
+        | let desc: Array[(String, U32)] val =>
+          try
+            let rows_object = _RowsBuilder(consume rows, desc)?
+            qry.receiver.pg_query_result(
+              ResultSet(qry.query, rows_object, msg.id))
+          else
+            qry.receiver.pg_query_failed(qry.query, DataError)
+          end
+        | None =>
+          if rows.size() > 0 then
+            qry.receiver.pg_query_failed(qry.query, DataError)
+          else
+            qry.receiver.pg_query_result(
+              RowModifying(qry.query, msg.id, msg.value))
+          end
         end
-      | None =>
-        if rows.size() > 0 then
-          receiver.pg_query_failed(query, DataError)
-        else
-          receiver.pg_query_result(RowModifying(query, msg.id, msg.value))
-        end
+      else
+        _Unreachable()
       end
     else
       _Unreachable()
@@ -469,15 +616,19 @@ class _ExtendedQueryInFlight is _QueryState
     li: _SessionLoggedIn ref)
   =>
     try
-      (let query, let receiver) = li.query_queue(0)?
-      let rows = _data_rows = recover iso
-        Array[Array[(String|None)] val] end
-      let rd = _row_description = None
+      match li.query_queue(0)?
+      | let qry: _QueuedQuery =>
+        let rows = _data_rows = recover iso
+          Array[Array[(String|None)] val] end
+        let rd = _row_description = None
 
-      if (rows.size() > 0) or (rd isnt None) then
-        receiver.pg_query_failed(query, DataError)
+        if (rows.size() > 0) or (rd isnt None) then
+          qry.receiver.pg_query_failed(qry.query, DataError)
+        else
+          qry.receiver.pg_query_result(SimpleResult(qry.query))
+        end
       else
-        receiver.pg_query_result(SimpleResult(query))
+        _Unreachable()
       end
     else
       _Unreachable()
@@ -487,13 +638,138 @@ class _ExtendedQueryInFlight is _QueryState
     msg: ErrorResponseMessage)
   =>
     try
-      (let query, let receiver) = li.query_queue(0)?
-      _data_rows = recover iso Array[Array[(String|None)] val] end
-      _row_description = None
-      receiver.pg_query_failed(query, msg)
+      match li.query_queue(0)?
+      | let qry: _QueuedQuery =>
+        _data_rows = recover iso Array[Array[(String|None)] val] end
+        _row_description = None
+        qry.receiver.pg_query_failed(qry.query, msg)
+      else
+        _Unreachable()
+      end
     else
       _Unreachable()
     end
+
+class _PrepareInFlight is _QueryState
+  """
+  Prepare (named statement) protocol in progress. Expects ParseComplete,
+  ParameterDescription, RowDescription (or NoData), then ReadyForQuery.
+  On error, ErrorResponse arrives before ReadyForQuery.
+  """
+  var _error: Bool = false
+
+  fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
+
+  fun ref on_row_description(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _RowDescriptionMessage)
+  =>
+    // Received from Describe(statement) — not cached in this version.
+    None
+
+  fun ref on_error_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: ErrorResponseMessage)
+  =>
+    _error = true
+    try
+      match li.query_queue(0)?
+      | let prep: _QueuedPrepare =>
+        prep.receiver.pg_prepare_failed(prep.name, msg)
+      else
+        _Unreachable()
+      end
+    else
+      _Unreachable()
+    end
+
+  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _ReadyForQueryMessage)
+  =>
+    if not _error then
+      try
+        match li.query_queue(0)?
+        | let prep: _QueuedPrepare =>
+          prep.receiver.pg_statement_prepared(prep.name)
+        else
+          _Unreachable()
+        end
+      else
+        _Unreachable()
+      end
+    end
+    try
+      li.query_queue.shift()?
+    else
+      _Unreachable()
+    end
+    if msg.idle() then
+      li.query_state = _QueryReady
+      li.query_state.try_run_query(s, li)
+    else
+      li.query_state = _QueryNotReady
+    end
+
+  fun ref on_data_row(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _DataRowMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_command_complete(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CommandCompleteMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_empty_query_response(s: Session ref,
+    li: _SessionLoggedIn ref)
+  =>
+    li.shutdown(s)
+
+class _CloseStatementInFlight is _QueryState
+  """
+  Close (named statement) protocol in progress. Expects CloseComplete then
+  ReadyForQuery. Fire-and-forget: errors are silently consumed.
+  """
+  fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
+
+  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _ReadyForQueryMessage)
+  =>
+    try
+      li.query_queue.shift()?
+    else
+      _Unreachable()
+    end
+    if msg.idle() then
+      li.query_state = _QueryReady
+      li.query_state.try_run_query(s, li)
+    else
+      li.query_state = _QueryNotReady
+    end
+
+  fun ref on_error_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: ErrorResponseMessage)
+  =>
+    // Fire-and-forget: ReadyForQuery still arrives to dequeue.
+    None
+
+  fun ref on_data_row(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _DataRowMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_command_complete(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CommandCompleteMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_row_description(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _RowDescriptionMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_empty_query_response(s: Session ref,
+    li: _SessionLoggedIn ref)
+  =>
+    li.shutdown(s)
 
 interface _SessionState
   fun on_connected(s: Session ref)
@@ -538,6 +814,15 @@ interface _SessionState
   fun ref execute(s: Session ref, query: Query, receiver: ResultReceiver)
     """
     Called when a client requests a query execution.
+    """
+  fun ref prepare(s: Session ref, name: String, sql: String,
+    receiver: PrepareReceiver)
+    """
+    Called when a client requests a named statement preparation.
+    """
+  fun ref close_statement(s: Session ref, name: String)
+    """
+    Called when a client requests closing a named prepared statement.
     """
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage)
     """

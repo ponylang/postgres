@@ -434,6 +434,7 @@ actor \nodoc\ _AllSuccessQueryRunningClient is
     let query_str = match query
     | let sq: SimpleQuery => sq.string
     | let pq: PreparedQuery => pq.string
+    | let nq: NamedPreparedQuery => nq.name
     end
     _h.fail("Unexpected for query: " + query_str)
     _h.complete(false)
@@ -1168,6 +1169,743 @@ actor \nodoc\ _PreparedQueryMixedClient is
       _h.complete(true)
     else
       _h.fail("Unexpected phase " + _phase.string())
+      _h.complete(false)
+    end
+
+  be pg_query_failed(query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure at phase " + _phase.string())
+    _h.complete(false)
+
+  be dispose() =>
+    _session.close()
+
+class \nodoc\ iso _TestPrepareStatement is UnitTest
+  """
+  Verifies that Session.prepare() successfully prepares a named statement
+  and delivers pg_statement_prepared.
+  """
+  fun name(): String =>
+    "integration/PreparedStatement/Prepare"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _PrepareStatementClient(h, info)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _PrepareStatementClient is
+  (SessionStatusNotify & PrepareReceiver)
+  let _h: TestHelper
+  let _session: Session
+
+  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+    _h = h
+
+    _session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      this,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+  be pg_session_authenticated(session: Session) =>
+    session.prepare("s1", "SELECT $1::text", this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate")
+    _h.complete(false)
+
+  be pg_statement_prepared(name: String) =>
+    if name == "s1" then
+      _h.complete(true)
+    else
+      _h.fail("Unexpected statement name: " + name)
+      _h.complete(false)
+    end
+
+  be pg_prepare_failed(name: String,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected prepare failure")
+    _h.complete(false)
+
+  be dispose() =>
+    _session.close()
+
+class \nodoc\ iso _TestPrepareAndExecute is UnitTest
+  """
+  Verifies prepare then execute with NamedPreparedQuery returns correct
+  results.
+  """
+  fun name(): String =>
+    "integration/PreparedStatement/PrepareAndExecute"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _PrepareAndExecuteClient(h, info)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _PrepareAndExecuteClient is
+  (SessionStatusNotify & PrepareReceiver & ResultReceiver)
+  let _h: TestHelper
+  let _session: Session
+
+  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+    _h = h
+
+    _session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      this,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+  be pg_session_authenticated(session: Session) =>
+    session.prepare("s1", "SELECT $1::text", this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate")
+    _h.complete(false)
+
+  be pg_statement_prepared(name: String) =>
+    _session.execute(
+      NamedPreparedQuery("s1",
+        recover val [as (String | None): "525600"] end),
+      this)
+
+  be pg_prepare_failed(name: String,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected prepare failure")
+    _h.complete(false)
+
+  be pg_query_result(result: Result) =>
+    match result
+    | let r: ResultSet =>
+      try
+        match r.rows()(0)?.fields(0)?.value
+        | let v: String =>
+          if v == "525600" then
+            _h.complete(true)
+            return
+          end
+          _h.fail("Unexpected result: " + v)
+        else
+          _h.fail("Unexpected result type.")
+        end
+      else
+        _h.fail("Error accessing result rows.")
+      end
+    else
+      _h.fail("Expected ResultSet.")
+    end
+    _h.complete(false)
+
+  be pg_query_failed(query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure")
+    _h.complete(false)
+
+  be dispose() =>
+    _session.close()
+
+class \nodoc\ iso _TestPrepareAndExecuteMultiple is UnitTest
+  """
+  Verifies preparing once and executing twice with different parameters.
+  """
+  fun name(): String =>
+    "integration/PreparedStatement/PrepareAndExecuteMultiple"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _PrepareAndExecuteMultipleClient(h, info)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _PrepareAndExecuteMultipleClient is
+  (SessionStatusNotify & PrepareReceiver & ResultReceiver)
+  let _h: TestHelper
+  let _session: Session
+  var _phase: USize = 0
+
+  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+    _h = h
+
+    _session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      this,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+  be pg_session_authenticated(session: Session) =>
+    session.prepare("s1", "SELECT $1::text", this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate")
+    _h.complete(false)
+
+  be pg_statement_prepared(name: String) =>
+    _session.execute(
+      NamedPreparedQuery("s1",
+        recover val [as (String | None): "first"] end),
+      this)
+    _session.execute(
+      NamedPreparedQuery("s1",
+        recover val [as (String | None): "second"] end),
+      this)
+
+  be pg_prepare_failed(name: String,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected prepare failure")
+    _h.complete(false)
+
+  be pg_query_result(result: Result) =>
+    _phase = _phase + 1
+
+    match result
+    | let r: ResultSet =>
+      try
+        match r.rows()(0)?.fields(0)?.value
+        | let v: String =>
+          match _phase
+          | 1 =>
+            if v != "first" then
+              _h.fail("Expected 'first' but got '" + v + "'")
+              _h.complete(false)
+              return
+            end
+          | 2 =>
+            if v != "second" then
+              _h.fail("Expected 'second' but got '" + v + "'")
+              _h.complete(false)
+              return
+            end
+            _h.complete(true)
+            return
+          end
+        else
+          _h.fail("Unexpected result type.")
+          _h.complete(false)
+          return
+        end
+      else
+        _h.fail("Error accessing result rows.")
+        _h.complete(false)
+        return
+      end
+    else
+      _h.fail("Expected ResultSet.")
+      _h.complete(false)
+      return
+    end
+
+  be pg_query_failed(query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure at phase " + _phase.string())
+    _h.complete(false)
+
+  be dispose() =>
+    _session.close()
+
+class \nodoc\ iso _TestPrepareAndClose is UnitTest
+  """
+  Verifies that closing a prepared statement and then executing it produces
+  a server error.
+  """
+  fun name(): String =>
+    "integration/PreparedStatement/PrepareAndClose"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _PrepareAndCloseClient(h, info)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _PrepareAndCloseClient is
+  (SessionStatusNotify & PrepareReceiver & ResultReceiver)
+  let _h: TestHelper
+  let _session: Session
+
+  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+    _h = h
+
+    _session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      this,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+  be pg_session_authenticated(session: Session) =>
+    session.prepare("s1", "SELECT $1::text", this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate")
+    _h.complete(false)
+
+  be pg_statement_prepared(name: String) =>
+    _session.close_statement("s1")
+    _session.execute(
+      NamedPreparedQuery("s1",
+        recover val [as (String | None): "hello"] end),
+      this)
+
+  be pg_prepare_failed(name: String,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected prepare failure")
+    _h.complete(false)
+
+  be pg_query_result(result: Result) =>
+    _h.fail("Expected query failure after closing statement.")
+    _h.complete(false)
+
+  be pg_query_failed(query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    match failure
+    | let e: ErrorResponseMessage => _h.complete(true)
+    else
+      _h.fail("Expected ErrorResponseMessage but got ClientQueryError.")
+      _h.complete(false)
+    end
+
+  be dispose() =>
+    _session.close()
+
+class \nodoc\ iso _TestPrepareFails is UnitTest
+  """
+  Verifies that preparing invalid SQL delivers pg_prepare_failed with an
+  ErrorResponseMessage.
+  """
+  fun name(): String =>
+    "integration/PreparedStatement/PrepareFails"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _PrepareFailsClient(h, info)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _PrepareFailsClient is
+  (SessionStatusNotify & PrepareReceiver)
+  let _h: TestHelper
+  let _session: Session
+
+  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+    _h = h
+
+    _session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      this,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+  be pg_session_authenticated(session: Session) =>
+    session.prepare("bad", "NOT VALID SQL !!!", this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate")
+    _h.complete(false)
+
+  be pg_statement_prepared(name: String) =>
+    _h.fail("Expected prepare to fail but it succeeded.")
+    _h.complete(false)
+
+  be pg_prepare_failed(name: String,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    if name != "bad" then
+      _h.fail("Unexpected statement name: " + name)
+      _h.complete(false)
+      return
+    end
+    match failure
+    | let e: ErrorResponseMessage => _h.complete(true)
+    else
+      _h.fail("Expected ErrorResponseMessage but got ClientQueryError.")
+      _h.complete(false)
+    end
+
+  be dispose() =>
+    _session.close()
+
+class \nodoc\ iso _TestPrepareAfterClose is UnitTest
+  """
+  Verifies that after closing a named statement, re-preparing the same name
+  succeeds.
+  """
+  fun name(): String =>
+    "integration/PreparedStatement/PrepareAfterClose"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _PrepareAfterCloseClient(h, info)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _PrepareAfterCloseClient is
+  (SessionStatusNotify & PrepareReceiver & ResultReceiver)
+  let _h: TestHelper
+  let _session: Session
+  var _phase: USize = 0
+
+  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+    _h = h
+
+    _session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      this,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+  be pg_session_authenticated(session: Session) =>
+    _phase = 0
+    session.prepare("s1", "SELECT 1::text", this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate")
+    _h.complete(false)
+
+  be pg_statement_prepared(name: String) =>
+    _phase = _phase + 1
+
+    match _phase
+    | 1 =>
+      _session.close_statement("s1")
+      _session.prepare("s1", "SELECT 42::text", this)
+    | 2 =>
+      _session.execute(
+        NamedPreparedQuery("s1", recover val Array[(String | None)] end),
+        this)
+    else
+      _h.fail("Unexpected phase " + _phase.string())
+      _h.complete(false)
+    end
+
+  be pg_prepare_failed(name: String,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected prepare failure at phase " + _phase.string())
+    _h.complete(false)
+
+  be pg_query_result(result: Result) =>
+    match result
+    | let r: ResultSet =>
+      try
+        match r.rows()(0)?.fields(0)?.value
+        | let v: String =>
+          if v == "42" then
+            _h.complete(true)
+            return
+          end
+          _h.fail("Expected '42' but got '" + v + "'")
+        else
+          _h.fail("Unexpected result type.")
+        end
+      else
+        _h.fail("Error accessing result rows.")
+      end
+    else
+      _h.fail("Expected ResultSet.")
+    end
+    _h.complete(false)
+
+  be pg_query_failed(query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure")
+    _h.complete(false)
+
+  be dispose() =>
+    _session.close()
+
+class \nodoc\ iso _TestCloseNonexistent is UnitTest
+  """
+  Verifies that closing a statement that was never prepared does not cause
+  an error. Fire-and-forget, so we run a query afterward to confirm the
+  session still works.
+  """
+  fun name(): String =>
+    "integration/PreparedStatement/CloseNonexistent"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _CloseNonexistentClient(h, info)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _CloseNonexistentClient is
+  (SessionStatusNotify & ResultReceiver)
+  let _h: TestHelper
+  let _session: Session
+
+  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+    _h = h
+
+    _session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      this,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+  be pg_session_authenticated(session: Session) =>
+    session.close_statement("nonexistent")
+    session.execute(SimpleQuery("SELECT 1"), this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate")
+    _h.complete(false)
+
+  be pg_query_result(result: Result) =>
+    _h.complete(true)
+
+  be pg_query_failed(query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure after closing nonexistent statement.")
+    _h.complete(false)
+
+  be dispose() =>
+    _session.close()
+
+class \nodoc\ iso _TestPrepareDuplicateName is UnitTest
+  """
+  Verifies that preparing the same name twice without closing produces a
+  server error on the second prepare.
+  """
+  fun name(): String =>
+    "integration/PreparedStatement/PrepareDuplicateName"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _PrepareDuplicateNameClient(h, info)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _PrepareDuplicateNameClient is
+  (SessionStatusNotify & PrepareReceiver)
+  let _h: TestHelper
+  let _session: Session
+  var _phase: USize = 0
+
+  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+    _h = h
+
+    _session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      this,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+  be pg_session_authenticated(session: Session) =>
+    _phase = 0
+    session.prepare("dup", "SELECT 1", this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate")
+    _h.complete(false)
+
+  be pg_statement_prepared(name: String) =>
+    _phase = _phase + 1
+    if _phase == 1 then
+      _session.prepare("dup", "SELECT 2", this)
+    else
+      _h.fail("Second prepare should have failed.")
+      _h.complete(false)
+    end
+
+  be pg_prepare_failed(name: String,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _phase = _phase + 1
+    if _phase == 2 then
+      match failure
+      | let e: ErrorResponseMessage => _h.complete(true)
+      else
+        _h.fail("Expected ErrorResponseMessage for duplicate prepare.")
+        _h.complete(false)
+      end
+    else
+      _h.fail("Unexpected prepare failure at phase " + _phase.string())
+      _h.complete(false)
+    end
+
+  be dispose() =>
+    _session.close()
+
+class \nodoc\ iso _TestPreparedStatementMixedWithSimpleAndPrepared is UnitTest
+  """
+  Verifies that SimpleQuery, PreparedQuery, and NamedPreparedQuery can all
+  be interleaved within the same session.
+  """
+  fun name(): String =>
+    "integration/PreparedStatement/MixedWithSimpleAndPrepared"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _MixedAllThreeClient(h, info)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _MixedAllThreeClient is
+  (SessionStatusNotify & PrepareReceiver & ResultReceiver)
+  let _h: TestHelper
+  let _session: Session
+  var _phase: USize = 0
+
+  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+    _h = h
+
+    _session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      this,
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database)
+
+  be pg_session_authenticated(session: Session) =>
+    _phase = 0
+    session.execute(SimpleQuery("SELECT 'simple'::text"), this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate")
+    _h.complete(false)
+
+  be pg_statement_prepared(name: String) =>
+    _phase = _phase + 1
+    _session.execute(
+      NamedPreparedQuery("mix",
+        recover val [as (String | None): "named"] end),
+      this)
+
+  be pg_prepare_failed(name: String,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected prepare failure at phase " + _phase.string())
+    _h.complete(false)
+
+  be pg_query_result(result: Result) =>
+    _phase = _phase + 1
+
+    match result
+    | let r: ResultSet =>
+      try
+        match r.rows()(0)?.fields(0)?.value
+        | let v: String =>
+          match _phase
+          | 1 =>
+            if v != "simple" then
+              _h.fail("Expected 'simple' but got '" + v + "'")
+              _h.complete(false)
+              return
+            end
+            _session.execute(
+              PreparedQuery("SELECT $1::text",
+                recover val [as (String | None): "prepared"] end),
+              this)
+          | 2 =>
+            if v != "prepared" then
+              _h.fail("Expected 'prepared' but got '" + v + "'")
+              _h.complete(false)
+              return
+            end
+            _session.prepare("mix", "SELECT $1::text", this)
+          | 4 =>
+            if v != "named" then
+              _h.fail("Expected 'named' but got '" + v + "'")
+              _h.complete(false)
+              return
+            end
+            _h.complete(true)
+          else
+            _h.fail("Unexpected phase " + _phase.string())
+            _h.complete(false)
+          end
+        else
+          _h.fail("Unexpected result type at phase " + _phase.string())
+          _h.complete(false)
+        end
+      else
+        _h.fail("Error accessing result rows at phase " + _phase.string())
+        _h.complete(false)
+      end
+    else
+      _h.fail("Expected ResultSet at phase " + _phase.string())
       _h.complete(false)
     end
 

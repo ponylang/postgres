@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file. This projec
 ### Added
 
 - Add parameterized queries via extended query protocol ([PR #70](https://github.com/ponylang/postgres/pull/70))
+- Add named prepared statement support ([PR #78](https://github.com/ponylang/postgres/pull/78))
 
 ### Changed
 

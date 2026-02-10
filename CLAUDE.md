@@ -134,6 +134,8 @@ Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Sever
 
 Next priority: **named prepared statements** (current implementation uses unnamed statements only — each PreparedQuery creates and immediately executes a fresh statement).
 
+**SSL/TLS negotiation** is tracked but blocked on ponylang/lori#170 (TLS upgrade support for existing TCP connections). Research and design decision: [discussion #76](https://github.com/ponylang/postgres/discussions/76). Full feature roadmap: [discussion #72](https://github.com/ponylang/postgres/discussions/72).
+
 ## Supported PostgreSQL Features
 
 **Authentication:** MD5 password only. No SCRAM-SHA-256, Kerberos, SASL, GSS, or certificate auth.

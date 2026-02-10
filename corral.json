@@ -3,11 +3,7 @@
     "postgres"
   ],
   "deps": [
-    {
-      "locator": "github.com/ponylang/ssl.git",
-      "version": "1.0.1"
-    },
-    {
+   {
       "locator": "github.com/ponylang/lori.git",
       "version": "0.7.0"
     }

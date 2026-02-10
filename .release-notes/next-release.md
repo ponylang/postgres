@@ -58,7 +58,7 @@ Each `PreparedQuery` must contain a single SQL statement. For multi-statement ex
 
 ## Change ResultReceiver and Result to use Query union type
 
-`ResultReceiver.pg_query_failed` and `Result.query()` now use `Query` (a union of `SimpleQuery | PreparedQuery`) instead of `SimpleQuery`.
+`ResultReceiver.pg_query_failed` and `Result.query()` now use `Query` (a union of `SimpleQuery | PreparedQuery | NamedPreparedQuery`) instead of `SimpleQuery`.
 
 Before:
 
@@ -75,6 +75,10 @@ After:
 be pg_query_failed(query: Query,
   failure: (ErrorResponseMessage | ClientQueryError))
 =>
-  // handle failure
+  match query
+  | let sq: SimpleQuery => // ...
+  | let pq: PreparedQuery => // ...
+  | let nq: NamedPreparedQuery => // ...
+  end
 ```
 

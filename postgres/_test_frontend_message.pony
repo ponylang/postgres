@@ -153,6 +153,38 @@ class \nodoc\ iso _TestFrontendMessageExecute is UnitTest
     h.assert_array_eq[U8](expected,
       _FrontendMessage.execute_msg("", 0))
 
+class \nodoc\ iso _TestFrontendMessageDescribeStatement is UnitTest
+  fun name(): String =>
+    "FrontendMessage/DescribeStatement"
+
+  fun apply(h: TestHelper) =>
+    // DescribeStatement("s1")
+    // Length = 4 + 1 + 2+1 = 8, total = 9
+    let expected: Array[U8] = ifdef bigendian then
+      [ 68; 8; 0; 0; 0; 83; 115; 49; 0 ]
+    else
+      [ 68; 0; 0; 0; 8; 83; 115; 49; 0 ]
+    end
+
+    h.assert_array_eq[U8](expected,
+      _FrontendMessage.describe_statement("s1"))
+
+class \nodoc\ iso _TestFrontendMessageCloseStatement is UnitTest
+  fun name(): String =>
+    "FrontendMessage/CloseStatement"
+
+  fun apply(h: TestHelper) =>
+    // CloseStatement("s1")
+    // Length = 4 + 1 + 2+1 = 8, total = 9
+    let expected: Array[U8] = ifdef bigendian then
+      [ 67; 8; 0; 0; 0; 83; 115; 49; 0 ]
+    else
+      [ 67; 0; 0; 0; 8; 83; 115; 49; 0 ]
+    end
+
+    h.assert_array_eq[U8](expected,
+      _FrontendMessage.close_statement("s1"))
+
 class \nodoc\ iso _TestFrontendMessageSync is UnitTest
   fun name(): String =>
     "FrontendMessage/Sync"

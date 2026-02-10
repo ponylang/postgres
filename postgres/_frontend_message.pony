@@ -237,6 +237,60 @@ primitive _FrontendMessage
       []
     end
 
+  fun describe_statement(name: String): Array[U8] val =>
+    """
+    Build a Describe message for a prepared statement.
+
+    Format: Byte1('D') Int32(len) Byte1('S') String(name)
+    """
+    try
+      recover val
+        // 1 type + 4 length + 1 indicator + name + null
+        let length: U32 = 4 + 1 + name.size().u32() + 1
+        let msg_size = (length + 1).usize()
+        let msg: Array[U8] = Array[U8].init(0, msg_size)
+        msg.update_u8(0, 'D')?
+        ifdef bigendian then
+          msg.update_u32(1, length)?
+        else
+          msg.update_u32(1, length.bswap())?
+        end
+        msg.update_u8(5, 'S')?
+        msg.copy_from(name.array(), 0, 6, name.size())
+        msg
+      end
+    else
+      _Unreachable()
+      []
+    end
+
+  fun close_statement(name: String): Array[U8] val =>
+    """
+    Build a Close message for a prepared statement.
+
+    Format: Byte1('C') Int32(len) Byte1('S') String(name)
+    """
+    try
+      recover val
+        // 1 type + 4 length + 1 indicator + name + null
+        let length: U32 = 4 + 1 + name.size().u32() + 1
+        let msg_size = (length + 1).usize()
+        let msg: Array[U8] = Array[U8].init(0, msg_size)
+        msg.update_u8(0, 'C')?
+        ifdef bigendian then
+          msg.update_u32(1, length)?
+        else
+          msg.update_u32(1, length.bswap())?
+        end
+        msg.update_u8(5, 'S')?
+        msg.copy_from(name.array(), 0, 6, name.size())
+        msg
+      end
+    else
+      _Unreachable()
+      []
+    end
+
   fun execute_msg(portal: String, max_rows: U32): Array[U8] val =>
     """
     Build an Execute message.

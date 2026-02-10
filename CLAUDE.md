@@ -18,7 +18,7 @@ SSL version is mandatory. Tests run with `--sequential`. Integration tests requi
 ## Dependencies
 
 - `ponylang/ssl` 1.0.1 (MD5 password hashing via `ssl/crypto`)
-- `ponylang/lori` 0.6.2 (TCP networking)
+- `ponylang/lori` 0.7.0 (TCP networking)
 
 Managed via `corral`.
 

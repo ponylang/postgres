@@ -51,9 +51,6 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _next_lifecycle_event_receiver(): None =>
-    None
-
 // Possible session states
 class ref _SessionUnopened is _ConnectableState
   let _notify: SessionStatusNotify

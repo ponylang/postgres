@@ -300,9 +300,6 @@ actor \nodoc\ _JunkSendingTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _next_lifecycle_event_receiver(): None =>
-    None
-
   fun ref _on_received(data: Array[U8] iso) =>
     let junk = _IncomingJunkTestMessage.bytes()
     _tcp_connection.send(junk)
@@ -444,9 +441,6 @@ actor \nodoc\ _DoesntAnswerTestServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
-
-  fun ref _next_lifecycle_event_receiver(): None =>
-    None
 
   fun ref _on_received(data: Array[U8] iso) =>
     """
@@ -598,9 +592,6 @@ actor \nodoc\ _ZeroRowSelectTestServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
-
-  fun ref _next_lifecycle_event_receiver(): None =>
-    None
 
   fun ref _on_received(data: Array[U8] iso) =>
     _received_count = _received_count + 1

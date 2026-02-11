@@ -14,6 +14,19 @@ primitive _AuthenticationOkMessage
   authenticated.
   """
 
+class val _BackendKeyDataMessage
+  """
+  Message from the backend containing the process ID and secret key for this
+  session. Sent once during startup, after AuthenticationOk and before
+  ReadyForQuery. Required for query cancellation via CancelRequest.
+  """
+  let process_id: I32
+  let secret_key: I32
+
+  new val create(process_id': I32, secret_key': I32) =>
+    process_id = process_id'
+    secret_key = secret_key'
+
 class val _CommandCompleteMessage
   """
   Messagr from the backend that indicates that a command has finished running.

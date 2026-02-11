@@ -42,6 +42,8 @@ primitive _ResponseMessageParser
           return
         | let msg: _RowDescriptionMessage =>
           s.state.on_row_description(s, msg)
+        | let msg: _BackendKeyDataMessage =>
+          s.state.on_backend_key_data(s, msg)
         | let msg: _EmptyQueryResponseMessage =>
           s.state.on_empty_query_response(s)
         | None =>

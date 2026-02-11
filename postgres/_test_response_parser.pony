@@ -634,6 +634,75 @@ class \nodoc\ iso
       h.fail("Wrong message for ReadyForQuery.")
     end
 
+class \nodoc\ iso _TestResponseParserBackendKeyDataMessage is UnitTest
+  """
+  Verify that BackendKeyData messages are parsed correctly, extracting the
+  process ID and secret key.
+  """
+  fun name(): String =>
+    "ResponseParser/BackendKeyDataMessage"
+
+  fun apply(h: TestHelper) ? =>
+    let pid: I32 = 12345
+    let secret: I32 = 67890
+    let bytes = _IncomingBackendKeyDataTestMessage(pid, secret).bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    match _ResponseParser(r)?
+    | let m: _BackendKeyDataMessage =>
+      h.assert_eq[I32](pid, m.process_id)
+      h.assert_eq[I32](secret, m.secret_key)
+    else
+      h.fail("Wrong message returned.")
+    end
+
+class \nodoc\ iso
+  _TestResponseParserMultipleMessagesBackendKeyDataFirst
+  is UnitTest
+  """
+  Verify correct buffer advancement after a BackendKeyData message followed
+  by a ReadyForQuery message.
+  """
+  fun name(): String =>
+    "ResponseParser/MultipleMessages/BackendKeyDataFirst"
+
+  fun apply(h: TestHelper) ? =>
+    let r: Reader = Reader
+    r.append(_IncomingBackendKeyDataTestMessage(42, 99).bytes())
+    r.append(_IncomingReadyForQueryTestMessage('I').bytes())
+
+    match _ResponseParser(r)?
+    | let m: _BackendKeyDataMessage =>
+      h.assert_eq[I32](42, m.process_id)
+      h.assert_eq[I32](99, m.secret_key)
+    else
+      h.fail("Wrong message returned for first message.")
+    end
+
+    match _ResponseParser(r)?
+    | let m: _ReadyForQueryMessage =>
+      if not m.idle() then
+        h.fail("Expected idle status.")
+      end
+    else
+      h.fail("Wrong message returned for second message.")
+    end
+
+class \nodoc\ val _IncomingBackendKeyDataTestMessage
+  let _bytes: Array[U8] val
+
+  new val create(process_id: I32, secret_key: I32) =>
+    let wb: Writer = Writer
+    wb.u8(_MessageType.backend_key_data())
+    wb.u32_be(12)
+    wb.i32_be(process_id)
+    wb.i32_be(secret_key)
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
 class \nodoc\ val _IncomingJunkTestMessage
   """
   Creates a junk message where "junk" is currently defined as having a message

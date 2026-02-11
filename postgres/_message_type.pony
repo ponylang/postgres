@@ -25,5 +25,8 @@ primitive _MessageType
   fun ready_for_query(): U8 =>
     'Z'
 
+  fun backend_key_data(): U8 =>
+    'K'
+
   fun row_description(): U8 =>
     'T'

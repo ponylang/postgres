@@ -7,6 +7,7 @@ type _AuthenticationMessages is
 
 type _ResponseParserResult is
   ( _AuthenticationMessages
+  | _BackendKeyDataMessage
   | _CommandCompleteMessage
   | _DataRowMessage
   | _EmptyQueryResponseMessage
@@ -146,6 +147,11 @@ primitive _ResponseParser
       // and parse the parameter description payload
       let payload = buffer.block(payload_size)?
       return _parameter_description(consume payload)?
+    | _MessageType.backend_key_data() =>
+      buffer.skip(5)?
+      let process_id = buffer.i32_be()?
+      let secret_key = buffer.i32_be()?
+      return _BackendKeyDataMessage(process_id, secret_key)
     else
       buffer.skip(message_size)?
       return _UnsupportedMessage

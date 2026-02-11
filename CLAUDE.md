@@ -69,7 +69,7 @@ This design makes illegal state transitions call `_IllegalState()` (panic) by de
 5. `_CommandCompleteMessage` triggers result delivery to receiver
 6. `_ReadyForQueryMessage` dequeues completed operation, transitions to `_QueryReady` (idle) or `_QueryNotReady` (non-idle)
 
-Only one operation is in-flight at a time. The queue serializes execution. `query_queue` and `query_state` are non-underscore-prefixed fields on `_SessionLoggedIn` because the `_QueryState` implementations need cross-type access (Pony private fields are type-private).
+Only one operation is in-flight at a time. The queue serializes execution. `query_queue`, `query_state`, `backend_pid`, and `backend_secret_key` are non-underscore-prefixed fields on `_SessionLoggedIn` because other types in this package need cross-type access (Pony private fields are type-private).
 
 ### Protocol Layer
 
@@ -80,7 +80,7 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 - `_ResponseParser` primitive: incremental parser consuming from a `Reader` buffer. Returns one parsed message per call, `None` if incomplete, errors on junk.
 - `_ResponseMessageParser` primitive: routes parsed messages to the current session state's callbacks. Processes messages synchronously within a query cycle (looping until `ReadyForQuery` or buffer exhaustion), then yields via `s._process_again()` between cycles. This prevents behaviors like `close()` from interleaving between result delivery and query dequeuing. If a callback triggers shutdown during the loop, `on_shutdown` clears the read buffer, causing the next parse to return `None` and exit the loop.
 
-**Supported message types:** AuthenticationOk, AuthenticationMD5Password, CommandComplete, DataRow, EmptyQueryResponse, ErrorResponse, ReadyForQuery, RowDescription, ParseComplete, BindComplete, NoData, CloseComplete, ParameterDescription, PortalSuspended. Extended query acknowledgment messages (ParseComplete, BindComplete, NoData, etc.) are parsed but silently consumed — they fall through the `_ResponseMessageParser` match without routing since the state machine tracks query lifecycle through data-carrying messages only.
+**Supported message types:** AuthenticationOk, AuthenticationMD5Password, BackendKeyData, CommandComplete, DataRow, EmptyQueryResponse, ErrorResponse, ReadyForQuery, RowDescription, ParseComplete, BindComplete, NoData, CloseComplete, ParameterDescription, PortalSuspended. BackendKeyData is parsed and stored in `_SessionLoggedIn` (`backend_pid`, `backend_secret_key`) for future query cancellation. Extended query acknowledgment messages (ParseComplete, BindComplete, NoData, etc.) are parsed but silently consumed — they fall through the `_ResponseMessageParser` match without routing since the state machine tracks query lifecycle through data-carrying messages only.
 
 ### Public API Types
 

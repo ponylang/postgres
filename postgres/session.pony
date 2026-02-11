@@ -328,11 +328,13 @@ class _SessionLoggedIn is _AuthenticatedState
   managed by a sub-state machine (`_QueryState`) that tracks whether a query
   is in flight, what protocol is active, and owns per-query accumulation data.
   """
-  // query_queue and query_state are not underscore-prefixed because the
-  // _QueryState implementations need to access them, and Pony private fields
-  // are type-private.
+  // query_queue, query_state, backend_pid, and backend_secret_key are not
+  // underscore-prefixed because other types in this package need access, and
+  // Pony private fields are type-private.
   let query_queue: Array[_QueueItem] = query_queue.create()
   var query_state: _QueryState
+  var backend_pid: I32 = 0
+  var backend_secret_key: I32 = 0
   let _notify: SessionStatusNotify
   let _readbuf: Reader
 
@@ -340,6 +342,10 @@ class _SessionLoggedIn is _AuthenticatedState
     _notify = notify'
     _readbuf = readbuf'
     query_state = _QueryNotReady
+
+  fun ref on_backend_key_data(s: Session ref, msg: _BackendKeyDataMessage) =>
+    backend_pid = msg.process_id
+    backend_secret_key = msg.secret_key
 
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage) =>
     query_state.on_ready_for_query(s, this, msg)
@@ -1004,6 +1010,12 @@ interface _SessionState
     Called when a data row is received from the server.
     """
 
+  fun ref on_backend_key_data(s: Session ref, msg: _BackendKeyDataMessage)
+    """
+    Called when the server sends BackendKeyData during startup. Contains the
+    process ID and secret key needed for query cancellation.
+    """
+
   fun ref on_row_description(s: Session ref, msg: _RowDescriptionMessage)
     """
     Called when a row description is receivedfrom the server.
@@ -1182,6 +1194,9 @@ trait _NotAuthenticated
   A session that has yet to be authenticated. Before being authenticated, then
   all "query related" commands should not be received.
   """
+  fun ref on_backend_key_data(s: Session ref, msg: _BackendKeyDataMessage) =>
+    _IllegalState()
+
   fun ref on_command_complete(s: Session ref, msg: _CommandCompleteMessage) =>
     _IllegalState()
 

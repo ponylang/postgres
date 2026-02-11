@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file. This projec
 - Fix zero-row SELECT producing RowModifying instead of ResultSet ([PR #65](https://github.com/ponylang/postgres/pull/65))
 - Fix double-delivery of pg_query_failed on failed transactions ([PR #67](https://github.com/ponylang/postgres/pull/67))
 - Process query cycle messages synchronously to prevent double-delivery ([PR #69](https://github.com/ponylang/postgres/pull/69))
+- Send Terminate message before closing TCP connection ([PR #86](https://github.com/ponylang/postgres/pull/86))
 
 ### Added
 

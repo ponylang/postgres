@@ -49,8 +49,9 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
 
   be close() =>
     """
-    Hard closes the connection. Terminates as soon as possible without waiting
-    for outstanding queries to finish.
+    Close the connection. Sends a Terminate message to the server before
+    closing the TCP connection. Does not wait for outstanding queries to
+    finish.
     """
     state.close(this)
 
@@ -1078,6 +1079,7 @@ trait _ConnectedState is _NotConnectableState
 
   fun ref shutdown(s: Session ref) =>
     on_shutdown(s)
+    s._connection().send(_FrontendMessage.terminate())
     s._connection().close()
     notify().pg_session_shutdown(s)
     s.state = _SessionClosed

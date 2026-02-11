@@ -83,6 +83,10 @@ actor \nodoc\ Main is TestList
     test(_TestCloseNonexistent)
     test(_TestPrepareDuplicateName)
     test(_TestPreparedStatementMixedWithSimpleAndPrepared)
+    test(_TestSSLConnect)
+    test(_TestSSLAuthenticate)
+    test(_TestSSLQueryResults)
+    test(_TestSSLRefused)
 
 class \nodoc\ iso _TestAuthenticate is UnitTest
   """
@@ -215,6 +219,8 @@ actor \nodoc\ _ConnectTestNotify is SessionStatusNotify
 class \nodoc\ val _ConnectionTestConfiguration
   let host: String
   let port: String
+  let ssl_host: String
+  let ssl_port: String
   let username: String
   let password: String
   let database: String
@@ -223,6 +229,8 @@ class \nodoc\ val _ConnectionTestConfiguration
     let e = EnvVars(vars)
     host = try e("POSTGRES_HOST")? else "127.0.0.1" end
     port = try e("POSTGRES_PORT")? else "5432" end
+    ssl_host = try e("POSTGRES_SSL_HOST")? else host end
+    ssl_port = try e("POSTGRES_SSL_PORT")? else "5433" end
     username = try e("POSTGRES_USERNAME")? else "postgres" end
     password = try e("POSTGRES_PASSWORD")? else "postgres" end
     database = try e("POSTGRES_DATABASE")? else "postgres" end
@@ -1098,3 +1106,127 @@ actor \nodoc\ _SSLSuccessTestServer
       _tcp_connection.send(auth_ok)
       _tcp_connection.send(ready)
     end
+
+class \nodoc\ iso _TestSSLConnect is UnitTest
+  """
+  Verifies that connecting with SSLRequired to a PostgreSQL server with SSL
+  enabled results in a successful connection.
+  """
+  fun name(): String =>
+    "integration/SSL/Connect"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let sslctx = recover val
+      SSLContext
+        .> set_client_verify(false)
+        .> set_server_verify(false)
+    end
+
+    let session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      _ConnectTestNotify(h, true),
+      info.ssl_host,
+      info.ssl_port,
+      info.username,
+      info.password,
+      info.database,
+      SSLRequired(sslctx))
+
+    h.dispose_when_done(session)
+    h.long_test(5_000_000_000)
+
+class \nodoc\ iso _TestSSLAuthenticate is UnitTest
+  """
+  Verifies that connecting with SSLRequired to a PostgreSQL server with SSL
+  enabled allows successful MD5 authentication over the encrypted connection.
+  """
+  fun name(): String =>
+    "integration/SSL/Authenticate"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let sslctx = recover val
+      SSLContext
+        .> set_client_verify(false)
+        .> set_server_verify(false)
+    end
+
+    let session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      _AuthenticateTestNotify(h, true),
+      info.ssl_host,
+      info.ssl_port,
+      info.username,
+      info.password,
+      info.database,
+      SSLRequired(sslctx))
+
+    h.dispose_when_done(session)
+    h.long_test(5_000_000_000)
+
+class \nodoc\ iso _TestSSLQueryResults is UnitTest
+  """
+  Verifies that queries can be executed and results received over an
+  SSL-encrypted connection.
+  """
+  fun name(): String =>
+    "integration/SSL/Query"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let sslctx = recover val
+      SSLContext
+        .> set_client_verify(false)
+        .> set_server_verify(false)
+    end
+
+    let client = _ResultsIncludeOriginatingQueryReceiver(h)
+
+    let session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      client,
+      info.ssl_host,
+      info.ssl_port,
+      info.username,
+      info.password,
+      info.database,
+      SSLRequired(sslctx))
+
+    h.dispose_when_done(session)
+    h.long_test(5_000_000_000)
+
+class \nodoc\ iso _TestSSLRefused is UnitTest
+  """
+  Verifies that connecting with SSLRequired to a PostgreSQL server that does
+  not support SSL results in pg_session_connection_failed. Unlike the
+  SSLNegotiation/Refused unit test which uses a mock server, this tests
+  against a real PostgreSQL instance.
+  """
+  fun name(): String =>
+    "integration/SSL/Refused"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let sslctx = recover val
+      SSLContext
+        .> set_client_verify(false)
+        .> set_server_verify(false)
+    end
+
+    let session = Session(
+      lori.TCPConnectAuth(h.env.root),
+      _ConnectTestNotify(h, false),
+      info.host,
+      info.port,
+      info.username,
+      info.password,
+      info.database,
+      SSLRequired(sslctx))
+
+    h.dispose_when_done(session)
+    h.long_test(5_000_000_000)

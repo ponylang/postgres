@@ -17,8 +17,8 @@ SSL version is mandatory. Tests run with `--sequential`. Integration tests requi
 
 ## Dependencies
 
-- `ponylang/ssl` 1.0.1 (MD5 password hashing via `ssl/crypto`)
-- `ponylang/lori` 0.7.0 (TCP networking)
+- `ponylang/ssl` 1.0.1 (MD5 password hashing via `ssl/crypto`, SSL/TLS via `ssl/net`)
+- `ponylang/lori` 0.7.2 (TCP networking, STARTTLS support)
 
 Managed via `corral`.
 
@@ -34,11 +34,14 @@ Managed via `corral`.
 `Session` actor is the main entry point. Implements `lori.TCPConnectionActor` and `lori.ClientLifecycleEventReceiver`. State transitions via `_SessionState` interface with four concrete states:
 
 ```
-_SessionUnopened  --connect-->    _SessionConnected
-_SessionUnopened  --fail-->       _SessionClosed
-_SessionConnected --auth ok-->    _SessionLoggedIn
-_SessionConnected --auth fail-->  _SessionClosed
-_SessionLoggedIn  --close-->      _SessionClosed
+_SessionUnopened  --connect (no SSL)-->  _SessionConnected
+_SessionUnopened  --connect (SSL)-->     _SessionSSLNegotiating
+_SessionUnopened  --fail-->              _SessionClosed
+_SessionSSLNegotiating --'S'+TLS ok-->   _SessionConnected
+_SessionSSLNegotiating --'N'/fail-->     _SessionClosed
+_SessionConnected --auth ok-->           _SessionLoggedIn
+_SessionConnected --auth fail-->         _SessionClosed
+_SessionLoggedIn  --close-->             _SessionClosed
 ```
 
 State behavior is composed via a trait hierarchy that mixes in capabilities and defaults:
@@ -46,6 +49,8 @@ State behavior is composed via a trait hierarchy that mixes in capabilities and 
 - `_ConnectedState` / `_UnconnectedState` — has/doesn't have a live connection
 - `_AuthenticableState` / `_NotAuthenticableState` — can/can't authenticate
 - `_AuthenticatedState` / `_NotAuthenticated` — has/hasn't authenticated
+
+`_SessionSSLNegotiating` is a standalone class (not using `_ConnectedState`) because it handles raw bytes — the server's SSL response is not a PostgreSQL protocol message, so `_ResponseParser` is not used. It mixes in `_NotConnectableState`, `_NotAuthenticableState`, and `_NotAuthenticated`.
 
 This design makes illegal state transitions call `_IllegalState()` (panic) by default via the trait hierarchy, so only valid transitions need explicit implementation.
 
@@ -69,7 +74,7 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 ### Protocol Layer
 
 **Frontend (client → server):**
-- `_FrontendMessage` primitive: `startup()`, `password()`, `query()`, `parse()`, `bind()`, `describe_portal()`, `describe_statement()`, `execute_msg()`, `close_statement()`, `sync()` — builds raw byte arrays with big-endian wire format
+- `_FrontendMessage` primitive: `startup()`, `password()`, `query()`, `parse()`, `bind()`, `describe_portal()`, `describe_statement()`, `execute_msg()`, `close_statement()`, `sync()`, `ssl_request()` — builds raw byte arrays with big-endian wire format
 
 **Backend (server → client):**
 - `_ResponseParser` primitive: incremental parser consuming from a `Reader` buffer. Returns one parsed message per call, `None` if incomplete, errors on junk.
@@ -90,6 +95,7 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 - `ResultReceiver` interface (tag) — `pg_query_result(Result)`, `pg_query_failed(Query, (ErrorResponseMessage | ClientQueryError))`
 - `PrepareReceiver` interface (tag) — `pg_statement_prepared(name)`, `pg_prepare_failed(name, (ErrorResponseMessage | ClientQueryError))`
 - `ClientQueryError` trait — `SessionNeverOpened`, `SessionClosed`, `SessionNotAuthenticated`, `DataError`
+- `SSLMode` — union type `(SSLDisabled | SSLRequired)`. `SSLDisabled` is the default (plaintext). `SSLRequired` wraps an `SSLContext val` for TLS negotiation.
 - `ErrorResponseMessage` — full PostgreSQL error with all standard fields
 - `AuthenticationFailureReason` = `(InvalidAuthenticationSpecification | InvalidPassword)`
 
@@ -119,6 +125,9 @@ Tests live in the main `postgres/` package (private test classes).
 - `_TestHandlingJunkMessages` — uses a local TCP listener that sends junk; verifies session shuts down
 - `_TestUnansweredQueriesFailOnShutdown` — uses a local TCP listener that auto-auths but never responds to queries; verifies queued queries get `SessionClosed` failures
 - `_TestPrepareShutdownDrainsPrepareQueue` — uses a local TCP listener that auto-auths but never becomes ready; verifies pending prepare operations get `SessionClosed` failures on shutdown
+- `_TestSSLNegotiationRefused` — mock server responds 'N' to SSLRequest; verifies `pg_session_connection_failed` fires
+- `_TestSSLNegotiationJunkResponse` — mock server responds with junk byte to SSLRequest; verifies session shuts down
+- `_TestSSLNegotiationSuccess` — mock server responds 'S', both sides upgrade to TLS, sends AuthOk+ReadyForQuery; verifies full SSL→auth flow
 
 **Integration tests** (require PostgreSQL, names prefixed `integration/`):
 - Connect, ConnectFailure, Authenticate, AuthenticateFailure
@@ -141,9 +150,11 @@ Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Sever
 
 ## Roadmap
 
-**SSL/TLS negotiation** is tracked but blocked on ponylang/lori#170 (TLS upgrade support for existing TCP connections). Research and design decision: [discussion #76](https://github.com/ponylang/postgres/discussions/76). Full feature roadmap: [discussion #72](https://github.com/ponylang/postgres/discussions/72).
+**SSL/TLS negotiation** is implemented. Pass `SSLRequired(sslctx)` to `Session.create()` to enable. Design: [discussion #76](https://github.com/ponylang/postgres/discussions/76). Full feature roadmap: [discussion #72](https://github.com/ponylang/postgres/discussions/72). Integration tests with a real SSL-enabled PostgreSQL are not yet in place.
 
 ## Supported PostgreSQL Features
+
+**SSL/TLS:** Optional SSL negotiation via `SSLRequired`. The driver sends an SSLRequest before authentication. If the server accepts ('S'), the connection is upgraded to TLS via lori's `start_tls()`. If refused ('N'), connection fails. CVE-2021-23222 mitigated via `expect(1)` before SSLRequest.
 
 **Authentication:** MD5 password only. No SCRAM-SHA-256, Kerberos, SASL, GSS, or certificate auth.
 
@@ -282,8 +293,9 @@ Can arrive between any other messages (must always handle):
 ## File Layout
 
 ```
-postgres/                         # Main package (28 files)
+postgres/                         # Main package (29 files)
   session.pony                    # Session actor + state machine traits + query sub-state machine
+  ssl_mode.pony                   # SSLDisabled, SSLRequired, SSLMode types
   simple_query.pony               # SimpleQuery class
   prepared_query.pony             # PreparedQuery class
   named_prepared_query.pony       # NamedPreparedQuery class
@@ -307,12 +319,15 @@ postgres/                         # Main package (28 files)
   _authentication_failure_reason.pony
   _md5_password.pony              # MD5 password construction
   _mort.pony                      # Panic primitives
-  _test.pony                      # Main test actor + integration tests
+  _test.pony                      # Main test actor + integration tests + SSL negotiation tests
   _test_query.pony                # Query integration tests
   _test_response_parser.pony      # Parser unit tests + test message builders
   _test_frontend_message.pony     # Frontend message unit tests
+assets/test-cert.pem              # Self-signed test certificate for SSL unit tests
+assets/test-key.pem               # Private key for SSL unit tests
 examples/README.md                # Examples overview
 examples/query/query-example.pony # Simple query with result inspection
+examples/ssl-query/ssl-query-example.pony # SSL-encrypted query with SSLRequired
 examples/prepared-query/prepared-query-example.pony # PreparedQuery with params and NULL
 examples/named-prepared-query/named-prepared-query-example.pony # Named prepared statements with reuse
 examples/crud/crud-example.pony   # Multi-query CRUD workflow

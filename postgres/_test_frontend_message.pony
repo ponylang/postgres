@@ -200,3 +200,17 @@ class \nodoc\ iso _TestFrontendMessageSync is UnitTest
 
     h.assert_array_eq[U8](expected,
       _FrontendMessage.sync())
+
+class \nodoc\ iso _TestFrontendMessageSSLRequest is UnitTest
+  fun name(): String =>
+    "FrontendMessage/SSLRequest"
+
+  fun apply(h: TestHelper) =>
+    // SSLRequest: Int32(8) Int32(80877103)
+    // 80877103 = 0x04D2162F
+    // Both big-endian and little-endian produce the same byte sequence
+    // because the code writes big-endian wire format on both platforms.
+    let expected: Array[U8] = [ 0; 0; 0; 8; 4; 210; 22; 47 ]
+
+    h.assert_array_eq[U8](expected,
+      _FrontendMessage.ssl_request())

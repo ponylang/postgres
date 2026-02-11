@@ -1,5 +1,6 @@
 use "buffered"
 use lori = "lori"
+use "ssl/net"
 
 actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   var state: _SessionState
@@ -12,9 +13,11 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     service': String,
     user': String,
     password': String,
-    database': String)
+    database': String,
+    ssl': SSLMode = SSLDisabled)
   =>
-    state = _SessionUnopened(notify', user', password', database')
+    state = _SessionUnopened(notify', user', password', database',
+      ssl', host')
 
     _tcp_connection = lori.TCPConnection.client(auth',
       host',
@@ -63,6 +66,17 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   fun ref _on_received(data: Array[U8] iso) =>
     state.on_received(this, consume data)
 
+  // _on_tls_failure already completes cleanup and transitions to
+  // _SessionClosed. Lori follows _on_tls_failure() with _on_closed(). Since
+  // we don't override _on_closed() (lori's default is a no-op), no additional
+  // handling is needed. If _on_closed() is ever added here, it must handle
+  // the _SessionClosed state gracefully.
+  fun ref _on_tls_ready() =>
+    state.on_tls_ready(this)
+
+  fun ref _on_tls_failure() =>
+    state.on_tls_failure(this)
+
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
@@ -72,16 +86,22 @@ class ref _SessionUnopened is _ConnectableState
   let _user: String
   let _password: String
   let _database: String
+  let _ssl_mode: SSLMode
+  let _host: String
 
   new ref create(notify': SessionStatusNotify,
     user': String,
     password': String,
-    database': String)
+    database': String,
+    ssl_mode': SSLMode = SSLDisabled,
+    host': String = "")
   =>
     _notify = notify'
     _user = user'
     _password = password'
     _database = database'
+    _ssl_mode = ssl_mode'
+    _host = host'
 
   fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
     r.pg_query_failed(q, SessionNeverOpened)
@@ -103,6 +123,12 @@ class ref _SessionUnopened is _ConnectableState
   fun database(): String =>
     _database
 
+  fun ssl_mode(): SSLMode =>
+    _ssl_mode
+
+  fun host(): String =>
+    _host
+
   fun notify(): SessionStatusNotify =>
     _notify
 
@@ -116,6 +142,112 @@ class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
     receiver.pg_prepare_failed(name, SessionClosed)
 
   fun ref close_statement(s: Session ref, name: String) =>
+    None
+
+class ref _SessionSSLNegotiating
+  is (_NotConnectableState & _NotAuthenticableState & _NotAuthenticated)
+  """
+  Waiting for the server's SSL negotiation response (single byte 'S' or 'N')
+  or for the TLS handshake to complete. This state handles raw bytes — the
+  server's response to SSLRequest is not a standard PostgreSQL protocol
+  message, so _ResponseParser is not used.
+  """
+  let _notify: SessionStatusNotify
+  let _user: String
+  let _password: String
+  let _database: String
+  let _ssl_ctx: SSLContext val
+  let _host: String
+  var _handshake_started: Bool = false
+
+  new ref create(notify': SessionStatusNotify,
+    user': String,
+    password': String,
+    database': String,
+    ssl_ctx': SSLContext val,
+    host': String)
+  =>
+    _notify = notify'
+    _user = user'
+    _password = password'
+    _database = database'
+    _ssl_ctx = ssl_ctx'
+    _host = host'
+
+  fun ref send_ssl_request(s: Session ref) =>
+    let msg = _FrontendMessage.ssl_request()
+    s._connection().send(msg)
+
+  fun ref on_received(s: Session ref, data: Array[U8] iso) =>
+    if _handshake_started then
+      // Should never happen — lori handles socket I/O during the handshake
+      // and doesn't deliver application data until _on_tls_ready.
+      _shutdown(s)
+      return
+    end
+
+    try
+      let response = data(0)?
+      if response == 'S' then
+        match s._connection().start_tls(_ssl_ctx, _host)
+        | None =>
+          _handshake_started = true
+        | let _: lori.StartTLSError =>
+          _connection_failed(s)
+        end
+      elseif response == 'N' then
+        _connection_failed(s)
+      else
+        _shutdown(s)
+      end
+    else
+      _shutdown(s)
+    end
+
+  fun ref on_tls_ready(s: Session ref) =>
+    // Reset expect from 1 (set during SSLRequest) to 0 (deliver all available
+    // bytes). Critical: lori preserves the expect(1) value across start_tls()
+    // via _ssl_expect. Without this reset, decrypted data would be delivered
+    // 1 byte at a time, breaking _ResponseParser.
+    try s._connection().expect(0)? end
+    s.state = _SessionConnected(_notify, _user, _password, _database)
+    _notify.pg_session_connected(s)
+    let msg = _FrontendMessage.startup(_user, _database)
+    s._connection().send(msg)
+
+  fun ref on_tls_failure(s: Session ref) =>
+    _notify.pg_session_connection_failed(s)
+    s.state = _SessionClosed
+
+  fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
+    r.pg_query_failed(q, SessionNotAuthenticated)
+
+  fun ref prepare(s: Session ref, name: String, sql: String,
+    receiver: PrepareReceiver)
+  =>
+    receiver.pg_prepare_failed(name, SessionNotAuthenticated)
+
+  fun ref close_statement(s: Session ref, name: String) =>
+    None
+
+  fun ref close(s: Session ref) =>
+    _shutdown(s)
+
+  fun ref shutdown(s: Session ref) =>
+    _shutdown(s)
+
+  fun ref _connection_failed(s: Session ref) =>
+    s._connection().close()
+    _notify.pg_session_connection_failed(s)
+    s.state = _SessionClosed
+
+  fun ref _shutdown(s: Session ref) =>
+    s._connection().close()
+    _notify.pg_session_shutdown(s)
+    s.state = _SessionClosed
+
+  fun ref process_responses(s: Session ref) =>
+    // No-op: _ResponseMessageParser is not involved during SSL negotiation.
     None
 
 class ref _SessionConnected is _AuthenticableState
@@ -780,6 +912,14 @@ interface _SessionState
     """
     Called if we fail to establish a connection with the server.
     """
+  fun ref on_tls_ready(s: Session ref)
+    """
+    Called when a TLS handshake initiated by start_tls() completes.
+    """
+  fun ref on_tls_failure(s: Session ref)
+    """
+    Called when a TLS handshake initiated by start_tls() fails.
+    """
   fun ref on_authentication_ok(s: Session ref)
     """
     Called when we successfully authenticate with the server.
@@ -873,9 +1013,22 @@ trait _ConnectableState is _UnconnectedState
   An unopened session that can be connected to a server.
   """
   fun on_connected(s: Session ref) =>
-    s.state = _SessionConnected(notify(), user(), password(), database())
-    notify().pg_session_connected(s)
-    _send_startup_message(s)
+    match ssl_mode()
+    | SSLDisabled =>
+      s.state = _SessionConnected(notify(), user(), password(), database())
+      notify().pg_session_connected(s)
+      _send_startup_message(s)
+    | let req: SSLRequired =>
+      // Set expect(1) BEFORE sending SSLRequest so lori delivers exactly
+      // one byte per _on_received call. Any MITM-injected bytes stay in
+      // lori's internal buffer, causing start_tls() to return
+      // StartTLSNotReady (CVE-2021-23222 mitigation).
+      try s._connection().expect(1)? end
+      let st = _SessionSSLNegotiating(
+        notify(), user(), password(), database(), req.ctx, host())
+      s.state = st
+      st.send_ssl_request(s)
+    end
 
   fun on_failure(s: Session ref) =>
     s.state = _SessionClosed
@@ -888,6 +1041,8 @@ trait _ConnectableState is _UnconnectedState
   fun user(): String
   fun password(): String
   fun database(): String
+  fun ssl_mode(): SSLMode
+  fun host(): String
   fun notify(): SessionStatusNotify
 
 trait _NotConnectableState
@@ -906,6 +1061,11 @@ trait _ConnectedState is _NotConnectableState
   A connected session. Connected sessions are not connectable as they have
   already been connected.
   """
+  fun ref on_tls_ready(s: Session ref) =>
+    _IllegalState()
+
+  fun ref on_tls_failure(s: Session ref) =>
+    _IllegalState()
   fun ref on_received(s: Session ref, data: Array[U8] iso) =>
     readbuf().append(consume data)
     process_responses(s)
@@ -937,6 +1097,11 @@ trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
   it has been closed. Unconnected sessions are not eligible to be authenticated
   and receiving an authentication event while unconnected is an error.
   """
+  fun ref on_tls_ready(s: Session ref) =>
+    _IllegalState()
+
+  fun ref on_tls_failure(s: Session ref) =>
+    _IllegalState()
   fun ref on_received(s: Session ref, data: Array[U8] iso) =>
     // It is possible we will continue to receive data after we have closed
     // so this isn't an invalid state. We should silently drop the data. If

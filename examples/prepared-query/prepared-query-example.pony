@@ -47,7 +47,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
   =>
     _out.print("Failed to authenticate.")
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     match result
     | let r: ResultSet =>
       _out.print("ResultSet (" + r.rows().size().string() + " rows):")
@@ -73,7 +73,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     end
     close()
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _out.print("Query failed.")

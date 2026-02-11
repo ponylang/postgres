@@ -42,7 +42,7 @@ actor \nodoc\ _ResultsIncludeOriginatingQueryReceiver is
     _h.fail("Unable to establish connection")
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     if result.query() isnt _query then
       _h.fail("Query in result isn't the expected query.")
       _h.complete(false)
@@ -83,7 +83,7 @@ actor \nodoc\ _ResultsIncludeOriginatingQueryReceiver is
 
     _h.complete(true)
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure")
@@ -131,11 +131,11 @@ actor \nodoc\ _QueryAfterAuthenticationFailureNotify is
   =>
     session.execute(_query, this)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     _h.fail("Unexpected query result received")
     _h.complete(false)
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if (query is _query) and (failure is SessionClosed) then
@@ -185,11 +185,11 @@ actor \nodoc\ _QueryAfterConnectionFailureNotify is
   be pg_session_connection_failed(session: Session) =>
     session.execute(_query, this)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     _h.fail("Unexpected query result received")
     _h.complete(false)
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if (query is _query) and (failure is SessionClosed) then
@@ -242,11 +242,11 @@ actor \nodoc\ _QueryAfterSessionHasBeenClosedNotify is
   be pg_session_shutdown(session: Session) =>
     session.execute(_query, this)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     _h.fail("Unexpected query result received")
     _h.complete(false)
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if (query is _query) and (failure is SessionClosed) then
@@ -296,11 +296,11 @@ actor \nodoc\ _NonExistentTableQueryReceiver is
     _h.fail("Unable to establish connection")
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     _h.fail("Query unexpectedly succeeded.")
     _h.complete(false)
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     // TODO enhance this by checking the failure
@@ -413,7 +413,7 @@ actor \nodoc\ _AllSuccessQueryRunningClient is
     _h.fail("Unable to establish connection")
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     try
       let q = _queries.shift()?
       if result.query() is q then
@@ -428,7 +428,7 @@ actor \nodoc\ _AllSuccessQueryRunningClient is
       _h.complete(false)
     end
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     let query_str = match query
@@ -483,7 +483,7 @@ actor \nodoc\ _EmptyQueryReceiver is
     _h.fail("Unable to establish connection")
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     if result.query() isnt _query then
       _h.fail("Query in result isn't the expected query.")
       _h.complete(false)
@@ -492,7 +492,7 @@ actor \nodoc\ _EmptyQueryReceiver is
 
     _h.complete(true)
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure")
@@ -543,7 +543,7 @@ actor \nodoc\ _ZeroRowSelectReceiver is
     _h.fail("Unable to authenticate")
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     if result.query() isnt _query then
       _h.fail("Query in result isn't the expected query.")
       _h.complete(false)
@@ -565,7 +565,7 @@ actor \nodoc\ _ZeroRowSelectReceiver is
 
     _h.complete(true)
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure")
@@ -623,7 +623,7 @@ actor \nodoc\ _MultiStatementMixedClient is
     _h.fail("Unable to authenticate")
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     _phase = _phase + 1
 
     match _phase
@@ -676,7 +676,7 @@ actor \nodoc\ _MultiStatementMixedClient is
       _drop_and_finish()
     end
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure at phase " + _phase.string())
@@ -735,7 +735,7 @@ actor \nodoc\ _PreparedQueryResultsReceiver is
     _h.fail("Unable to establish connection")
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     if result.query() isnt _query then
       _h.fail("Query in result isn't the expected query.")
       _h.complete(false)
@@ -776,7 +776,7 @@ actor \nodoc\ _PreparedQueryResultsReceiver is
 
     _h.complete(true)
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure")
@@ -828,7 +828,7 @@ actor \nodoc\ _PreparedQueryNullParamReceiver is
     _h.fail("Unable to establish connection")
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     if result.query() isnt _query then
       _h.fail("Query in result isn't the expected query.")
       _h.complete(false)
@@ -864,7 +864,7 @@ actor \nodoc\ _PreparedQueryNullParamReceiver is
 
     _h.complete(true)
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure")
@@ -917,11 +917,11 @@ actor \nodoc\ _PreparedQueryNonExistentTableReceiver is
     _h.fail("Unable to establish connection")
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     _h.fail("Query unexpectedly succeeded.")
     _h.complete(false)
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if query is _query then
@@ -985,7 +985,7 @@ actor \nodoc\ _PreparedQueryInsertAndDeleteClient is
     _h.fail("Unable to authenticate")
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     _phase = _phase + 1
 
     match _phase
@@ -1041,7 +1041,7 @@ actor \nodoc\ _PreparedQueryInsertAndDeleteClient is
       _drop_and_finish()
     end
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure at phase " + _phase.string())
@@ -1103,7 +1103,7 @@ actor \nodoc\ _PreparedQueryMixedClient is
     _h.fail("Unable to authenticate")
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     _phase = _phase + 1
 
     match _phase
@@ -1172,7 +1172,7 @@ actor \nodoc\ _PreparedQueryMixedClient is
       _h.complete(false)
     end
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure at phase " + _phase.string())
@@ -1224,7 +1224,7 @@ actor \nodoc\ _PrepareStatementClient is
     _h.fail("Unable to authenticate")
     _h.complete(false)
 
-  be pg_statement_prepared(name: String) =>
+  be pg_statement_prepared(session: Session, name: String) =>
     if name == "s1" then
       _h.complete(true)
     else
@@ -1232,7 +1232,7 @@ actor \nodoc\ _PrepareStatementClient is
       _h.complete(false)
     end
 
-  be pg_prepare_failed(name: String,
+  be pg_prepare_failed(session: Session, name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected prepare failure")
@@ -1284,19 +1284,19 @@ actor \nodoc\ _PrepareAndExecuteClient is
     _h.fail("Unable to authenticate")
     _h.complete(false)
 
-  be pg_statement_prepared(name: String) =>
+  be pg_statement_prepared(session: Session, name: String) =>
     _session.execute(
       NamedPreparedQuery("s1",
         recover val [as (String | None): "525600"] end),
       this)
 
-  be pg_prepare_failed(name: String,
+  be pg_prepare_failed(session: Session, name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected prepare failure")
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     match result
     | let r: ResultSet =>
       try
@@ -1318,7 +1318,7 @@ actor \nodoc\ _PrepareAndExecuteClient is
     end
     _h.complete(false)
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure")
@@ -1370,7 +1370,7 @@ actor \nodoc\ _PrepareAndExecuteMultipleClient is
     _h.fail("Unable to authenticate")
     _h.complete(false)
 
-  be pg_statement_prepared(name: String) =>
+  be pg_statement_prepared(session: Session, name: String) =>
     _session.execute(
       NamedPreparedQuery("s1",
         recover val [as (String | None): "first"] end),
@@ -1380,13 +1380,13 @@ actor \nodoc\ _PrepareAndExecuteMultipleClient is
         recover val [as (String | None): "second"] end),
       this)
 
-  be pg_prepare_failed(name: String,
+  be pg_prepare_failed(session: Session, name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected prepare failure")
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     _phase = _phase + 1
 
     match result
@@ -1426,7 +1426,7 @@ actor \nodoc\ _PrepareAndExecuteMultipleClient is
       return
     end
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure at phase " + _phase.string())
@@ -1478,24 +1478,24 @@ actor \nodoc\ _PrepareAndCloseClient is
     _h.fail("Unable to authenticate")
     _h.complete(false)
 
-  be pg_statement_prepared(name: String) =>
+  be pg_statement_prepared(session: Session, name: String) =>
     _session.close_statement("s1")
     _session.execute(
       NamedPreparedQuery("s1",
         recover val [as (String | None): "hello"] end),
       this)
 
-  be pg_prepare_failed(name: String,
+  be pg_prepare_failed(session: Session, name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected prepare failure")
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     _h.fail("Expected query failure after closing statement.")
     _h.complete(false)
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     match failure
@@ -1551,11 +1551,11 @@ actor \nodoc\ _PrepareFailsClient is
     _h.fail("Unable to authenticate")
     _h.complete(false)
 
-  be pg_statement_prepared(name: String) =>
+  be pg_statement_prepared(session: Session, name: String) =>
     _h.fail("Expected prepare to fail but it succeeded.")
     _h.complete(false)
 
-  be pg_prepare_failed(name: String,
+  be pg_prepare_failed(session: Session, name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if name != "bad" then
@@ -1618,7 +1618,7 @@ actor \nodoc\ _PrepareAfterCloseClient is
     _h.fail("Unable to authenticate")
     _h.complete(false)
 
-  be pg_statement_prepared(name: String) =>
+  be pg_statement_prepared(session: Session, name: String) =>
     _phase = _phase + 1
 
     match _phase
@@ -1634,13 +1634,13 @@ actor \nodoc\ _PrepareAfterCloseClient is
       _h.complete(false)
     end
 
-  be pg_prepare_failed(name: String,
+  be pg_prepare_failed(session: Session, name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected prepare failure at phase " + _phase.string())
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     match result
     | let r: ResultSet =>
       try
@@ -1662,7 +1662,7 @@ actor \nodoc\ _PrepareAfterCloseClient is
     end
     _h.complete(false)
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure")
@@ -1716,10 +1716,10 @@ actor \nodoc\ _CloseNonexistentClient is
     _h.fail("Unable to authenticate")
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     _h.complete(true)
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure after closing nonexistent statement.")
@@ -1773,7 +1773,7 @@ actor \nodoc\ _PrepareDuplicateNameClient is
     _h.fail("Unable to authenticate")
     _h.complete(false)
 
-  be pg_statement_prepared(name: String) =>
+  be pg_statement_prepared(session: Session, name: String) =>
     _phase = _phase + 1
     if _phase == 1 then
       _session.prepare("dup", "SELECT 2", this)
@@ -1782,7 +1782,7 @@ actor \nodoc\ _PrepareDuplicateNameClient is
       _h.complete(false)
     end
 
-  be pg_prepare_failed(name: String,
+  be pg_prepare_failed(session: Session, name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _phase = _phase + 1
@@ -1846,20 +1846,20 @@ actor \nodoc\ _MixedAllThreeClient is
     _h.fail("Unable to authenticate")
     _h.complete(false)
 
-  be pg_statement_prepared(name: String) =>
+  be pg_statement_prepared(session: Session, name: String) =>
     _phase = _phase + 1
     _session.execute(
       NamedPreparedQuery("mix",
         recover val [as (String | None): "named"] end),
       this)
 
-  be pg_prepare_failed(name: String,
+  be pg_prepare_failed(session: Session, name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected prepare failure at phase " + _phase.string())
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     _phase = _phase + 1
 
     match result
@@ -1909,7 +1909,7 @@ actor \nodoc\ _MixedAllThreeClient is
       _h.complete(false)
     end
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure at phase " + _phase.string())

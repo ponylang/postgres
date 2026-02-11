@@ -92,8 +92,8 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 - `Rows` / `Row` / `Field` — result data. `Field.value` is `FieldDataTypes` union
 - `FieldDataTypes` = `(Bool | F32 | F64 | I16 | I32 | I64 | None | String)`
 - `SessionStatusNotify` interface (tag) — lifecycle callbacks (connected, connection_failed, authenticated, authentication_failed, shutdown)
-- `ResultReceiver` interface (tag) — `pg_query_result(Result)`, `pg_query_failed(Query, (ErrorResponseMessage | ClientQueryError))`
-- `PrepareReceiver` interface (tag) — `pg_statement_prepared(name)`, `pg_prepare_failed(name, (ErrorResponseMessage | ClientQueryError))`
+- `ResultReceiver` interface (tag) — `pg_query_result(Session, Result)`, `pg_query_failed(Session, Query, (ErrorResponseMessage | ClientQueryError))`
+- `PrepareReceiver` interface (tag) — `pg_statement_prepared(Session, name)`, `pg_prepare_failed(Session, name, (ErrorResponseMessage | ClientQueryError))`
 - `ClientQueryError` trait — `SessionNeverOpened`, `SessionClosed`, `SessionNotAuthenticated`, `DataError`
 - `SSLMode` — union type `(SSLDisabled | SSLRequired)`. `SSLDisabled` is the default (plaintext). `SSLRequired` wraps an `SSLContext val` for TLS negotiation.
 - `ErrorResponseMessage` — full PostgreSQL error with all standard fields
@@ -147,7 +147,6 @@ Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Sever
 
 - `rows.pony:43` — TODO: need tests for Rows/Row/Field (requires implementing `eq`)
 - `_test_response_parser.pony:6` — TODO: chain-of-messages tests to verify correct buffer advancement across message sequences
-- `result_receiver.pony:1` — TODO: consider passing session to result callbacks so receivers without a session tag can execute follow-up queries
 
 ## Roadmap
 

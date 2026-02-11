@@ -35,7 +35,7 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   be prepare(name: String, sql: String, receiver: PrepareReceiver) =>
     """
     Prepare a named server-side statement. The SQL string must contain a single
-    statement. On success, `receiver.pg_statement_prepared(name)` is called.
+    statement. On success, `receiver.pg_statement_prepared(session, name)` is called.
     The statement can then be executed with `NamedPreparedQuery(name, params)`.
     """
     state.prepare(this, name, sql, receiver)
@@ -104,12 +104,12 @@ class ref _SessionUnopened is _ConnectableState
     _host = host'
 
   fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
-    r.pg_query_failed(q, SessionNeverOpened)
+    r.pg_query_failed(s, q, SessionNeverOpened)
 
   fun ref prepare(s: Session ref, name: String, sql: String,
     receiver: PrepareReceiver)
   =>
-    receiver.pg_prepare_failed(name, SessionNeverOpened)
+    receiver.pg_prepare_failed(s, name, SessionNeverOpened)
 
   fun ref close_statement(s: Session ref, name: String) =>
     None
@@ -134,12 +134,12 @@ class ref _SessionUnopened is _ConnectableState
 
 class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
   fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
-    r.pg_query_failed(q, SessionClosed)
+    r.pg_query_failed(s, q, SessionClosed)
 
   fun ref prepare(s: Session ref, name: String, sql: String,
     receiver: PrepareReceiver)
   =>
-    receiver.pg_prepare_failed(name, SessionClosed)
+    receiver.pg_prepare_failed(s, name, SessionClosed)
 
   fun ref close_statement(s: Session ref, name: String) =>
     None
@@ -220,12 +220,12 @@ class ref _SessionSSLNegotiating
     s.state = _SessionClosed
 
   fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
-    r.pg_query_failed(q, SessionNotAuthenticated)
+    r.pg_query_failed(s, q, SessionNotAuthenticated)
 
   fun ref prepare(s: Session ref, name: String, sql: String,
     receiver: PrepareReceiver)
   =>
-    receiver.pg_prepare_failed(name, SessionNotAuthenticated)
+    receiver.pg_prepare_failed(s, name, SessionNotAuthenticated)
 
   fun ref close_statement(s: Session ref, name: String) =>
     None
@@ -268,12 +268,12 @@ class ref _SessionConnected is _AuthenticableState
     _database = database'
 
   fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
-    r.pg_query_failed(q, SessionNotAuthenticated)
+    r.pg_query_failed(s, q, SessionNotAuthenticated)
 
   fun ref prepare(s: Session ref, name: String, sql: String,
     receiver: PrepareReceiver)
   =>
-    receiver.pg_prepare_failed(name, SessionNotAuthenticated)
+    receiver.pg_prepare_failed(s, name, SessionNotAuthenticated)
 
   fun ref close_statement(s: Session ref, name: String) =>
     None
@@ -382,9 +382,9 @@ class _SessionLoggedIn is _AuthenticatedState
     for queue_item in query_queue.values() do
       match queue_item
       | let qry: _QueuedQuery =>
-        qry.receiver.pg_query_failed(qry.query, SessionClosed)
+        qry.receiver.pg_query_failed(s, qry.query, SessionClosed)
       | let prep: _QueuedPrepare =>
-        prep.receiver.pg_prepare_failed(prep.name, SessionClosed)
+        prep.receiver.pg_prepare_failed(s, prep.name, SessionClosed)
       | let _: _QueuedCloseStatement => None
       end
     end
@@ -606,16 +606,16 @@ class _SimpleQueryInFlight is _QueryState
         | let desc: Array[(String, U32)] val =>
           try
             let rows_object = _RowsBuilder(consume rows, desc)?
-            qry.receiver.pg_query_result(
+            qry.receiver.pg_query_result(s,
               ResultSet(qry.query, rows_object, msg.id))
           else
-            qry.receiver.pg_query_failed(qry.query, DataError)
+            qry.receiver.pg_query_failed(s, qry.query, DataError)
           end
         | None =>
           if rows.size() > 0 then
-            qry.receiver.pg_query_failed(qry.query, DataError)
+            qry.receiver.pg_query_failed(s, qry.query, DataError)
           else
-            qry.receiver.pg_query_result(
+            qry.receiver.pg_query_result(s,
               RowModifying(qry.query, msg.id, msg.value))
           end
         end
@@ -637,9 +637,9 @@ class _SimpleQueryInFlight is _QueryState
         let rd = _row_description = None
 
         if (rows.size() > 0) or (rd isnt None) then
-          qry.receiver.pg_query_failed(qry.query, DataError)
+          qry.receiver.pg_query_failed(s, qry.query, DataError)
         else
-          qry.receiver.pg_query_result(SimpleResult(qry.query))
+          qry.receiver.pg_query_result(s, SimpleResult(qry.query))
         end
       else
         _Unreachable()
@@ -656,7 +656,7 @@ class _SimpleQueryInFlight is _QueryState
       | let qry: _QueuedQuery =>
         _data_rows = recover iso Array[Array[(String|None)] val] end
         _row_description = None
-        qry.receiver.pg_query_failed(qry.query, msg)
+        qry.receiver.pg_query_failed(s, qry.query, msg)
       else
         _Unreachable()
       end
@@ -724,16 +724,16 @@ class _ExtendedQueryInFlight is _QueryState
         | let desc: Array[(String, U32)] val =>
           try
             let rows_object = _RowsBuilder(consume rows, desc)?
-            qry.receiver.pg_query_result(
+            qry.receiver.pg_query_result(s,
               ResultSet(qry.query, rows_object, msg.id))
           else
-            qry.receiver.pg_query_failed(qry.query, DataError)
+            qry.receiver.pg_query_failed(s, qry.query, DataError)
           end
         | None =>
           if rows.size() > 0 then
-            qry.receiver.pg_query_failed(qry.query, DataError)
+            qry.receiver.pg_query_failed(s, qry.query, DataError)
           else
-            qry.receiver.pg_query_result(
+            qry.receiver.pg_query_result(s,
               RowModifying(qry.query, msg.id, msg.value))
           end
         end
@@ -755,9 +755,9 @@ class _ExtendedQueryInFlight is _QueryState
         let rd = _row_description = None
 
         if (rows.size() > 0) or (rd isnt None) then
-          qry.receiver.pg_query_failed(qry.query, DataError)
+          qry.receiver.pg_query_failed(s, qry.query, DataError)
         else
-          qry.receiver.pg_query_result(SimpleResult(qry.query))
+          qry.receiver.pg_query_result(s, SimpleResult(qry.query))
         end
       else
         _Unreachable()
@@ -774,7 +774,7 @@ class _ExtendedQueryInFlight is _QueryState
       | let qry: _QueuedQuery =>
         _data_rows = recover iso Array[Array[(String|None)] val] end
         _row_description = None
-        qry.receiver.pg_query_failed(qry.query, msg)
+        qry.receiver.pg_query_failed(s, qry.query, msg)
       else
         _Unreachable()
       end
@@ -805,7 +805,7 @@ class _PrepareInFlight is _QueryState
     try
       match li.query_queue(0)?
       | let prep: _QueuedPrepare =>
-        prep.receiver.pg_prepare_failed(prep.name, msg)
+        prep.receiver.pg_prepare_failed(s, prep.name, msg)
       else
         _Unreachable()
       end
@@ -820,7 +820,7 @@ class _PrepareInFlight is _QueryState
       try
         match li.query_queue(0)?
         | let prep: _QueuedPrepare =>
-          prep.receiver.pg_statement_prepared(prep.name)
+          prep.receiver.pg_statement_prepared(s, prep.name)
         else
           _Unreachable()
         end

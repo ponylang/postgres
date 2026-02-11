@@ -72,7 +72,7 @@ be pg_query_failed(query: SimpleQuery,
 After:
 
 ```pony
-be pg_query_failed(query: Query,
+be pg_query_failed(session: Session, query: Query,
   failure: (ErrorResponseMessage | ClientQueryError))
 =>
   match query
@@ -91,7 +91,7 @@ You can now create server-side named prepared statements with `Session.prepare()
 session.prepare("find_user", "SELECT * FROM users WHERE id = $1", receiver)
 
 // In the PrepareReceiver callback:
-be pg_statement_prepared(name: String) =>
+be pg_statement_prepared(session: Session, name: String) =>
   // Execute with different parameters
   session.execute(
     NamedPreparedQuery("find_user",
@@ -140,4 +140,66 @@ let session = Session(
 ```
 
 If the server accepts SSL, the connection is encrypted before authentication begins. If the server refuses, `pg_session_connection_failed` fires.
+
+## Change ResultReceiver and PrepareReceiver callbacks to take Session as first parameter
+
+All `ResultReceiver` and `PrepareReceiver` callbacks now take `Session` as their first parameter, matching the convention used by `SessionStatusNotify`. This enables receivers to execute follow-up queries directly from callbacks without storing a session reference (see "Enable follow-up queries from ResultReceiver and PrepareReceiver callbacks" below).
+
+Before:
+
+```pony
+be pg_query_result(result: Result) =>
+  // ...
+
+be pg_query_failed(query: Query,
+  failure: (ErrorResponseMessage | ClientQueryError))
+=>
+  // ...
+
+be pg_statement_prepared(name: String) =>
+  // ...
+
+be pg_prepare_failed(name: String,
+  failure: (ErrorResponseMessage | ClientQueryError))
+=>
+  // ...
+```
+
+After:
+
+```pony
+be pg_query_result(session: Session, result: Result) =>
+  // ...
+
+be pg_query_failed(session: Session, query: Query,
+  failure: (ErrorResponseMessage | ClientQueryError))
+=>
+  // ...
+
+be pg_statement_prepared(session: Session, name: String) =>
+  // ...
+
+be pg_prepare_failed(session: Session, name: String,
+  failure: (ErrorResponseMessage | ClientQueryError))
+=>
+  // ...
+```
+
+## Enable follow-up queries from ResultReceiver and PrepareReceiver callbacks
+
+`ResultReceiver` and `PrepareReceiver` callbacks now receive the `Session`, so receivers can execute follow-up queries, close the session, or chain operations directly from callbacks without needing to store a session reference at construction time.
+
+```pony
+actor MyReceiver is ResultReceiver
+  // no need to store session — it's passed to every callback
+
+  be pg_query_result(session: Session, result: Result) =>
+    // execute a follow-up query using the session from the callback
+    session.execute(SimpleQuery("SELECT 1"), this)
+
+  be pg_query_failed(session: Session, query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    session.close()
+```
 

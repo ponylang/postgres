@@ -214,3 +214,18 @@ class \nodoc\ iso _TestFrontendMessageSSLRequest is UnitTest
 
     h.assert_array_eq[U8](expected,
       _FrontendMessage.ssl_request())
+
+class \nodoc\ iso _TestFrontendMessageTerminate is UnitTest
+  fun name(): String =>
+    "FrontendMessage/Terminate"
+
+  fun apply(h: TestHelper) =>
+    // Terminate: Byte1('X') Int32(4) = 5 bytes
+    let expected: Array[U8] = ifdef bigendian then
+      [ 'X'; 4; 0; 0; 0 ]
+    else
+      [ 'X'; 0; 0; 0; 4 ]
+    end
+
+    h.assert_array_eq[U8](expected,
+      _FrontendMessage.terminate())

@@ -61,6 +61,8 @@ actor \nodoc\ Main is TestList
     test(_TestFrontendMessageCloseStatement)
     test(_TestFrontendMessageSync)
     test(_TestFrontendMessageSSLRequest)
+    test(_TestFrontendMessageTerminate)
+    test(_TestTerminateSentOnClose)
     test(_TestSSLNegotiationRefused)
     test(_TestSSLNegotiationJunkResponse)
     test(_TestSSLNegotiationSuccess)
@@ -747,6 +749,119 @@ actor \nodoc\ _PrepareShutdownTestListener is lori.TCPListenerActor
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
     _h.complete(false)
+
+class \nodoc\ iso _TestTerminateSentOnClose is UnitTest
+  """
+  Verifies that closing a session sends a Terminate message to the server
+  before closing the TCP connection. Uses a mock server that authenticates
+  and becomes ready, then checks that the next data received from the client
+  is a Terminate message ('X').
+  """
+  fun name(): String =>
+    "TerminateSentOnClose"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "7674"
+
+    let listener = _TerminateSentTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _TerminateSentTestNotify is SessionStatusNotify
+  let _h: TestHelper
+
+  new create(h: TestHelper) =>
+    _h = h
+
+  be pg_session_authenticated(session: Session) =>
+    session.close()
+
+  be pg_session_connection_failed(s: Session) =>
+    _h.fail("Unable to establish connection.")
+    _h.complete(false)
+
+  be pg_session_authentication_failed(
+    session: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate.")
+    _h.complete(false)
+
+actor \nodoc\ _TerminateSentTestListener is lori.TCPListenerActor
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _h: TestHelper
+  let _host: String
+  let _port: String
+
+  new create(listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper)
+  =>
+    _host = host
+    _port = port
+    _h = h
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): _TerminateSentTestServer =>
+    _TerminateSentTestServer(_server_auth, fd, _h)
+
+  fun ref _on_listening() =>
+    Session(
+      lori.TCPConnectAuth(_h.env.root),
+      _TerminateSentTestNotify(_h),
+      _host,
+      _port,
+      "postgres",
+      "postgres",
+      "postgres")
+
+  fun ref _on_listen_failure() =>
+    _h.fail("Unable to listen")
+    _h.complete(false)
+
+actor \nodoc\ _TerminateSentTestServer
+  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  """
+  Mock server that authenticates clients and verifies that a Terminate
+  message ('X') is received before the connection closes.
+  """
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _authed: Bool = false
+  let _h: TestHelper
+
+  new create(auth: lori.TCPServerAuth, fd: U32, h: TestHelper) =>
+    _h = h
+    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
+
+  fun ref _on_received(data: Array[U8] iso) =>
+    if not _authed then
+      _authed = true
+      let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
+      let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+      _tcp_connection.send(auth_ok)
+      _tcp_connection.send(ready)
+    else
+      try
+        if data(0)? == 'X' then
+          _h.complete(true)
+        end
+      end
+    end
 
 // SSL negotiation unit tests
 

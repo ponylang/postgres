@@ -74,7 +74,7 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 ### Protocol Layer
 
 **Frontend (client → server):**
-- `_FrontendMessage` primitive: `startup()`, `password()`, `query()`, `parse()`, `bind()`, `describe_portal()`, `describe_statement()`, `execute_msg()`, `close_statement()`, `sync()`, `ssl_request()` — builds raw byte arrays with big-endian wire format
+- `_FrontendMessage` primitive: `startup()`, `password()`, `query()`, `parse()`, `bind()`, `describe_portal()`, `describe_statement()`, `execute_msg()`, `close_statement()`, `sync()`, `ssl_request()`, `terminate()` — builds raw byte arrays with big-endian wire format
 
 **Backend (server → client):**
 - `_ResponseParser` primitive: incremental parser consuming from a `Reader` buffer. Returns one parsed message per call, `None` if incomplete, errors on junk.
@@ -125,6 +125,7 @@ Tests live in the main `postgres/` package (private test classes).
 - `_TestHandlingJunkMessages` — uses a local TCP listener that sends junk; verifies session shuts down
 - `_TestUnansweredQueriesFailOnShutdown` — uses a local TCP listener that auto-auths but never responds to queries; verifies queued queries get `SessionClosed` failures
 - `_TestPrepareShutdownDrainsPrepareQueue` — uses a local TCP listener that auto-auths but never becomes ready; verifies pending prepare operations get `SessionClosed` failures on shutdown
+- `_TestTerminateSentOnClose` — mock server fully authenticates and becomes ready; verifies that closing the session sends a Terminate message ('X') to the server
 - `_TestSSLNegotiationRefused` — mock server responds 'N' to SSLRequest; verifies `pg_session_connection_failed` fires
 - `_TestSSLNegotiationJunkResponse` — mock server responds with junk byte to SSLRequest; verifies session shuts down
 - `_TestSSLNegotiationSuccess` — mock server responds 'S', both sides upgrade to TLS, sends AuthOk+ReadyForQuery; verifies full SSL→auth flow

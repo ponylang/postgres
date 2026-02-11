@@ -9,11 +9,11 @@ make ssl=3.0.x                        # build and run all tests
 make unit-tests ssl=3.0.x             # unit tests only (no postgres needed)
 make integration-tests ssl=3.0.x      # integration tests (needs postgres)
 make build-examples ssl=3.0.x         # compile examples
-make start-pg-container               # docker postgres:14.5 on port 5432
-make stop-pg-container                # stop docker container
+make start-pg-containers              # docker postgres:14.5 on ports 5432 (plain) and 5433 (SSL)
+make stop-pg-containers               # stop docker containers
 ```
 
-SSL version is mandatory. Tests run with `--sequential`. Integration tests require a running PostgreSQL 14.5 with MD5 auth (user: postgres, password: postgres, database: postgres). Environment variables: `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USERNAME`, `POSTGRES_PASSWORD`, `POSTGRES_DATABASE`.
+SSL version is mandatory. Tests run with `--sequential`. Integration tests require running PostgreSQL 14.5 containers with MD5 auth (user: postgres, password: postgres, database: postgres) — one plain on port 5432 and one with SSL on port 5433. Environment variables: `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_SSL_HOST`, `POSTGRES_SSL_PORT`, `POSTGRES_USERNAME`, `POSTGRES_PASSWORD`, `POSTGRES_DATABASE`.
 
 ## Dependencies
 
@@ -139,6 +139,7 @@ Tests live in the main `postgres/` package (private test classes).
 - PreparedStatement/PrepareAndClose, PreparedStatement/PrepareFails, PreparedStatement/PrepareAfterClose
 - PreparedStatement/CloseNonexistent, PreparedStatement/PrepareDuplicateName
 - PreparedStatement/MixedWithSimpleAndPrepared
+- SSL/Connect, SSL/Authenticate, SSL/Query, SSL/Refused
 
 Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Several test message builder classes (`_Incoming*TestMessage`) construct raw protocol bytes for unit tests.
 
@@ -150,7 +151,7 @@ Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Sever
 
 ## Roadmap
 
-**SSL/TLS negotiation** is implemented. Pass `SSLRequired(sslctx)` to `Session.create()` to enable. Design: [discussion #76](https://github.com/ponylang/postgres/discussions/76). Full feature roadmap: [discussion #72](https://github.com/ponylang/postgres/discussions/72). Integration tests with a real SSL-enabled PostgreSQL are not yet in place.
+**SSL/TLS negotiation** is implemented. Pass `SSLRequired(sslctx)` to `Session.create()` to enable. Design: [discussion #76](https://github.com/ponylang/postgres/discussions/76). Full feature roadmap: [discussion #72](https://github.com/ponylang/postgres/discussions/72). CI uses `ghcr.io/ponylang/postgres-ci-pg-ssl:latest` as a service container for SSL integration tests; built via `build-ci-image.yml` workflow dispatch or locally via `.ci-dockerfiles/pg-ssl/build-and-push.bash`.
 
 ## Supported PostgreSQL Features
 
@@ -331,4 +332,5 @@ examples/ssl-query/ssl-query-example.pony # SSL-encrypted query with SSLRequired
 examples/prepared-query/prepared-query-example.pony # PreparedQuery with params and NULL
 examples/named-prepared-query/named-prepared-query-example.pony # Named prepared statements with reuse
 examples/crud/crud-example.pony   # Multi-query CRUD workflow
+.ci-dockerfiles/pg-ssl/           # Dockerfile for SSL-enabled PostgreSQL CI container
 ```

@@ -25,7 +25,7 @@ else
 	PONYC = $(COMPILE_WITH) --debug
 endif
 
-ifeq (,$(filter $(MAKECMDGOALS),clean docs realclean start-pg-container stop-pg-container TAGS))
+ifeq (,$(filter $(MAKECMDGOALS),clean docs realclean start-pg-containers stop-pg-containers TAGS))
   ifeq ($(ssl), 3.0.x)
           SSL = -Dopenssl_3.0.x
   else ifeq ($(ssl), 1.1.x)
@@ -84,12 +84,13 @@ $(coverage_binary): $(SOURCE_FILES) | $(COVERAGE_DIR)
 	$(GET_DEPENDENCIES_WITH)
 	$(PONYC) --debug -o $(COVERAGE_DIR) $(SRC_DIR)
 
-start-pg-container:
+start-pg-containers:
 	@docker run --name pg -e POSTGRES_DB=postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_HOST_AUTH_METHOD=md5 -e POSTGRES_INITDB_ARGS="--auth-host=md5" -p 5432:5432 -d postgres:14.5
+	@docker run --name pg-ssl -e POSTGRES_DB=postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_HOST_AUTH_METHOD=md5 -e POSTGRES_INITDB_ARGS="--auth-host=md5" -v $(CURDIR)/assets/test-cert.pem:/var/lib/postgresql/server.crt:ro -v $(CURDIR)/assets/test-key.pem:/var/lib/postgresql/server.key.orig:ro -p 5433:5432 -d --entrypoint sh postgres:14.5 -c "cp /var/lib/postgresql/server.key.orig /var/lib/postgresql/server.key && chmod 600 /var/lib/postgresql/server.key && chown postgres:postgres /var/lib/postgresql/server.key && exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server.crt -c ssl_key_file=/var/lib/postgresql/server.key"
 
-stop-pg-container:
-	@docker stop pg
-	@docker rm pg
+stop-pg-containers:
+	@docker stop pg pg-ssl
+	@docker rm pg pg-ssl
 
 all: test
 
@@ -99,4 +100,4 @@ $(BUILD_DIR):
 $(COVERAGE_DIR):
 	mkdir -p $(COVERAGE_DIR)
 
-.PHONY: all build-examples clean docs TAGS test coverage start-pg-container stop-pg-container
+.PHONY: all build-examples clean docs TAGS test coverage start-pg-containers stop-pg-containers

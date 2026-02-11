@@ -49,7 +49,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
   =>
     _out.print("Failed to authenticate.")
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     _phase = _phase + 1
 
     match _phase
@@ -135,7 +135,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       _out.print(r.command() + " " + r.impacted().string() + " rows")
     end
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     match failure

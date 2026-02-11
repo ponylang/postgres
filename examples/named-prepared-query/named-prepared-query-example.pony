@@ -44,7 +44,7 @@ actor Client is (SessionStatusNotify & ResultReceiver & PrepareReceiver)
   =>
     _out.print("Failed to authenticate.")
 
-  be pg_statement_prepared(name: String) =>
+  be pg_statement_prepared(session: Session, name: String) =>
     _out.print("Statement '" + name + "' prepared.")
     // Execute the same prepared statement with different parameters.
     _session.execute(
@@ -56,13 +56,13 @@ actor Client is (SessionStatusNotify & ResultReceiver & PrepareReceiver)
         recover val [as (String | None): "Hi"; "World"] end),
       this)
 
-  be pg_prepare_failed(name: String,
+  be pg_prepare_failed(session: Session, name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _out.print("Failed to prepare statement '" + name + "'.")
     close()
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     match result
     | let r: ResultSet =>
       _out.print("ResultSet (" + r.rows().size().string() + " rows):")
@@ -93,7 +93,7 @@ actor Client is (SessionStatusNotify & ResultReceiver & PrepareReceiver)
       close()
     end
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _out.print("Query failed.")

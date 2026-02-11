@@ -380,11 +380,11 @@ actor \nodoc\ _DoesntAnswerClient is (SessionStatusNotify & ResultReceiver)
     _h.fail("Unable to authenticate.")
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     _h.fail("Unexpectedly got a result for a query.")
     _h.complete(false)
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if _in_flight_queries.contains(query) then
@@ -527,7 +527,7 @@ actor \nodoc\ _ZeroRowSelectTestClient is (SessionStatusNotify & ResultReceiver)
     _h.fail("Unable to authenticate.")
     _h.complete(false)
 
-  be pg_query_result(result: Result) =>
+  be pg_query_result(session: Session, result: Result) =>
     if result.query() isnt _query then
       _h.fail("Query in result isn't the expected query.")
       _close_and_complete(false)
@@ -554,7 +554,7 @@ actor \nodoc\ _ZeroRowSelectTestClient is (SessionStatusNotify & ResultReceiver)
 
     _close_and_complete(true)
 
-  be pg_query_failed(query: Query,
+  be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure.")
@@ -692,11 +692,11 @@ actor \nodoc\ _PrepareShutdownTestClient is
     _h.fail("Unable to authenticate.")
     _h.complete(false)
 
-  be pg_statement_prepared(name: String) =>
+  be pg_statement_prepared(session: Session, name: String) =>
     _h.fail("Unexpectedly got a prepared statement.")
     _h.complete(false)
 
-  be pg_prepare_failed(name: String,
+  be pg_prepare_failed(session: Session, name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     match failure

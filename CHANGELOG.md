@@ -16,10 +16,12 @@ All notable changes to this project will be documented in this file. This projec
 - Add parameterized queries via extended query protocol ([PR #70](https://github.com/ponylang/postgres/pull/70))
 - Add named prepared statement support ([PR #78](https://github.com/ponylang/postgres/pull/78))
 - Add SSL/TLS negotiation support ([PR #79](https://github.com/ponylang/postgres/pull/79))
+- Enable follow-up queries from ResultReceiver and PrepareReceiver callbacks ([PR #84](https://github.com/ponylang/postgres/pull/84))
 
 ### Changed
 
 - Change ResultReceiver and Result to use Query union type instead of SimpleQuery ([PR #70](https://github.com/ponylang/postgres/pull/70))
+- Change ResultReceiver and PrepareReceiver callbacks to take Session as first parameter ([PR #84](https://github.com/ponylang/postgres/pull/84))
 - Fix typo in SesssionNeverOpened ([PR #59](https://github.com/ponylang/postgres/pull/59))
 
 ## [0.2.2] - 2025-07-16

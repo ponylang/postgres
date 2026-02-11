@@ -14,6 +14,10 @@ Parameterized queries using `PreparedQuery`. Sends a query with typed parameters
 
 Named prepared statements using `Session.prepare()` and `NamedPreparedQuery`. Prepares a statement once, executes it twice with different parameters, then cleans up with `Session.close_statement()`. Shows how to implement `PrepareReceiver` for prepare lifecycle callbacks.
 
+## ssl-query
+
+SSL-encrypted query using `SSLRequired`. Same workflow as `query` but with TLS negotiation enabled. Demonstrates how to create an `SSLContext`, wrap it in `SSLRequired`, and pass it to `Session`. Requires a PostgreSQL server configured to accept SSL connections.
+
 ## crud
 
 Multi-query workflow mixing `SimpleQuery` and `PreparedQuery`. Creates a table, inserts rows with parameterized INSERTs, selects them back, deletes, and drops the table. Demonstrates all three `Result` types (`ResultSet`, `RowModifying`, `SimpleResult`) and `ErrorResponseMessage` error handling.

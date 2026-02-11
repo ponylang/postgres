@@ -323,6 +323,30 @@ primitive _FrontendMessage
       []
     end
 
+  fun ssl_request(): Array[U8] val =>
+    """
+    Build an SSLRequest message.
+
+    Format: Int32(8) Int32(80877103) — no message type byte, same pattern as
+    startup(). The magic number 80877103 = 1234 << 16 | 5679.
+    """
+    try
+      recover val
+        let msg: Array[U8] = Array[U8].init(0, 8)
+        ifdef bigendian then
+          msg.update_u32(0, U32(8))?
+          msg.update_u32(4, U32(80877103))?
+        else
+          msg.update_u32(0, U32(8).bswap())?
+          msg.update_u32(4, U32(80877103).bswap())?
+        end
+        msg
+      end
+    else
+      _Unreachable()
+      []
+    end
+
   fun sync(): Array[U8] val =>
     """
     Build a Sync message.

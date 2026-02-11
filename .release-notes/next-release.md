@@ -203,3 +203,40 @@ actor MyReceiver is ResultReceiver
     session.close()
 ```
 
+## Add equality comparison for Field
+
+`Field` now implements `Equatable`, enabling `==` and `!=` comparisons. A `Field` holds a column name and a typed value. Two fields are equal when they have the same name and the same value — the values must be the same type and compare equal using that type's own equality.
+
+```pony
+Field("id", I32(42)) == Field("id", I32(42))    // true
+Field("id", I32(42)) == Field("id", I64(42))    // false — different types
+Field("id", I32(42)) == Field("name", I32(42))  // false — different names
+```
+
+## Add equality comparison for Row
+
+`Row` now implements `Equatable`, enabling `==` and `!=` comparisons. A `Row` holds an ordered sequence of `Field` values representing a single result row. Two rows are equal when they have the same number of fields and each corresponding pair of fields is equal. Field order matters — the same fields in a different order are not equal.
+
+```pony
+let r1 = Row(recover val [Field("id", I32(1)); Field("name", "Alice")] end)
+let r2 = Row(recover val [Field("id", I32(1)); Field("name", "Alice")] end)
+r1 == r2  // true
+
+let r3 = Row(recover val [Field("name", "Alice"); Field("id", I32(1))] end)
+r1 == r3  // false — same fields, different order
+```
+
+## Add equality comparison for Rows
+
+`Rows` now implements `Equatable`, enabling `==` and `!=` comparisons. A `Rows` holds an ordered collection of `Row` values representing a query result set. Two `Rows` are equal when they have the same number of rows and each corresponding pair of rows is equal. Row order matters — the same rows in a different order are not equal.
+
+```pony
+let rs1 = Rows(recover val
+  [Row(recover val [Field("id", I32(1))] end)]
+end)
+let rs2 = Rows(recover val
+  [Row(recover val [Field("id", I32(1))] end)]
+end)
+rs1 == rs2  // true
+```
+

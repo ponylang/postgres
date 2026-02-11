@@ -1,4 +1,4 @@
-class val Rows
+class val Rows is Equatable[Rows]
   let _rows: Array[Row] val
 
   new val create(rows': Array[Row] val) =>
@@ -15,6 +15,24 @@ class val Rows
     Returns the `i`th row if it exists. Otherwise, throws an error.
     """
     _rows(i)?
+
+  fun eq(that: box->Rows): Bool =>
+    """
+    Two Rows are equal when they have the same number of rows and each
+    corresponding pair of rows is equal. Row order matters: the same rows
+    in a different order are not equal.
+    """
+    if size() != that.size() then return false end
+    try
+      var i: USize = 0
+      while i < size() do
+        if apply(i)? != that(i)? then return false end
+        i = i + 1
+      end
+      true
+    else
+      false
+    end
 
   fun values(): RowIterator =>
     """
@@ -40,10 +58,6 @@ class RowIterator is Iterator[Row]
     _i = 0
     this
 
-// TODO need tests for all this
-// In order to easily test it though, we need to add a decent chunk of operators
-// to be able to compare the structure of the objects. Really, we need 'eq' on
-// 'Rows', 'Row' and 'Field'.
 primitive _RowsBuilder
   fun apply(rows': Array[Array[(String|None)] val] val,
     row_descriptions': Array[(String, U32)] val): Rows ?

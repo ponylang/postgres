@@ -2,6 +2,7 @@ use "cli"
 use "collections"
 use "files"
 use lori = "lori"
+use "pony_check"
 use "pony_test"
 use "ssl/net"
 
@@ -87,6 +88,20 @@ actor \nodoc\ Main is TestList
     test(_TestSSLAuthenticate)
     test(_TestSSLQueryResults)
     test(_TestSSLRefused)
+    test(_TestFieldEqualityReflexive)
+    test(_TestFieldEqualityStructural)
+    test(_TestFieldEqualitySymmetric)
+    test(_TestFieldInequality)
+    test(_TestRowEquality)
+    test(_TestRowInequality)
+    test(_TestRowsEquality)
+    test(_TestRowsInequality)
+    test(Property1UnitTest[Field](_TestFieldReflexiveProperty))
+    test(Property1UnitTest[FieldDataTypes](_TestFieldStructuralProperty))
+    test(Property1UnitTest[(FieldDataTypes, FieldDataTypes)](
+      _TestFieldSymmetricProperty))
+    test(Property1UnitTest[Row](_TestRowReflexiveProperty))
+    test(Property1UnitTest[Rows](_TestRowsReflexiveProperty))
 
 class \nodoc\ iso _TestAuthenticate is UnitTest
   """

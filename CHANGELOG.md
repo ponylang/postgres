@@ -17,6 +17,9 @@ All notable changes to this project will be documented in this file. This projec
 - Add named prepared statement support ([PR #78](https://github.com/ponylang/postgres/pull/78))
 - Add SSL/TLS negotiation support ([PR #79](https://github.com/ponylang/postgres/pull/79))
 - Enable follow-up queries from ResultReceiver and PrepareReceiver callbacks ([PR #84](https://github.com/ponylang/postgres/pull/84))
+- Add equality comparison for Field ([PR #85](https://github.com/ponylang/postgres/pull/85))
+- Add equality comparison for Row ([PR #85](https://github.com/ponylang/postgres/pull/85))
+- Add equality comparison for Rows ([PR #85](https://github.com/ponylang/postgres/pull/85))
 
 ### Changed
 

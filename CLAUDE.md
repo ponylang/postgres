@@ -128,6 +128,11 @@ Tests live in the main `postgres/` package (private test classes).
 - `_TestSSLNegotiationRefused` — mock server responds 'N' to SSLRequest; verifies `pg_session_connection_failed` fires
 - `_TestSSLNegotiationJunkResponse` — mock server responds with junk byte to SSLRequest; verifies session shuts down
 - `_TestSSLNegotiationSuccess` — mock server responds 'S', both sides upgrade to TLS, sends AuthOk+ReadyForQuery; verifies full SSL→auth flow
+- `_TestField*Equality*` / `_TestFieldInequality` — example-based reflexive, structural, symmetric equality and inequality tests for Field
+- `_TestRowEquality` / `_TestRowInequality` — example-based equality and inequality tests for Row
+- `_TestRowsEquality` / `_TestRowsInequality` — example-based equality and inequality tests for Rows
+- `_TestField*Property` — PonyCheck property tests for Field reflexive, structural, and symmetric equality
+- `_TestRowReflexiveProperty` / `_TestRowsReflexiveProperty` — PonyCheck property tests for Row/Rows reflexive equality
 
 **Integration tests** (require PostgreSQL, names prefixed `integration/`):
 - Connect, ConnectFailure, Authenticate, AuthenticateFailure
@@ -145,7 +150,6 @@ Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Sever
 
 ## Known Issues and TODOs in Code
 
-- `rows.pony:43` — TODO: need tests for Rows/Row/Field (requires implementing `eq`)
 - `_test_response_parser.pony:6` — TODO: chain-of-messages tests to verify correct buffer advancement across message sequences
 
 ## Roadmap
@@ -293,7 +297,7 @@ Can arrive between any other messages (must always handle):
 ## File Layout
 
 ```
-postgres/                         # Main package (29 files)
+postgres/                         # Main package (30 files)
   session.pony                    # Session actor + state machine traits + query sub-state machine
   ssl_mode.pony                   # SSLDisabled, SSLRequired, SSLMode types
   simple_query.pony               # SimpleQuery class
@@ -323,6 +327,7 @@ postgres/                         # Main package (29 files)
   _test_query.pony                # Query integration tests
   _test_response_parser.pony      # Parser unit tests + test message builders
   _test_frontend_message.pony     # Frontend message unit tests
+  _test_equality.pony             # Equality tests for Field/Row/Rows (example + PonyCheck property)
 assets/test-cert.pem              # Self-signed test certificate for SSL unit tests
 assets/test-key.pem               # Private key for SSL unit tests
 examples/README.md                # Examples overview

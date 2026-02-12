@@ -25,3 +25,7 @@ Query cancellation using `Session.cancel()`. Executes a long-running query (`SEL
 ## crud
 
 Multi-query workflow mixing `SimpleQuery` and `PreparedQuery`. Creates a table, inserts rows with parameterized INSERTs, selects them back, deletes, and drops the table. Demonstrates all three `Result` types (`ResultSet`, `RowModifying`, `SimpleResult`) and `ErrorResponseMessage` error handling.
+
+## transaction
+
+Transaction status tracking using `pg_transaction_status`. Runs a `BEGIN` / `INSERT` / `COMMIT` sequence inside an explicit transaction and prints the `TransactionStatus` reported at each step. Shows how `SessionStatusNotify.pg_transaction_status` fires on every `ReadyForQuery` with `TransactionIdle`, `TransactionInBlock`, or `TransactionFailed`.

@@ -484,6 +484,7 @@ class _SessionLoggedIn is _AuthenticatedState
     backend_secret_key = msg.secret_key
 
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage) =>
+    _notify.pg_transaction_status(s, msg.transaction_status())
     query_state.on_ready_for_query(s, this)
 
   fun ref on_command_complete(s: Session ref, msg: _CommandCompleteMessage) =>

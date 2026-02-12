@@ -9,13 +9,11 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
 
   new create(
     server_connect_info': ServerConnectInfo,
-    notify': SessionStatusNotify,
-    user': String,
-    password': String,
-    database': String)
+    database_connect_info': DatabaseConnectInfo,
+    notify': SessionStatusNotify)
   =>
     _server_connect_info = server_connect_info'
-    state = _SessionUnopened(notify', user', password', database',
+    state = _SessionUnopened(notify', database_connect_info',
       server_connect_info'.ssl_mode, server_connect_info'.host)
 
     _tcp_connection = lori.TCPConnection.client(
@@ -99,23 +97,17 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
 // Possible session states
 class ref _SessionUnopened is _ConnectableState
   let _notify: SessionStatusNotify
-  let _user: String
-  let _password: String
-  let _database: String
+  let _database_connect_info: DatabaseConnectInfo
   let _ssl_mode: SSLMode
   let _host: String
 
   new ref create(notify': SessionStatusNotify,
-    user': String,
-    password': String,
-    database': String,
+    database_connect_info': DatabaseConnectInfo,
     ssl_mode': SSLMode = SSLDisabled,
     host': String = "")
   =>
     _notify = notify'
-    _user = user'
-    _password = password'
-    _database = database'
+    _database_connect_info = database_connect_info'
     _ssl_mode = ssl_mode'
     _host = host'
 
@@ -130,14 +122,8 @@ class ref _SessionUnopened is _ConnectableState
   fun ref close_statement(s: Session ref, name: String) =>
     None
 
-  fun user(): String =>
-    _user
-
-  fun password(): String =>
-    _password
-
-  fun database(): String =>
-    _database
+  fun database_connect_info(): DatabaseConnectInfo =>
+    _database_connect_info
 
   fun ssl_mode(): SSLMode =>
     _ssl_mode
@@ -169,24 +155,18 @@ class ref _SessionSSLNegotiating
   message, so _ResponseParser is not used.
   """
   let _notify: SessionStatusNotify
-  let _user: String
-  let _password: String
-  let _database: String
+  let _database_connect_info: DatabaseConnectInfo
   let _ssl_ctx: SSLContext val
   let _host: String
   var _handshake_started: Bool = false
 
   new ref create(notify': SessionStatusNotify,
-    user': String,
-    password': String,
-    database': String,
+    database_connect_info': DatabaseConnectInfo,
     ssl_ctx': SSLContext val,
     host': String)
   =>
     _notify = notify'
-    _user = user'
-    _password = password'
-    _database = database'
+    _database_connect_info = database_connect_info'
     _ssl_ctx = ssl_ctx'
     _host = host'
 
@@ -226,9 +206,10 @@ class ref _SessionSSLNegotiating
     // via _ssl_expect. Without this reset, decrypted data would be delivered
     // 1 byte at a time, breaking _ResponseParser.
     try s._connection().expect(0)? end
-    s.state = _SessionConnected(_notify, _user, _password, _database)
+    s.state = _SessionConnected(_notify, _database_connect_info)
     _notify.pg_session_connected(s)
-    let msg = _FrontendMessage.startup(_user, _database)
+    let msg = _FrontendMessage.startup(
+      _database_connect_info.user, _database_connect_info.database)
     s._connection().send(msg)
 
   fun ref on_tls_failure(s: Session ref) =>
@@ -271,20 +252,14 @@ class ref _SessionSSLNegotiating
 
 class ref _SessionConnected is _AuthenticableState
   let _notify: SessionStatusNotify
-  let _user: String
-  let _password: String
-  let _database: String
+  let _database_connect_info: DatabaseConnectInfo
   let _readbuf: Reader = _readbuf.create()
 
   new ref create(notify': SessionStatusNotify,
-    user': String,
-    password': String,
-    database': String)
+    database_connect_info': DatabaseConnectInfo)
   =>
     _notify = notify'
-    _user = user'
-    _password = password'
-    _database = database'
+    _database_connect_info = database_connect_info'
 
   fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
     r.pg_query_failed(s, q, SessionNotAuthenticated)
@@ -303,10 +278,10 @@ class ref _SessionConnected is _AuthenticableState
     _readbuf.clear()
 
   fun user(): String =>
-    _user
+    _database_connect_info.user
 
   fun password(): String =>
-    _password
+    _database_connect_info.password
 
   fun ref readbuf(): Reader =>
     _readbuf
@@ -1061,7 +1036,7 @@ trait _ConnectableState is _UnconnectedState
   fun on_connected(s: Session ref) =>
     match ssl_mode()
     | SSLDisabled =>
-      s.state = _SessionConnected(notify(), user(), password(), database())
+      s.state = _SessionConnected(notify(), database_connect_info())
       notify().pg_session_connected(s)
       _send_startup_message(s)
     | let req: SSLRequired =>
@@ -1071,7 +1046,7 @@ trait _ConnectableState is _UnconnectedState
       // StartTLSNotReady (CVE-2021-23222 mitigation).
       try s._connection().expect(1)? end
       let st = _SessionSSLNegotiating(
-        notify(), user(), password(), database(), req.ctx, host())
+        notify(), database_connect_info(), req.ctx, host())
       s.state = st
       st.send_ssl_request(s)
     end
@@ -1081,12 +1056,11 @@ trait _ConnectableState is _UnconnectedState
     notify().pg_session_connection_failed(s)
 
   fun _send_startup_message(s: Session ref) =>
-    let msg = _FrontendMessage.startup(user(), database())
+    let dci = database_connect_info()
+    let msg = _FrontendMessage.startup(dci.user, dci.database)
     s._connection().send(msg)
 
-  fun user(): String
-  fun password(): String
-  fun database(): String
+  fun database_connect_info(): DatabaseConnectInfo
   fun ssl_mode(): SSLMode
   fun host(): String
   fun notify(): SessionStatusNotify

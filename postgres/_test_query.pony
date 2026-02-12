@@ -13,10 +13,8 @@ class \nodoc\ iso _TestQueryResults is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      client,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -100,10 +98,9 @@ class \nodoc\ iso _TestQueryAfterAuthenticationFailure is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      _QueryAfterAuthenticationFailureNotify(h),
-      info.username,
-      info.password + " " + info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password + " " + info.password,
+        info.database),
+      _QueryAfterAuthenticationFailureNotify(h))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -155,10 +152,8 @@ class \nodoc\ iso _TestQueryAfterConnectionFailure is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), host, info.port.reverse()),
-      _QueryAfterConnectionFailureNotify(h),
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      _QueryAfterConnectionFailureNotify(h))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -205,10 +200,8 @@ class \nodoc\ iso _TestQueryAfterSessionHasBeenClosed is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      _QueryAfterSessionHasBeenClosedNotify(h),
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      _QueryAfterSessionHasBeenClosedNotify(h))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -259,10 +252,8 @@ class \nodoc\ iso _TestQueryOfNonExistentTable is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      client,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -381,10 +372,8 @@ actor \nodoc\ _AllSuccessQueryRunningClient is
 
     _session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      this,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
 
   be pg_session_authenticated(session: Session) =>
     try
@@ -442,10 +431,8 @@ class \nodoc\ iso _TestEmptyQuery is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      client,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -500,10 +487,8 @@ class \nodoc\ iso _TestZeroRowSelect is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      client,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -584,10 +569,8 @@ actor \nodoc\ _MultiStatementMixedClient is
 
     _session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      this,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
 
   be pg_session_authenticated(session: Session) =>
     // Phase 0: create the table
@@ -687,10 +670,8 @@ class \nodoc\ iso _TestPreparedQueryResults is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      client,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -778,10 +759,8 @@ class \nodoc\ iso _TestPreparedQueryNullParam is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      client,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -864,10 +843,8 @@ class \nodoc\ iso _TestPreparedQueryNonExistentTable is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      client,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -937,10 +914,8 @@ actor \nodoc\ _PreparedQueryInsertAndDeleteClient is
 
     _session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      this,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
 
   be pg_session_authenticated(session: Session) =>
     _phase = 0
@@ -1059,10 +1034,8 @@ actor \nodoc\ _PreparedQueryMixedClient is
 
     _session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      this,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
 
   be pg_session_authenticated(session: Session) =>
     // Phase 0: SimpleQuery
@@ -1180,10 +1153,8 @@ actor \nodoc\ _PrepareStatementClient is
 
     _session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      this,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
 
   be pg_session_authenticated(session: Session) =>
     session.prepare("s1", "SELECT $1::text", this)
@@ -1238,10 +1209,8 @@ actor \nodoc\ _PrepareAndExecuteClient is
 
     _session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      this,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
 
   be pg_session_authenticated(session: Session) =>
     session.prepare("s1", "SELECT $1::text", this)
@@ -1322,10 +1291,8 @@ actor \nodoc\ _PrepareAndExecuteMultipleClient is
 
     _session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      this,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
 
   be pg_session_authenticated(session: Session) =>
     session.prepare("s1", "SELECT $1::text", this)
@@ -1428,10 +1395,8 @@ actor \nodoc\ _PrepareAndCloseClient is
 
     _session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      this,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
 
   be pg_session_authenticated(session: Session) =>
     session.prepare("s1", "SELECT $1::text", this)
@@ -1499,10 +1464,8 @@ actor \nodoc\ _PrepareFailsClient is
 
     _session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      this,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
 
   be pg_session_authenticated(session: Session) =>
     session.prepare("bad", "NOT VALID SQL !!!", this)
@@ -1563,10 +1526,8 @@ actor \nodoc\ _PrepareAfterCloseClient is
 
     _session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      this,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
 
   be pg_session_authenticated(session: Session) =>
     _phase = 0
@@ -1659,10 +1620,8 @@ actor \nodoc\ _CloseNonexistentClient is
 
     _session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      this,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
 
   be pg_session_authenticated(session: Session) =>
     session.close_statement("nonexistent")
@@ -1714,10 +1673,8 @@ actor \nodoc\ _PrepareDuplicateNameClient is
 
     _session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      this,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
 
   be pg_session_authenticated(session: Session) =>
     _phase = 0
@@ -1785,10 +1742,8 @@ actor \nodoc\ _MixedAllThreeClient is
 
     _session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      this,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
 
   be pg_session_authenticated(session: Session) =>
     _phase = 0
@@ -1890,10 +1845,8 @@ class \nodoc\ iso _TestCancelPgSleep is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      client,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      client)
 
     h.dispose_when_done(session)
     h.long_test(10_000_000_000)
@@ -1969,10 +1922,8 @@ class \nodoc\ iso _TestCancelSSLPgSleep is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host, info.ssl_port, SSLRequired(sslctx)),
-      client,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      client)
 
     h.dispose_when_done(session)
     h.long_test(10_000_000_000)

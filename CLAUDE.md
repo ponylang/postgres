@@ -31,7 +31,7 @@ Managed via `corral`.
 
 ### Session State Machine
 
-`Session` actor is the main entry point. Constructor takes `ServerConnectInfo` (auth, host, service, ssl_mode) as its first parameter. Implements `lori.TCPConnectionActor` and `lori.ClientLifecycleEventReceiver`. The stored `ServerConnectInfo` is accessible via `server_connect_info()` for use by `_CancelSender`. State transitions via `_SessionState` interface with four concrete states:
+`Session` actor is the main entry point. Constructor takes `ServerConnectInfo` (auth, host, service, ssl_mode) and `DatabaseConnectInfo` (user, password, database). Implements `lori.TCPConnectionActor` and `lori.ClientLifecycleEventReceiver`. The stored `ServerConnectInfo` is accessible via `server_connect_info()` for use by `_CancelSender`. State transitions via `_SessionState` interface with four concrete states:
 
 ```
 _SessionUnopened  --connect (no SSL)-->  _SessionConnected
@@ -97,6 +97,7 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 - `ResultReceiver` interface (tag) — `pg_query_result(Session, Result)`, `pg_query_failed(Session, Query, (ErrorResponseMessage | ClientQueryError))`
 - `PrepareReceiver` interface (tag) — `pg_statement_prepared(Session, name)`, `pg_prepare_failed(Session, name, (ErrorResponseMessage | ClientQueryError))`
 - `ClientQueryError` trait — `SessionNeverOpened`, `SessionClosed`, `SessionNotAuthenticated`, `DataError`
+- `DatabaseConnectInfo` — val class grouping database authentication parameters (user, password, database). Passed to `Session.create()` alongside `ServerConnectInfo`.
 - `ServerConnectInfo` — val class grouping connection parameters (auth, host, service, ssl_mode). Passed to `Session.create()` as the first parameter. Also used by `_CancelSender`.
 - `SSLMode` — union type `(SSLDisabled | SSLRequired)`. `SSLDisabled` is the default (plaintext). `SSLRequired` wraps an `SSLContext val` for TLS negotiation.
 - `ErrorResponseMessage` — full PostgreSQL error with all standard fields
@@ -308,8 +309,9 @@ Can arrive between any other messages (must always handle):
 ## File Layout
 
 ```
-postgres/                         # Main package (32 files)
+postgres/                         # Main package (33 files)
   session.pony                    # Session actor + state machine traits + query sub-state machine
+  database_connect_info.pony       # DatabaseConnectInfo val class (user, password, database)
   server_connect_info.pony        # ServerConnectInfo val class (auth, host, service, ssl_mode)
   ssl_mode.pony                   # SSLDisabled, SSLRequired, SSLMode types
   simple_query.pony               # SimpleQuery class

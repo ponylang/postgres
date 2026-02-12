@@ -754,6 +754,24 @@ class \nodoc\ iso _TestResponseParserAuthenticationSASLFinalMessage
       h.fail("Wrong message returned.")
     end
 
+class \nodoc\ iso _TestResponseParserUnsupportedAuthenticationMessage
+  is UnitTest
+  """
+  Verify that an authentication request with an unsupported type (e.g.,
+  cleartext password, type 3) is parsed as _UnsupportedAuthenticationMessage.
+  """
+  fun name(): String =>
+    "ResponseParser/UnsupportedAuthenticationMessage"
+
+  fun apply(h: TestHelper) ? =>
+    let bytes = _IncomingUnsupportedAuthenticationTestMessage(3).bytes()
+    let r: Reader = Reader
+    r.append(bytes)
+
+    if _ResponseParser(r)? isnt _UnsupportedAuthenticationMessage then
+      h.fail("Wrong message returned.")
+    end
+
 class \nodoc\ iso _TestResponseParserMultipleMessagesSASLFirst is UnitTest
   """
   Verify correct buffer advancement from an AuthenticationSASL message
@@ -834,6 +852,26 @@ class \nodoc\ val _IncomingAuthenticationSASLFinalTestMessage
     wb.u32_be(payload_size)
     wb.i32_be(_AuthenticationRequestType.sasl_final())
     wb.write(data)
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingUnsupportedAuthenticationTestMessage
+  """
+  Constructs a raw authentication request message with an unsupported auth
+  type. The wire format is the same as AuthenticationOk (8-byte payload with
+  just the auth type field), since unsupported types have no additional data
+  the driver needs to parse.
+  """
+  let _bytes: Array[U8] val
+
+  new val create(auth_type: I32) =>
+    let wb: Writer = Writer
+    wb.u8(_MessageType.authentication_request())
+    wb.u32_be(8)
+    wb.i32_be(auth_type)
 
     _bytes = WriterToByteArray(wb)
 

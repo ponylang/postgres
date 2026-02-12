@@ -37,14 +37,11 @@ actor Client is (SessionStatusNotify & ResultReceiver)
   =>
     _out = out
     _session = Session(
-      auth,
+      ServerConnectInfo(auth, info.host, info.port, SSLRequired(sslctx)),
       this,
-      info.host,
-      info.port,
       info.username,
       info.password,
-      info.database,
-      SSLRequired(sslctx))
+      info.database)
 
   be close() =>
     _session.close()

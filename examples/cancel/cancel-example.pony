@@ -30,9 +30,12 @@ actor Client is (SessionStatusNotify & ResultReceiver)
 
   be pg_session_authenticated(session: Session) =>
     _out.print("Authenticated.")
-    _out.print("Sending query....")
-    let q = SimpleQuery("SELECT 525600::text")
+    _out.print("Sending long-running query....")
+    let q = SimpleQuery("SELECT pg_sleep(10)")
     session.execute(q, this)
+
+    _out.print("Cancelling query....")
+    session.cancel()
 
   be pg_session_authentication_failed(
     s: Session,
@@ -41,37 +44,22 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     _out.print("Failed to authenticate.")
 
   be pg_query_result(session: Session, result: Result) =>
-    match result
-    | let r: ResultSet =>
-      _out.print("ResultSet (" + r.rows().size().string() + " rows):")
-      for row in r.rows().values() do
-        for field in row.fields.values() do
-          _out.write(field.name + "=")
-          match field.value
-          | let v: String => _out.print(v)
-          | let v: I16 => _out.print(v.string())
-          | let v: I32 => _out.print(v.string())
-          | let v: I64 => _out.print(v.string())
-          | let v: F32 => _out.print(v.string())
-          | let v: F64 => _out.print(v.string())
-          | let v: Bool => _out.print(v.string())
-          | None => _out.print("NULL")
-          end
-        end
-      end
-    | let r: RowModifying =>
-      _out.print(r.command() + " " + r.impacted().string() + " rows")
-    | let r: SimpleResult =>
-      _out.print("Query executed.")
-    end
+    _out.print("Query completed (was not cancelled).")
     close()
 
   be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    _out.print("Query failed.")
-    // Our example program is failing, we want to exit so, let's shut down the
-    // connection.
+    match failure
+    | let err: ErrorResponseMessage =>
+      if err.code == "57014" then
+        _out.print("Query was cancelled (SQLSTATE 57014).")
+      else
+        _out.print("Query failed with SQLSTATE " + err.code + ".")
+      end
+    | let ce: ClientQueryError =>
+      _out.print("Query failed with client error.")
+    end
     close()
 
 class val ServerInfo

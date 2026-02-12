@@ -114,7 +114,7 @@ end
 
 ## Add SSL/TLS negotiation support
 
-You can now encrypt connections to PostgreSQL using SSL/TLS. Pass `SSLRequired(sslctx)` to `Session.create()` to enable SSL negotiation before authentication. The default `SSLDisabled` preserves the existing plaintext behavior.
+You can now encrypt connections to PostgreSQL using SSL/TLS. Pass `SSLRequired(sslctx)` via `ServerConnectInfo` to `Session.create()` to enable SSL negotiation before authentication. The default `SSLDisabled` preserves the existing plaintext behavior.
 
 ```pony
 use "ssl/net"
@@ -129,14 +129,11 @@ end
 
 // Connect with SSL
 let session = Session(
-  auth,
+  ServerConnectInfo(auth, host, port, SSLRequired(sslctx)),
   notify,
-  host,
-  port,
   username,
   password,
-  database,
-  SSLRequired(sslctx))
+  database)
 ```
 
 If the server accepts SSL, the connection is encrypted before authentication begins. If the server refuses, `pg_session_connection_failed` fires.
@@ -245,4 +242,45 @@ rs1 == rs2  // true
 `Session.close()` now sends a Terminate message to the PostgreSQL server before closing the TCP connection. Previously, the connection was hard-closed without notifying the server, which could leave server-side resources (session state, prepared statements, temp tables) lingering until the server detected the broken connection on its next I/O attempt.
 
 No code changes are needed — `Session.close()` handles this automatically.
+
+## Add query cancellation support
+
+You can now cancel a running query by calling `session.cancel()`. This sends a PostgreSQL CancelRequest on a separate connection, requesting the server to abort the in-flight query. Cancellation is best-effort — the server may or may not honor it. If cancelled, the query's `ResultReceiver` receives `pg_query_failed` with an `ErrorResponseMessage` containing SQLSTATE `57014` (query_canceled).
+
+```pony
+be pg_session_authenticated(session: Session) =>
+  session.execute(SimpleQuery("SELECT pg_sleep(60)"), receiver)
+  session.cancel()
+
+be pg_query_failed(session: Session, query: Query,
+  failure: (ErrorResponseMessage | ClientQueryError))
+=>
+  match failure
+  | let err: ErrorResponseMessage =>
+    if err.code == "57014" then
+      // query was successfully cancelled
+    end
+  end
+```
+
+`cancel()` is safe to call at any time — it is a no-op if no query is in flight. When the session uses `SSLRequired`, the cancel connection uses SSL as well.
+
+## Change Session constructor to accept ServerConnectInfo
+
+`Session.create()` now takes a `ServerConnectInfo` as its first parameter instead of individual connection arguments. `ServerConnectInfo` groups auth, host, service, and SSL mode into a single immutable value.
+
+Before:
+
+```pony
+let session = Session(
+  auth, notify, host, port, username, password, database)
+```
+
+After:
+
+```pony
+let session = Session(
+  ServerConnectInfo(auth, host, port),
+  notify, username, password, database)
+```
 

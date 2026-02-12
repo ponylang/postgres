@@ -215,6 +215,22 @@ class \nodoc\ iso _TestFrontendMessageSSLRequest is UnitTest
     h.assert_array_eq[U8](expected,
       _FrontendMessage.ssl_request())
 
+class \nodoc\ iso _TestFrontendMessageCancelRequest is UnitTest
+  fun name(): String =>
+    "FrontendMessage/CancelRequest"
+
+  fun apply(h: TestHelper) =>
+    // CancelRequest: Int32(16) Int32(80877102) Int32(pid) Int32(key)
+    // No message type byte, 16 bytes total.
+    // 80877102 = 0x04D2162E
+    // pid = 12345 = 0x00003039
+    // key = 67890 = 0x00010932
+    let expected: Array[U8] =
+      [ 0; 0; 0; 16; 4; 210; 22; 46; 0; 0; 48; 57; 0; 1; 9; 50 ]
+
+    h.assert_array_eq[U8](expected,
+      _FrontendMessage.cancel_request(12345, 67890))
+
 class \nodoc\ iso _TestFrontendMessageTerminate is UnitTest
   fun name(): String =>
     "FrontendMessage/Terminate"

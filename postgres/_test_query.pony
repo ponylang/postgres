@@ -1,5 +1,6 @@
 use lori = "lori"
 use "pony_test"
+use "ssl/net"
 
 class \nodoc\ iso _TestQueryResults is UnitTest
   fun name(): String =>
@@ -11,10 +12,8 @@ class \nodoc\ iso _TestQueryResults is UnitTest
     let client = _ResultsIncludeOriginatingQueryReceiver(h)
 
     let session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       client,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -100,10 +99,8 @@ class \nodoc\ iso _TestQueryAfterAuthenticationFailure is UnitTest
     let info = _ConnectionTestConfiguration(h.env.vars)
 
     let session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       _QueryAfterAuthenticationFailureNotify(h),
-      info.host,
-      info.port,
       info.username,
       info.password + " " + info.password,
       info.database)
@@ -157,10 +154,8 @@ class \nodoc\ iso _TestQueryAfterConnectionFailure is UnitTest
     let host = ifdef linux then "127.0.0.2" else "localhost" end
 
     let session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), host, info.port.reverse()),
       _QueryAfterConnectionFailureNotify(h),
-      host,
-      info.port.reverse(),
       info.username,
       info.password,
       info.database)
@@ -209,10 +204,8 @@ class \nodoc\ iso _TestQueryAfterSessionHasBeenClosed is UnitTest
     let info = _ConnectionTestConfiguration(h.env.vars)
 
     let session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       _QueryAfterSessionHasBeenClosedNotify(h),
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -265,10 +258,8 @@ class \nodoc\ iso _TestQueryOfNonExistentTable is UnitTest
     let client = _NonExistentTableQueryReceiver(h)
 
     let session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       client,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -389,10 +380,8 @@ actor \nodoc\ _AllSuccessQueryRunningClient is
     _queries = consume queries
 
     _session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       this,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -452,10 +441,8 @@ class \nodoc\ iso _TestEmptyQuery is UnitTest
     let client = _EmptyQueryReceiver(h)
 
     let session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       client,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -512,10 +499,8 @@ class \nodoc\ iso _TestZeroRowSelect is UnitTest
     let client = _ZeroRowSelectReceiver(h)
 
     let session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       client,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -598,10 +583,8 @@ actor \nodoc\ _MultiStatementMixedClient is
     _h = h
 
     _session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       this,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -703,10 +686,8 @@ class \nodoc\ iso _TestPreparedQueryResults is UnitTest
     let client = _PreparedQueryResultsReceiver(h)
 
     let session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       client,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -796,10 +777,8 @@ class \nodoc\ iso _TestPreparedQueryNullParam is UnitTest
     let client = _PreparedQueryNullParamReceiver(h)
 
     let session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       client,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -884,10 +863,8 @@ class \nodoc\ iso _TestPreparedQueryNonExistentTable is UnitTest
     let client = _PreparedQueryNonExistentTableReceiver(h)
 
     let session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       client,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -959,10 +936,8 @@ actor \nodoc\ _PreparedQueryInsertAndDeleteClient is
     _h = h
 
     _session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       this,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -1083,10 +1058,8 @@ actor \nodoc\ _PreparedQueryMixedClient is
     _h = h
 
     _session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       this,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -1206,10 +1179,8 @@ actor \nodoc\ _PrepareStatementClient is
     _h = h
 
     _session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       this,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -1266,10 +1237,8 @@ actor \nodoc\ _PrepareAndExecuteClient is
     _h = h
 
     _session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       this,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -1352,10 +1321,8 @@ actor \nodoc\ _PrepareAndExecuteMultipleClient is
     _h = h
 
     _session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       this,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -1460,10 +1427,8 @@ actor \nodoc\ _PrepareAndCloseClient is
     _h = h
 
     _session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       this,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -1533,10 +1498,8 @@ actor \nodoc\ _PrepareFailsClient is
     _h = h
 
     _session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       this,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -1599,10 +1562,8 @@ actor \nodoc\ _PrepareAfterCloseClient is
     _h = h
 
     _session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       this,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -1697,10 +1658,8 @@ actor \nodoc\ _CloseNonexistentClient is
     _h = h
 
     _session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       this,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -1754,10 +1713,8 @@ actor \nodoc\ _PrepareDuplicateNameClient is
     _h = h
 
     _session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       this,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -1827,10 +1784,8 @@ actor \nodoc\ _MixedAllThreeClient is
     _h = h
 
     _session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       this,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -1917,3 +1872,107 @@ actor \nodoc\ _MixedAllThreeClient is
 
   be dispose() =>
     _session.close()
+
+// Cancel integration test
+
+class \nodoc\ iso _TestCancelPgSleep is UnitTest
+  """
+  Verifies that cancelling a long-running query on a real PostgreSQL server
+  produces a query failure with SQLSTATE 57014 (query_canceled).
+  """
+  fun name(): String =>
+    "integration/Cancel/Query"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _CancelPgSleepClient(h)
+
+    let session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
+      client,
+      info.username,
+      info.password,
+      info.database)
+
+    h.dispose_when_done(session)
+    h.long_test(10_000_000_000)
+
+actor \nodoc\ _CancelPgSleepClient is
+  ( SessionStatusNotify
+  & ResultReceiver )
+  let _h: TestHelper
+  let _query: SimpleQuery
+
+  new create(h: TestHelper) =>
+    _h = h
+    _query = SimpleQuery("SELECT pg_sleep(30)")
+
+  be pg_session_authenticated(session: Session) =>
+    session.execute(_query, this)
+    session.cancel()
+
+  be pg_session_authentication_failed(
+    session: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate.")
+    _h.complete(false)
+
+  be pg_query_result(session: Session, result: Result) =>
+    _h.fail("Expected query to be cancelled, but got a result.")
+    _h.complete(false)
+
+  be pg_query_failed(session: Session, query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    if query isnt _query then
+      _h.fail("Got failure for unexpected query.")
+      _h.complete(false)
+      return
+    end
+
+    match failure
+    | let err: ErrorResponseMessage =>
+      if err.code == "57014" then
+        _h.complete(true)
+      else
+        _h.fail("Expected SQLSTATE 57014 but got " + err.code)
+        _h.complete(false)
+      end
+    | let ce: ClientQueryError =>
+      _h.fail("Expected ErrorResponseMessage but got ClientQueryError.")
+      _h.complete(false)
+    end
+
+// SSL cancel integration test
+
+class \nodoc\ iso _TestCancelSSLPgSleep is UnitTest
+  """
+  Verifies that cancelling a long-running query on a real PostgreSQL server
+  over an SSL-encrypted connection produces a query failure with SQLSTATE
+  57014 (query_canceled).
+  """
+  fun name(): String =>
+    "integration/SSL/Cancel"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let sslctx = recover val
+      SSLContext
+        .> set_client_verify(false)
+        .> set_server_verify(false)
+    end
+
+    let client = _CancelPgSleepClient(h)
+
+    let session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host, info.ssl_port, SSLRequired(sslctx)),
+      client,
+      info.username,
+      info.password,
+      info.database)
+
+    h.dispose_when_done(session)
+    h.long_test(10_000_000_000)

@@ -19,10 +19,8 @@ actor Client is (SessionStatusNotify & ResultReceiver)
   new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
     _session = Session(
-      auth,
+      ServerConnectInfo(auth, info.host, info.port),
       this,
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)

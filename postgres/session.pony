@@ -5,23 +5,23 @@ use "ssl/net"
 actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   var state: _SessionState
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  let _server_connect_info: ServerConnectInfo
 
   new create(
-    auth': lori.TCPConnectAuth,
+    server_connect_info': ServerConnectInfo,
     notify': SessionStatusNotify,
-    host': String,
-    service': String,
     user': String,
     password': String,
-    database': String,
-    ssl': SSLMode = SSLDisabled)
+    database': String)
   =>
+    _server_connect_info = server_connect_info'
     state = _SessionUnopened(notify', user', password', database',
-      ssl', host')
+      server_connect_info'.ssl_mode, server_connect_info'.host)
 
-    _tcp_connection = lori.TCPConnection.client(auth',
-      host',
-      service',
+    _tcp_connection = lori.TCPConnection.client(
+      server_connect_info'.auth,
+      server_connect_info'.host,
+      server_connect_info'.service,
       "",
       this,
       this)
@@ -46,6 +46,18 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     no callback is issued. It is not an error to close a nonexistent statement.
     """
     state.close_statement(this, name)
+
+  be cancel() =>
+    """
+    Request cancellation of the currently executing query. Opens a separate
+    TCP connection to send a PostgreSQL CancelRequest. Cancellation is
+    best-effort — the server may or may not honor it. If cancelled, the
+    query's ResultReceiver receives `pg_query_failed` with an ErrorResponse
+    (SQLSTATE 57014). Queued queries are not affected.
+
+    Safe to call in any session state. No-op if no query is in flight.
+    """
+    state.cancel(this)
 
   be close() =>
     """
@@ -80,6 +92,9 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun server_connect_info(): ServerConnectInfo =>
+    _server_connect_info
 
 // Possible session states
 class ref _SessionUnopened is _ConnectableState
@@ -231,6 +246,9 @@ class ref _SessionSSLNegotiating
   fun ref close_statement(s: Session ref, name: String) =>
     None
 
+  fun ref cancel(s: Session ref) =>
+    None
+
   fun ref close(s: Session ref) =>
     _shutdown(s)
 
@@ -364,6 +382,15 @@ class _SessionLoggedIn is _AuthenticatedState
 
   fun ref on_row_description(s: Session ref, msg: _RowDescriptionMessage) =>
     query_state.on_row_description(s, this, msg)
+
+  fun ref cancel(s: Session ref) =>
+    match query_state
+    | let _: _QueryReady => None
+    | let _: _QueryNotReady => None
+    else
+      _CancelSender(s.server_connect_info(),
+        backend_pid, backend_secret_key)
+    end
 
   fun ref execute(s: Session ref,
     query: Query,
@@ -943,6 +970,12 @@ interface _SessionState
     Called if the server requests we autheticate using the Postgres MD5
     password scheme.
     """
+  fun ref cancel(s: Session ref)
+    """
+    The client requested query cancellation. Like `close`, this should never
+    be an illegal state — it should be silently ignored when not applicable.
+    """
+
   fun ref close(s: Session ref)
     """
     The client received a message to close. Unlike `shutdown`, this should never
@@ -1086,6 +1119,9 @@ trait _ConnectedState is _NotConnectableState
   fun ref process_responses(s: Session ref) =>
     _ResponseMessageParser(s, readbuf())
 
+  fun ref cancel(s: Session ref) =>
+    None
+
   fun ref close(s: Session ref) =>
     shutdown(s)
 
@@ -1125,6 +1161,9 @@ trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
     None
 
   fun ref process_responses(s: Session ref) =>
+    None
+
+  fun ref cancel(s: Session ref) =>
     None
 
   fun ref close(s: Session ref) =>

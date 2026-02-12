@@ -369,6 +369,36 @@ primitive _FrontendMessage
       []
     end
 
+  fun cancel_request(process_id: I32, secret_key: I32): Array[U8] val =>
+    """
+    Build a CancelRequest message. Sent on a separate connection to request
+    cancellation of a running query. No message type byte — same pattern as
+    startup() and ssl_request().
+
+    Format: Int32(16) Int32(80877102) Int32(process_id) Int32(secret_key)
+    The magic number 80877102 = 1234 << 16 | 5678.
+    """
+    try
+      recover val
+        let msg: Array[U8] = Array[U8].init(0, 16)
+        ifdef bigendian then
+          msg.update_u32(0, U32(16))?
+          msg.update_u32(4, U32(80877102))?
+          msg.update_u32(8, process_id.u32())?
+          msg.update_u32(12, secret_key.u32())?
+        else
+          msg.update_u32(0, U32(16).bswap())?
+          msg.update_u32(4, U32(80877102).bswap())?
+          msg.update_u32(8, process_id.u32().bswap())?
+          msg.update_u32(12, secret_key.u32().bswap())?
+        end
+        msg
+      end
+    else
+      _Unreachable()
+      []
+    end
+
   fun terminate(): Array[U8] val =>
     """
     Build a Terminate message. Sent before closing the TCP connection to

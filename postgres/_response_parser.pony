@@ -3,7 +3,10 @@ use "collections"
 
 type _AuthenticationMessages is
   ( _AuthenticationOkMessage
-  | _AuthenticationMD5PasswordMessage )
+  | _AuthenticationMD5PasswordMessage
+  | _AuthenticationSASLMessage
+  | _AuthenticationSASLContinueMessage
+  | _AuthenticationSASLFinalMessage )
 
 type _ResponseParserResult is
   ( _AuthenticationMessages
@@ -86,6 +89,35 @@ primitive _ResponseParser
         buffer.skip(message_size)?
 
         return _AuthenticationMD5PasswordMessage(salt)
+      elseif auth_type == _AuthenticationRequestType.sasl() then
+        // Skip past header (5 bytes) and auth type field (4 bytes)
+        buffer.skip(9)?
+        // Parse null-terminated mechanism names from the remaining payload.
+        // The list ends with a lone null byte (empty string).
+        let remaining = payload_size - 4
+        let payload = buffer.block(remaining)?
+        let reader: Reader = Reader.>append(consume payload)
+        let mechanisms: Array[String] iso = recover iso Array[String] end
+        while reader.size() > 0 do
+          let name_bytes = reader.read_until(0)?
+          if name_bytes.size() == 0 then
+            break
+          end
+          mechanisms.push(String.from_array(consume name_bytes))
+        end
+        return _AuthenticationSASLMessage(consume mechanisms)
+      elseif auth_type == _AuthenticationRequestType.sasl_continue() then
+        // Skip past header (5 bytes) and auth type field (4 bytes)
+        buffer.skip(9)?
+        let remaining = payload_size - 4
+        let data = buffer.block(remaining)?
+        return _AuthenticationSASLContinueMessage(consume data)
+      elseif auth_type == _AuthenticationRequestType.sasl_final() then
+        // Skip past header (5 bytes) and auth type field (4 bytes)
+        buffer.skip(9)?
+        let remaining = payload_size - 4
+        let data = buffer.block(remaining)?
+        return _AuthenticationSASLFinalMessage(consume data)
       else
         buffer.skip(message_size)?
         return _UnsupportedMessage

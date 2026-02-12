@@ -18,6 +18,12 @@ primitive _ResponseMessageParser
           s.state.on_authentication_md5_password(s, msg)
         | _AuthenticationOkMessage =>
           s.state.on_authentication_ok(s)
+        | let msg: _AuthenticationSASLMessage =>
+          s.state.on_authentication_sasl(s, msg)
+        | let msg: _AuthenticationSASLContinueMessage =>
+          s.state.on_authentication_sasl_continue(s, msg)
+        | let msg: _AuthenticationSASLFinalMessage =>
+          s.state.on_authentication_sasl_final(s, msg)
         | let msg: _CommandCompleteMessage =>
           s.state.on_command_complete(s, msg)
         | let msg: _DataRowMessage =>

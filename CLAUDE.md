@@ -13,11 +13,11 @@ make start-pg-containers              # docker postgres:14.5 on ports 5432 (plai
 make stop-pg-containers               # stop docker containers
 ```
 
-SSL version is mandatory. Tests run with `--sequential`. Integration tests require running PostgreSQL 14.5 containers with MD5 auth (user: postgres, password: postgres, database: postgres) — one plain on port 5432 and one with SSL on port 5433. Environment variables: `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_SSL_HOST`, `POSTGRES_SSL_PORT`, `POSTGRES_USERNAME`, `POSTGRES_PASSWORD`, `POSTGRES_DATABASE`.
+SSL version is mandatory. Tests run with `--sequential`. Integration tests require running PostgreSQL 14.5 containers with SCRAM-SHA-256 default auth and an MD5-only user (user: postgres, password: postgres, database: postgres; md5user: md5user, password: md5pass) — one plain on port 5432 and one with SSL on port 5433. Environment variables: `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_SSL_HOST`, `POSTGRES_SSL_PORT`, `POSTGRES_USERNAME`, `POSTGRES_PASSWORD`, `POSTGRES_DATABASE`, `POSTGRES_MD5_USERNAME`, `POSTGRES_MD5_PASSWORD`.
 
 ## Dependencies
 
-- `ponylang/ssl` 1.0.1 (MD5 password hashing via `ssl/crypto`, SSL/TLS via `ssl/net`)
+- `ponylang/ssl` 1.0.3 (MD5 password hashing, SCRAM-SHA-256 crypto primitives via `ssl/crypto`, SSL/TLS via `ssl/net`)
 - `ponylang/lori` 0.7.2 (TCP networking, STARTTLS support)
 
 Managed via `corral`.
@@ -31,7 +31,7 @@ Managed via `corral`.
 
 ### Session State Machine
 
-`Session` actor is the main entry point. Constructor takes `ServerConnectInfo` (auth, host, service, ssl_mode) and `DatabaseConnectInfo` (user, password, database). Implements `lori.TCPConnectionActor` and `lori.ClientLifecycleEventReceiver`. The stored `ServerConnectInfo` is accessible via `server_connect_info()` for use by `_CancelSender`. State transitions via `_SessionState` interface with four concrete states:
+`Session` actor is the main entry point. Constructor takes `ServerConnectInfo` (auth, host, service, ssl_mode) and `DatabaseConnectInfo` (user, password, database). Implements `lori.TCPConnectionActor` and `lori.ClientLifecycleEventReceiver`. The stored `ServerConnectInfo` is accessible via `server_connect_info()` for use by `_CancelSender`. State transitions via `_SessionState` interface with concrete states:
 
 ```
 _SessionUnopened  --connect (no SSL)-->  _SessionConnected
@@ -39,8 +39,11 @@ _SessionUnopened  --connect (SSL)-->     _SessionSSLNegotiating
 _SessionUnopened  --fail-->              _SessionClosed
 _SessionSSLNegotiating --'S'+TLS ok-->   _SessionConnected
 _SessionSSLNegotiating --'N'/fail-->     _SessionClosed
-_SessionConnected --auth ok-->           _SessionLoggedIn
-_SessionConnected --auth fail-->         _SessionClosed
+_SessionConnected --MD5 auth ok-->       _SessionLoggedIn
+_SessionConnected --MD5 auth fail-->     _SessionClosed
+_SessionConnected --SASL challenge-->    _SessionSCRAMAuthenticating
+_SessionSCRAMAuthenticating --auth ok--> _SessionLoggedIn
+_SessionSCRAMAuthenticating --auth fail--> _SessionClosed
 _SessionLoggedIn  --close-->             _SessionClosed
 ```
 
@@ -51,6 +54,8 @@ State behavior is composed via a trait hierarchy that mixes in capabilities and 
 - `_AuthenticatedState` / `_NotAuthenticated` — has/hasn't authenticated
 
 `_SessionSSLNegotiating` is a standalone class (not using `_ConnectedState`) because it handles raw bytes — the server's SSL response is not a PostgreSQL protocol message, so `_ResponseParser` is not used. It mixes in `_NotConnectableState`, `_NotAuthenticableState`, and `_NotAuthenticated`.
+
+`_SessionSCRAMAuthenticating` handles the multi-step SCRAM-SHA-256 exchange after `_SessionConnected` receives an AuthSASL challenge. It mixes in `_ConnectedState` (for `on_received`/TCP write) and `_NotAuthenticated`. Fields store the client nonce, client-first-bare, password, and expected server signature across the exchange steps.
 
 This design makes illegal state transitions call `_IllegalState()` (panic) by default via the trait hierarchy, so only valid transitions need explicit implementation.
 
@@ -76,13 +81,13 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 ### Protocol Layer
 
 **Frontend (client → server):**
-- `_FrontendMessage` primitive: `startup()`, `password()`, `query()`, `parse()`, `bind()`, `describe_portal()`, `describe_statement()`, `execute_msg()`, `close_statement()`, `sync()`, `ssl_request()`, `cancel_request()`, `terminate()` — builds raw byte arrays with big-endian wire format
+- `_FrontendMessage` primitive: `startup()`, `password()`, `query()`, `parse()`, `bind()`, `describe_portal()`, `describe_statement()`, `execute_msg()`, `close_statement()`, `sync()`, `ssl_request()`, `cancel_request()`, `terminate()`, `sasl_initial_response()`, `sasl_response()` — builds raw byte arrays with big-endian wire format
 
 **Backend (server → client):**
 - `_ResponseParser` primitive: incremental parser consuming from a `Reader` buffer. Returns one parsed message per call, `None` if incomplete, errors on junk.
 - `_ResponseMessageParser` primitive: routes parsed messages to the current session state's callbacks. Processes messages synchronously within a query cycle (looping until `ReadyForQuery` or buffer exhaustion), then yields via `s._process_again()` between cycles. This prevents behaviors like `close()` from interleaving between result delivery and query dequeuing. If a callback triggers shutdown during the loop, `on_shutdown` clears the read buffer, causing the next parse to return `None` and exit the loop.
 
-**Supported message types:** AuthenticationOk, AuthenticationMD5Password, BackendKeyData, CommandComplete, DataRow, EmptyQueryResponse, ErrorResponse, ReadyForQuery, RowDescription, ParseComplete, BindComplete, NoData, CloseComplete, ParameterDescription, PortalSuspended. BackendKeyData is parsed and stored in `_SessionLoggedIn` (`backend_pid`, `backend_secret_key`) for future query cancellation. Extended query acknowledgment messages (ParseComplete, BindComplete, NoData, etc.) are parsed but silently consumed — they fall through the `_ResponseMessageParser` match without routing since the state machine tracks query lifecycle through data-carrying messages only.
+**Supported message types:** AuthenticationOk, AuthenticationMD5Password, AuthenticationSASL, AuthenticationSASLContinue, AuthenticationSASLFinal, BackendKeyData, CommandComplete, DataRow, EmptyQueryResponse, ErrorResponse, ReadyForQuery, RowDescription, ParseComplete, BindComplete, NoData, CloseComplete, ParameterDescription, PortalSuspended. BackendKeyData is parsed and stored in `_SessionLoggedIn` (`backend_pid`, `backend_secret_key`) for future query cancellation. Extended query acknowledgment messages (ParseComplete, BindComplete, NoData, etc.) are parsed but silently consumed — they fall through the `_ResponseMessageParser` match without routing since the state machine tracks query lifecycle through data-carrying messages only.
 
 ### Public API Types
 
@@ -101,7 +106,7 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 - `ServerConnectInfo` — val class grouping connection parameters (auth, host, service, ssl_mode). Passed to `Session.create()` as the first parameter. Also used by `_CancelSender`.
 - `SSLMode` — union type `(SSLDisabled | SSLRequired)`. `SSLDisabled` is the default (plaintext). `SSLRequired` wraps an `SSLContext val` for TLS negotiation.
 - `ErrorResponseMessage` — full PostgreSQL error with all standard fields
-- `AuthenticationFailureReason` = `(InvalidAuthenticationSpecification | InvalidPassword)`
+- `AuthenticationFailureReason` = `(InvalidAuthenticationSpecification | InvalidPassword | ServerVerificationFailed | UnsupportedAuthenticationMethod)`
 
 ### Type Conversion (PostgreSQL OID → Pony)
 
@@ -139,6 +144,12 @@ Tests live in the main `postgres/` package (private test classes).
 - `_TestSSLNegotiationSuccess` — mock server responds 'S', both sides upgrade to TLS, sends AuthOk+ReadyForQuery; verifies full SSL→auth flow
 - `_TestCancelQueryInFlight` — mock server accepts two connections; first authenticates with BackendKeyData(pid, key) and receives query; second receives CancelRequest and verifies 16-byte format with correct magic number, pid, and key
 - `_TestSSLCancelQueryInFlight` — same as `_TestCancelQueryInFlight` but with SSL on both connections; verifies that `_CancelSender` performs SSL negotiation before sending CancelRequest
+- `_TestScramSha256MessageBuilders` — verifies SCRAM message builder functions produce correct output
+- `_TestScramSha256ComputeProof` — verifies SCRAM proof computation against known test vectors
+- `_TestSCRAMAuthenticationSuccess` — mock server completes full SCRAM-SHA-256 handshake; verifies `pg_session_authenticated` fires
+- `_TestSCRAMUnsupportedMechanism` — mock server offers only unsupported SASL mechanisms; verifies `pg_session_authentication_failed` with `UnsupportedAuthenticationMethod`
+- `_TestSCRAMServerVerificationFailed` — mock server sends wrong signature in SASLFinal; verifies `pg_session_authentication_failed` with `ServerVerificationFailed`
+- `_TestSCRAMErrorDuringAuth` — mock server sends ErrorResponse 28P01 during SCRAM exchange; verifies `pg_session_authentication_failed` with `InvalidPassword`
 - `_TestField*Equality*` / `_TestFieldInequality` — example-based reflexive, structural, symmetric equality and inequality tests for Field
 - `_TestRowEquality` / `_TestRowInequality` — example-based equality and inequality tests for Row
 - `_TestRowsEquality` / `_TestRowsInequality` — example-based equality and inequality tests for Rows
@@ -157,6 +168,7 @@ Tests live in the main `postgres/` package (private test classes).
 - PreparedStatement/MixedWithSimpleAndPrepared
 - Cancel/Query
 - SSL/Connect, SSL/Authenticate, SSL/Query, SSL/Refused, SSL/Cancel
+- MD5/Authenticate, MD5/AuthenticateFailure, MD5/QueryResults
 
 Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Several test message builder classes (`_Incoming*TestMessage`) construct raw protocol bytes for unit tests.
 
@@ -166,13 +178,13 @@ Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Sever
 
 ## Roadmap
 
-**SSL/TLS negotiation** is implemented. Pass `SSLRequired(sslctx)` to `Session.create()` to enable. Design: [discussion #76](https://github.com/ponylang/postgres/discussions/76). Full feature roadmap: [discussion #72](https://github.com/ponylang/postgres/discussions/72). CI uses `ghcr.io/ponylang/postgres-ci-pg-ssl:latest` as a service container for SSL integration tests; built via `build-ci-image.yml` workflow dispatch or locally via `.ci-dockerfiles/pg-ssl/build-and-push.bash`.
+**SSL/TLS negotiation** is implemented. Pass `SSLRequired(sslctx)` to `Session.create()` to enable. Design: [discussion #76](https://github.com/ponylang/postgres/discussions/76). **SCRAM-SHA-256 authentication** is implemented. It is the default PostgreSQL auth method since version 10. Design: [discussion #83](https://github.com/ponylang/postgres/discussions/83). Full feature roadmap: [discussion #72](https://github.com/ponylang/postgres/discussions/72). CI uses stock `postgres:14.5` for the non-SSL container (no md5user, SCRAM-SHA-256 default) and `ghcr.io/ponylang/postgres-ci-pg-ssl:latest` for the SSL container (SSL + md5user init script for backward-compat tests); built via `build-ci-image.yml` workflow dispatch or locally via `.ci-dockerfiles/pg-ssl/build-and-push.bash`. MD5 integration tests connect to the SSL container (without using SSL) because only that container has the md5user.
 
 ## Supported PostgreSQL Features
 
 **SSL/TLS:** Optional SSL negotiation via `SSLRequired`. The driver sends an SSLRequest before authentication. If the server accepts ('S'), the connection is upgraded to TLS via lori's `start_tls()`. If refused ('N'), connection fails. CVE-2021-23222 mitigated via `expect(1)` before SSLRequest.
 
-**Authentication:** MD5 password only. No SCRAM-SHA-256, Kerberos, SASL, GSS, or certificate auth.
+**Authentication:** MD5 password and SCRAM-SHA-256. No SCRAM-SHA-256-PLUS (channel binding), Kerberos, GSS, or certificate auth. Design: [discussion #83](https://github.com/ponylang/postgres/discussions/83).
 
 **Protocol:** Simple query protocol and extended query protocol (parameterized queries via unnamed and named prepared statements). Parameters are text-format only; type OIDs are inferred by the server. No COPY, LISTEN/NOTIFY, or function calls.
 
@@ -302,14 +314,14 @@ Can arrive between any other messages (must always handle):
 
 ### Complete Message Type Bytes
 
-**Frontend**: `Q`=Query, `P`=Parse, `B`=Bind, `D`=Describe, `E`=Execute, `C`=Close, `S`=Sync, `H`=Flush, `X`=Terminate, `p`=PasswordMessage
+**Frontend**: `Q`=Query, `P`=Parse, `B`=Bind, `D`=Describe, `E`=Execute, `C`=Close, `S`=Sync, `H`=Flush, `X`=Terminate, `p`=PasswordMessage/SASLInitialResponse/SASLResponse
 
 **Backend**: `R`=Auth, `K`=BackendKeyData, `S`=ParameterStatus, `Z`=ReadyForQuery, `T`=RowDescription, `D`=DataRow, `C`=CommandComplete, `I`=EmptyQueryResponse, `1`=ParseComplete, `2`=BindComplete, `3`=CloseComplete, `t`=ParameterDescription, `n`=NoData, `s`=PortalSuspended, `E`=ErrorResponse, `N`=NoticeResponse, `A`=NotificationResponse
 
 ## File Layout
 
 ```
-postgres/                         # Main package (33 files)
+postgres/                         # Main package (35 files)
   session.pony                    # Session actor + state machine traits + query sub-state machine
   database_connect_info.pony       # DatabaseConnectInfo val class (user, password, database)
   server_connect_info.pony        # ServerConnectInfo val class (auth, host, service, ssl_mode)
@@ -337,12 +349,14 @@ postgres/                         # Main package (33 files)
   _authentication_request_type.pony
   _authentication_failure_reason.pony
   _md5_password.pony              # MD5 password construction
+  _scram_sha256.pony              # SCRAM-SHA-256 computation primitive
   _mort.pony                      # Panic primitives
-  _test.pony                      # Main test actor + integration tests + SSL negotiation tests
+  _test.pony                      # Main test actor + integration tests + SSL/SCRAM negotiation tests
   _test_query.pony                # Query integration tests
   _test_response_parser.pony      # Parser unit tests + test message builders
   _test_frontend_message.pony     # Frontend message unit tests
   _test_equality.pony             # Equality tests for Field/Row/Rows (example + PonyCheck property)
+  _test_scram.pony                # SCRAM-SHA-256 computation tests
 assets/test-cert.pem              # Self-signed test certificate for SSL unit tests
 assets/test-key.pem               # Private key for SSL unit tests
 examples/README.md                # Examples overview
@@ -352,5 +366,5 @@ examples/prepared-query/prepared-query-example.pony # PreparedQuery with params 
 examples/named-prepared-query/named-prepared-query-example.pony # Named prepared statements with reuse
 examples/crud/crud-example.pony   # Multi-query CRUD workflow
 examples/cancel/cancel-example.pony # Query cancellation with pg_sleep
-.ci-dockerfiles/pg-ssl/           # Dockerfile for SSL-enabled PostgreSQL CI container
+.ci-dockerfiles/pg-ssl/           # Dockerfile + init scripts for SSL-enabled PostgreSQL CI container (SCRAM-SHA-256 default + MD5 user)
 ```

@@ -688,6 +688,158 @@ class \nodoc\ iso
       h.fail("Wrong message returned for second message.")
     end
 
+class \nodoc\ iso _TestResponseParserAuthenticationSASLMessage is UnitTest
+  """
+  Verify that AuthenticationSASL (type 10) messages are parsed correctly,
+  extracting the list of mechanism names.
+  """
+  fun name(): String =>
+    "ResponseParser/AuthenticationSASLMessage"
+
+  fun apply(h: TestHelper) ? =>
+    let mechanisms: Array[String] val = recover val ["SCRAM-SHA-256"] end
+    let bytes = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+    let r: Reader = Reader
+    r.append(bytes)
+
+    match _ResponseParser(r)?
+    | let m: _AuthenticationSASLMessage =>
+      h.assert_eq[USize](1, m.mechanisms.size())
+      h.assert_eq[String]("SCRAM-SHA-256", m.mechanisms(0)?)
+    else
+      h.fail("Wrong message returned.")
+    end
+
+class \nodoc\ iso _TestResponseParserAuthenticationSASLContinueMessage
+  is UnitTest
+  """
+  Verify that AuthenticationSASLContinue (type 11) messages are parsed
+  correctly, extracting the raw data payload.
+  """
+  fun name(): String =>
+    "ResponseParser/AuthenticationSASLContinueMessage"
+
+  fun apply(h: TestHelper) ? =>
+    let data: Array[U8] val = "r=abc123,s=c2FsdA==,i=4096".array()
+    let bytes = _IncomingAuthenticationSASLContinueTestMessage(data).bytes()
+    let r: Reader = Reader
+    r.append(bytes)
+
+    match _ResponseParser(r)?
+    | let m: _AuthenticationSASLContinueMessage =>
+      h.assert_array_eq[U8](data, m.data)
+    else
+      h.fail("Wrong message returned.")
+    end
+
+class \nodoc\ iso _TestResponseParserAuthenticationSASLFinalMessage
+  is UnitTest
+  """
+  Verify that AuthenticationSASLFinal (type 12) messages are parsed
+  correctly, extracting the raw data payload.
+  """
+  fun name(): String =>
+    "ResponseParser/AuthenticationSASLFinalMessage"
+
+  fun apply(h: TestHelper) ? =>
+    let data: Array[U8] val = "v=dGVzdA==".array()
+    let bytes = _IncomingAuthenticationSASLFinalTestMessage(data).bytes()
+    let r: Reader = Reader
+    r.append(bytes)
+
+    match _ResponseParser(r)?
+    | let m: _AuthenticationSASLFinalMessage =>
+      h.assert_array_eq[U8](data, m.data)
+    else
+      h.fail("Wrong message returned.")
+    end
+
+class \nodoc\ iso _TestResponseParserMultipleMessagesSASLFirst is UnitTest
+  """
+  Verify correct buffer advancement from an AuthenticationSASL message
+  followed by an AuthenticationOk message.
+  """
+  fun name(): String =>
+    "ResponseParser/MultipleMessages/AuthenticationSASLFirst"
+
+  fun apply(h: TestHelper) ? =>
+    let mechanisms: Array[String] val = recover val ["SCRAM-SHA-256"] end
+    let r: Reader = Reader
+    r.append(
+      _IncomingAuthenticationSASLTestMessage(mechanisms).bytes())
+    r.append(_IncomingAuthenticationOkTestMessage.bytes())
+
+    match _ResponseParser(r)?
+    | let m: _AuthenticationSASLMessage =>
+      h.assert_eq[USize](1, m.mechanisms.size())
+    else
+      h.fail("Wrong message returned for first message.")
+    end
+
+    if _ResponseParser(r)? isnt _AuthenticationOkMessage then
+      h.fail("Wrong message returned for second message.")
+    end
+
+class \nodoc\ val _IncomingAuthenticationSASLTestMessage
+  let _bytes: Array[U8] val
+
+  new val create(mechanisms: Array[String] val) =>
+    // Auth type 10. Payload: 4 bytes auth type + mechanism names (each null-
+    // terminated) + terminating null byte.
+    var mechanism_size: USize = 0
+    for m in mechanisms.values() do
+      mechanism_size = mechanism_size + m.size() + 1
+    end
+    mechanism_size = mechanism_size + 1 // terminating null
+
+    let payload_size: U32 = (4 + 4 + mechanism_size).u32()
+    let wb: Writer = Writer
+    wb.u8(_MessageType.authentication_request())
+    wb.u32_be(payload_size)
+    wb.i32_be(_AuthenticationRequestType.sasl())
+    for m in mechanisms.values() do
+      wb.write(m)
+      wb.u8(0)
+    end
+    wb.u8(0) // list terminator
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingAuthenticationSASLContinueTestMessage
+  let _bytes: Array[U8] val
+
+  new val create(data: Array[U8] val) =>
+    let payload_size: U32 = (4 + 4 + data.size()).u32()
+    let wb: Writer = Writer
+    wb.u8(_MessageType.authentication_request())
+    wb.u32_be(payload_size)
+    wb.i32_be(_AuthenticationRequestType.sasl_continue())
+    wb.write(data)
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingAuthenticationSASLFinalTestMessage
+  let _bytes: Array[U8] val
+
+  new val create(data: Array[U8] val) =>
+    let payload_size: U32 = (4 + 4 + data.size()).u32()
+    let wb: Writer = Writer
+    wb.u8(_MessageType.authentication_request())
+    wb.u32_be(payload_size)
+    wb.i32_be(_AuthenticationRequestType.sasl_final())
+    wb.write(data)
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
 class \nodoc\ val _IncomingBackendKeyDataTestMessage
   let _bytes: Array[U8] val
 

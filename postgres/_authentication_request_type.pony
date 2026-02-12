@@ -9,3 +9,12 @@ primitive _AuthenticationRequestType
 
   fun md5_password(): I32 =>
     5
+
+  fun sasl(): I32 =>
+    10
+
+  fun sasl_continue(): I32 =>
+    11
+
+  fun sasl_final(): I32 =>
+    12

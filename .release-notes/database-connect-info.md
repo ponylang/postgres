@@ -18,6 +18,6 @@ After:
 ```pony
 let session = Session(
   ServerConnectInfo(auth, host, port),
-  notify,
-  DatabaseConnectInfo(username, password, database))
+  DatabaseConnectInfo(username, password, database),
+  notify)
 ```

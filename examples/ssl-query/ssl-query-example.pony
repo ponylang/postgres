@@ -38,8 +38,8 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     _out = out
     _session = Session(
       ServerConnectInfo(auth, info.host, info.port, SSLRequired(sslctx)),
-      this,
-      DatabaseConnectInfo(info.username, info.password, info.database))
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
 
   be close() =>
     _session.close()

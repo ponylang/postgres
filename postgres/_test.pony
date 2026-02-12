@@ -126,8 +126,8 @@ class \nodoc\ iso _TestAuthenticate is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      _AuthenticateTestNotify(h, true),
-      DatabaseConnectInfo(info.username, info.password, info.database))
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      _AuthenticateTestNotify(h, true))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -146,9 +146,9 @@ class \nodoc\ iso _TestAuthenticateFailure is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      _AuthenticateTestNotify(h, false),
       DatabaseConnectInfo(info.username, info.password + " " + info.password,
-        info.database))
+        info.database),
+      _AuthenticateTestNotify(h, false))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -183,8 +183,8 @@ class \nodoc\ iso _TestConnect is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      _ConnectTestNotify(h, true),
-      DatabaseConnectInfo(info.username, info.password, info.database))
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      _ConnectTestNotify(h, true))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -205,8 +205,8 @@ class \nodoc\ iso _TestConnectFailure is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), host, info.port.reverse()),
-      _ConnectTestNotify(h, false),
-      DatabaseConnectInfo(info.username, info.password, info.database))
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      _ConnectTestNotify(h, false))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -309,8 +309,8 @@ actor \nodoc\ _JunkSendingTestListener is lori.TCPListenerActor
     // Now that we are listening, start a client session
     Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      _HandlingJunkTestNotify(_h),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"))
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _HandlingJunkTestNotify(_h))
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -444,8 +444,8 @@ actor \nodoc\ _DoesntAnswerTestListener is lori.TCPListenerActor
     // Now that we are listening, start a client session
     Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      _DoesntAnswerClient(_h),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"))
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _DoesntAnswerClient(_h))
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -594,8 +594,8 @@ actor \nodoc\ _ZeroRowSelectTestListener is lori.TCPListenerActor
   fun ref _on_listening() =>
     Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      _ZeroRowSelectTestClient(_h),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"))
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _ZeroRowSelectTestClient(_h))
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -734,8 +734,8 @@ actor \nodoc\ _PrepareShutdownTestListener is lori.TCPListenerActor
   fun ref _on_listening() =>
     Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      _PrepareShutdownTestClient(_h),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"))
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _PrepareShutdownTestClient(_h))
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -811,8 +811,8 @@ actor \nodoc\ _TerminateSentTestListener is lori.TCPListenerActor
   fun ref _on_listening() =>
     Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      _TerminateSentTestNotify(_h),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"))
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _TerminateSentTestNotify(_h))
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -927,8 +927,8 @@ actor \nodoc\ _SSLRefusedTestListener is lori.TCPListenerActor
   fun ref _on_listening() =>
     Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port, SSLRequired(_sslctx)),
-      _SSLRefusedTestNotify(_h),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"))
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _SSLRefusedTestNotify(_h))
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -1026,8 +1026,8 @@ actor \nodoc\ _SSLJunkTestListener is lori.TCPListenerActor
   fun ref _on_listening() =>
     Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port, SSLRequired(_sslctx)),
-      _SSLJunkTestNotify(_h),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"))
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _SSLJunkTestNotify(_h))
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -1151,8 +1151,8 @@ actor \nodoc\ _SSLSuccessTestListener is lori.TCPListenerActor
   fun ref _on_listening() =>
     Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port, SSLRequired(_client_sslctx)),
-      _SSLSuccessTestNotify(_h),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"))
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _SSLSuccessTestNotify(_h))
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -1213,8 +1213,8 @@ class \nodoc\ iso _TestSSLConnect is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host, info.ssl_port, SSLRequired(sslctx)),
-      _ConnectTestNotify(h, true),
-      DatabaseConnectInfo(info.username, info.password, info.database))
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      _ConnectTestNotify(h, true))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -1238,8 +1238,8 @@ class \nodoc\ iso _TestSSLAuthenticate is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host, info.ssl_port, SSLRequired(sslctx)),
-      _AuthenticateTestNotify(h, true),
-      DatabaseConnectInfo(info.username, info.password, info.database))
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      _AuthenticateTestNotify(h, true))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -1265,8 +1265,8 @@ class \nodoc\ iso _TestSSLQueryResults is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host, info.ssl_port, SSLRequired(sslctx)),
-      client,
-      DatabaseConnectInfo(info.username, info.password, info.database))
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -1292,8 +1292,8 @@ class \nodoc\ iso _TestSSLRefused is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port, SSLRequired(sslctx)),
-      _ConnectTestNotify(h, false),
-      DatabaseConnectInfo(info.username, info.password, info.database))
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      _ConnectTestNotify(h, false))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -1380,8 +1380,8 @@ actor \nodoc\ _CancelTestListener is lori.TCPListenerActor
   fun ref _on_listening() =>
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      _CancelTestClient(_h),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"))
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _CancelTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1561,8 +1561,8 @@ actor \nodoc\ _SSLCancelTestListener is lori.TCPListenerActor
   fun ref _on_listening() =>
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port, SSLRequired(_client_sslctx)),
-      _CancelTestClient(_h),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"))
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _CancelTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>

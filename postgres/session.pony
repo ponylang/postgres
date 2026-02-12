@@ -9,8 +9,8 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
 
   new create(
     server_connect_info': ServerConnectInfo,
-    notify': SessionStatusNotify,
-    database_connect_info': DatabaseConnectInfo)
+    database_connect_info': DatabaseConnectInfo,
+    notify': SessionStatusNotify)
   =>
     _server_connect_info = server_connect_info'
     state = _SessionUnopened(notify', database_connect_info',

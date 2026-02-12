@@ -28,5 +28,14 @@ primitive _MessageType
   fun backend_key_data(): U8 =>
     'K'
 
+  fun notice_response(): U8 =>
+    'N'
+
+  fun notification_response(): U8 =>
+    'A'
+
+  fun parameter_status(): U8 =>
+    'S'
+
   fun row_description(): U8 =>
     'T'

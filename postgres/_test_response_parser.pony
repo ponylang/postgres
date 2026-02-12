@@ -1127,6 +1127,155 @@ class \nodoc\ val _IncomingPortalSuspendedTestMessage
   fun bytes(): Array[U8] val =>
     _bytes
 
+class \nodoc\ iso _TestResponseParserParameterStatusSkipped is UnitTest
+  """
+  Verify that ParameterStatus ('S') messages are parsed as _SkippedMessage.
+  """
+  fun name(): String =>
+    "ResponseParser/ParameterStatusSkipped"
+
+  fun apply(h: TestHelper) ? =>
+    let bytes = _IncomingParameterStatusTestMessage(
+      "client_encoding", "UTF8").bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    if _ResponseParser(r)? isnt _SkippedMessage then
+      h.fail("Wrong message returned.")
+    end
+
+class \nodoc\ iso _TestResponseParserNoticeResponseSkipped is UnitTest
+  """
+  Verify that NoticeResponse ('N') messages are parsed as _SkippedMessage.
+  """
+  fun name(): String =>
+    "ResponseParser/NoticeResponseSkipped"
+
+  fun apply(h: TestHelper) ? =>
+    let bytes = _IncomingNoticeResponseTestMessage(
+      "NOTICE", "00000", "test notice").bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    if _ResponseParser(r)? isnt _SkippedMessage then
+      h.fail("Wrong message returned.")
+    end
+
+class \nodoc\ iso _TestResponseParserNotificationResponseSkipped is UnitTest
+  """
+  Verify that NotificationResponse ('A') messages are parsed as
+  _SkippedMessage.
+  """
+  fun name(): String =>
+    "ResponseParser/NotificationResponseSkipped"
+
+  fun apply(h: TestHelper) ? =>
+    let bytes = _IncomingNotificationResponseTestMessage(
+      12345, "test_channel", "test_payload").bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    if _ResponseParser(r)? isnt _SkippedMessage then
+      h.fail("Wrong message returned.")
+    end
+
+class \nodoc\ iso _TestResponseParserMultipleMessagesSkippedFirst is UnitTest
+  """
+  Verify correct buffer advancement across all three skipped async message
+  types followed by a known message (AuthenticationOk).
+  """
+  fun name(): String =>
+    "ResponseParser/MultipleMessages/SkippedFirst"
+
+  fun apply(h: TestHelper) ? =>
+    let r: Reader = Reader
+    r.append(_IncomingParameterStatusTestMessage(
+      "server_version", "14.5").bytes())
+    r.append(_IncomingNoticeResponseTestMessage(
+      "NOTICE", "00000", "test").bytes())
+    r.append(_IncomingNotificationResponseTestMessage(
+      42, "ch", "msg").bytes())
+    r.append(_IncomingAuthenticationOkTestMessage.bytes())
+
+    if _ResponseParser(r)? isnt _SkippedMessage then
+      h.fail("Wrong message for ParameterStatus.")
+    end
+
+    if _ResponseParser(r)? isnt _SkippedMessage then
+      h.fail("Wrong message for NoticeResponse.")
+    end
+
+    if _ResponseParser(r)? isnt _SkippedMessage then
+      h.fail("Wrong message for NotificationResponse.")
+    end
+
+    if _ResponseParser(r)? isnt _AuthenticationOkMessage then
+      h.fail("Wrong message for AuthenticationOk.")
+    end
+
+class \nodoc\ val _IncomingParameterStatusTestMessage
+  let _bytes: Array[U8] val
+
+  new val create(name: String, value: String) =>
+    let payload_size = 4 + name.size() + 1 + value.size() + 1
+    let wb: Writer = Writer
+    wb.u8(_MessageType.parameter_status())
+    wb.u32_be(payload_size.u32())
+    wb.write(name)
+    wb.u8(0)
+    wb.write(value)
+    wb.u8(0)
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingNoticeResponseTestMessage
+  let _bytes: Array[U8] val
+
+  new val create(severity: String, code: String, message: String) =>
+    let payload_size = 4 +
+      1 + severity.size() + 1 +
+      1 + code.size() + 1 +
+      1 + message.size() + 1 +
+      1
+
+    let wb: Writer = Writer
+    wb.u8(_MessageType.notice_response())
+    wb.u32_be(payload_size.u32())
+    wb.u8('S')
+    wb.write(severity)
+    wb.u8(0)
+    wb.u8('C')
+    wb.write(code)
+    wb.u8(0)
+    wb.u8('M')
+    wb.write(message)
+    wb.u8(0)
+    wb.u8(0)
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingNotificationResponseTestMessage
+  let _bytes: Array[U8] val
+
+  new val create(pid: I32, channel: String, payload: String) =>
+    let payload_size = 4 + 4 + channel.size() + 1 + payload.size() + 1
+    let wb: Writer = Writer
+    wb.u8(_MessageType.notification_response())
+    wb.u32_be(payload_size.u32())
+    wb.i32_be(pid)
+    wb.write(channel)
+    wb.u8(0)
+    wb.write(payload)
+    wb.u8(0)
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
 primitive WriterToByteArray
   fun apply(writer: Writer): Array[U8] val =>
     recover val

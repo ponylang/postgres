@@ -130,50 +130,49 @@ In `_RowsBuilder._field_to_type()`:
 
 ## Test Organization
 
-Tests live in the main `postgres/` package (private test classes).
+Tests live in the main `postgres/` package (private test classes), organized across multiple files by concern. The `Main` test actor in `_test.pony` is the single test registry that lists all tests.
 
-**Unit tests** (no external dependencies):
-- `_TestFrontendMessage*` — verify wire format of outgoing messages
-- `_TestResponseParser*` — verify parsing of individual and sequential backend messages
+**`_test.pony`** — Main test actor, `_ConnectionTestConfiguration` (shared env var helper), basic connection integration tests (Connect, ConnectFailure), basic auth integration tests (Authenticate, AuthenticateFailure), and shared notifies (`_ConnectTestNotify`, `_AuthenticateTestNotify`) reused by other test files.
+
+**`_test_session.pony`** — Mock-server-based session behavior tests:
 - `_TestHandlingJunkMessages` — uses a local TCP listener that sends junk; verifies session shuts down
 - `_TestUnansweredQueriesFailOnShutdown` — uses a local TCP listener that auto-auths but never responds to queries; verifies queued queries get `SessionClosed` failures
 - `_TestPrepareShutdownDrainsPrepareQueue` — uses a local TCP listener that auto-auths but never becomes ready; verifies pending prepare operations get `SessionClosed` failures on shutdown
 - `_TestTerminateSentOnClose` — mock server fully authenticates and becomes ready; verifies that closing the session sends a Terminate message ('X') to the server
+- `_TestZeroRowSelectReturnsResultSet` — mock server sends RowDescription + CommandComplete("SELECT 0") with no DataRows; verifies ResultSet (not RowModifying) with zero rows
+
+**`_test_ssl.pony`** — SSL negotiation unit tests (mock servers) and SSL integration tests:
 - `_TestSSLNegotiationRefused` — mock server responds 'N' to SSLRequest; verifies `pg_session_connection_failed` fires
 - `_TestSSLNegotiationJunkResponse` — mock server responds with junk byte to SSLRequest; verifies session shuts down
 - `_TestSSLNegotiationSuccess` — mock server responds 'S', both sides upgrade to TLS, sends AuthOk+ReadyForQuery; verifies full SSL→auth flow
+- SSL integration tests: SSL/Connect, SSL/Authenticate, SSL/Query, SSL/Refused
+
+**`_test_cancel.pony`** — Cancel query unit tests (mock servers):
 - `_TestCancelQueryInFlight` — mock server accepts two connections; first authenticates with BackendKeyData(pid, key) and receives query; second receives CancelRequest and verifies 16-byte format with correct magic number, pid, and key
 - `_TestSSLCancelQueryInFlight` — same as `_TestCancelQueryInFlight` but with SSL on both connections; verifies that `_CancelSender` performs SSL negotiation before sending CancelRequest
-- `_TestScramSha256MessageBuilders` — verifies SCRAM message builder functions produce correct output
-- `_TestScramSha256ComputeProof` — verifies SCRAM proof computation against known test vectors
+
+**`_test_auth.pony`** — Authentication protocol unit tests (mock servers):
 - `_TestSCRAMAuthenticationSuccess` — mock server completes full SCRAM-SHA-256 handshake; verifies `pg_session_authenticated` fires
 - `_TestSCRAMUnsupportedMechanism` — mock server offers only unsupported SASL mechanisms; verifies `pg_session_authentication_failed` with `UnsupportedAuthenticationMethod`
 - `_TestSCRAMServerVerificationFailed` — mock server sends wrong signature in SASLFinal; verifies `pg_session_authentication_failed` with `ServerVerificationFailed`
 - `_TestSCRAMErrorDuringAuth` — mock server sends ErrorResponse 28P01 during SCRAM exchange; verifies `pg_session_authentication_failed` with `InvalidPassword`
 - `_TestUnsupportedAuthentication` — mock server sends unsupported auth type (cleartext password); verifies `pg_session_authentication_failed` with `UnsupportedAuthenticationMethod`
-- `_TestResponseParserParameterStatusSkipped` — verify ParameterStatus ('S') returns `_SkippedMessage`
-- `_TestResponseParserNoticeResponseSkipped` — verify NoticeResponse ('N') returns `_SkippedMessage`
-- `_TestResponseParserNotificationResponseSkipped` — verify NotificationResponse ('A') returns `_SkippedMessage`
-- `_TestResponseParserMultipleMessagesSkippedFirst` — chain all three skipped types + AuthenticationOk to verify buffer advancement
-- `_TestField*Equality*` / `_TestFieldInequality` — example-based reflexive, structural, symmetric equality and inequality tests for Field
-- `_TestRowEquality` / `_TestRowInequality` — example-based equality and inequality tests for Row
-- `_TestRowsEquality` / `_TestRowsInequality` — example-based equality and inequality tests for Rows
-- `_TestField*Property` — PonyCheck property tests for Field reflexive, structural, and symmetric equality
-- `_TestRowReflexiveProperty` / `_TestRowsReflexiveProperty` — PonyCheck property tests for Row/Rows reflexive equality
 
-**Integration tests** (require PostgreSQL, names prefixed `integration/`):
-- Connect, ConnectFailure, Authenticate, AuthenticateFailure
-- Query/Results, Query/AfterAuthenticationFailure, Query/AfterConnectionFailure, Query/AfterSessionHasBeenClosed
-- Query/OfNonExistentTable, Query/CreateAndDropTable, Query/InsertAndDelete, Query/EmptyQuery
-- PreparedQuery/Results, PreparedQuery/NullParam, PreparedQuery/OfNonExistentTable
-- PreparedQuery/InsertAndDelete, PreparedQuery/MixedWithSimple
-- PreparedStatement/Prepare, PreparedStatement/PrepareAndExecute, PreparedStatement/PrepareAndExecuteMultiple
-- PreparedStatement/PrepareAndClose, PreparedStatement/PrepareFails, PreparedStatement/PrepareAfterClose
-- PreparedStatement/CloseNonexistent, PreparedStatement/PrepareDuplicateName
-- PreparedStatement/MixedWithSimpleAndPrepared
-- Cancel/Query
-- SSL/Connect, SSL/Authenticate, SSL/Query, SSL/Refused, SSL/Cancel
-- MD5/Authenticate, MD5/AuthenticateFailure, MD5/QueryResults
+**`_test_md5.pony`** — MD5 integration tests: MD5/Authenticate, MD5/AuthenticateFailure, MD5/QueryResults
+
+**`_test_query.pony`** — Query integration tests:
+- Simple query: Query/Results, Query/AfterAuthenticationFailure, Query/AfterConnectionFailure, Query/AfterSessionHasBeenClosed, Query/OfNonExistentTable, Query/CreateAndDropTable, Query/InsertAndDelete, Query/EmptyQuery, ZeroRowSelect, MultiStatementMixedResults
+- Prepared query: PreparedQuery/Results, PreparedQuery/NullParam, PreparedQuery/OfNonExistentTable, PreparedQuery/InsertAndDelete, PreparedQuery/MixedWithSimple
+- Named prepared statements: PreparedStatement/Prepare, PreparedStatement/PrepareAndExecute, PreparedStatement/PrepareAndExecuteMultiple, PreparedStatement/PrepareAndClose, PreparedStatement/PrepareFails, PreparedStatement/PrepareAfterClose, PreparedStatement/CloseNonexistent, PreparedStatement/PrepareDuplicateName, PreparedStatement/MixedWithSimpleAndPrepared
+- Cancel integration: Cancel/Query, SSL/Cancel
+
+**`_test_response_parser.pony`** — Parser unit tests (`_TestResponseParser*`) + test message builder classes (`_Incoming*TestMessage`) that construct raw protocol bytes for mock servers across all test files.
+
+**`_test_frontend_message.pony`** — Frontend message unit tests (`_TestFrontendMessage*`).
+
+**`_test_equality.pony`** — Example-based and PonyCheck property tests for Field/Row/Rows equality.
+
+**`_test_scram.pony`** — SCRAM-SHA-256 computation unit tests (`_TestScramSha256MessageBuilders`, `_TestScramSha256ComputeProof`).
 
 Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Several test message builder classes (`_Incoming*TestMessage`) construct raw protocol bytes for unit tests. Mock server tests use ports in the 7669–7682 range and 9667–9668. **Port 7680 is reserved by Windows** (Update Delivery Optimization) and will fail to bind on WSL2 — do not use it.
 
@@ -326,7 +325,7 @@ Can arrive between any other messages (must always handle):
 ## File Layout
 
 ```
-postgres/                         # Main package (35 files)
+postgres/                         # Main package (40 files)
   session.pony                    # Session actor + state machine traits + query sub-state machine
   database_connect_info.pony       # DatabaseConnectInfo val class (user, password, database)
   server_connect_info.pony        # ServerConnectInfo val class (auth, host, service, ssl_mode)
@@ -356,7 +355,12 @@ postgres/                         # Main package (35 files)
   _md5_password.pony              # MD5 password construction
   _scram_sha256.pony              # SCRAM-SHA-256 computation primitive
   _mort.pony                      # Panic primitives
-  _test.pony                      # Main test actor + integration tests + SSL/SCRAM negotiation tests
+  _test.pony                      # Main test actor + shared test config + basic connect/auth integration tests
+  _test_session.pony              # Mock-server session behavior tests (junk, shutdown, terminate, zero-row)
+  _test_ssl.pony                  # SSL negotiation unit tests + SSL integration tests
+  _test_cancel.pony               # Cancel query unit tests (mock servers)
+  _test_auth.pony                 # Authentication protocol unit tests (SCRAM, unsupported auth)
+  _test_md5.pony                  # MD5 integration tests
   _test_query.pony                # Query integration tests
   _test_response_parser.pony      # Parser unit tests + test message builders
   _test_frontend_message.pony     # Frontend message unit tests

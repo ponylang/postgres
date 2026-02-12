@@ -46,9 +46,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4.1.1
       - name: Unit tests
-        run: make unit-tests config=debug ssl=1.1.x
+        run: make unit-tests config=debug ssl=libressl
       - name: Integration tests
-        run: make integration-tests config=debug ssl=1.1.x
+        run: make integration-tests config=debug ssl=libressl
         env:
           POSTGRES_HOST: postgres
           POSTGRES_PORT: 5432

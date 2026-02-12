@@ -149,9 +149,10 @@ Tests live in the main `postgres/` package (private test classes), organized acr
 - `_TestSSLNegotiationSuccess` — mock server responds 'S', both sides upgrade to TLS, sends AuthOk+ReadyForQuery; verifies full SSL→auth flow
 - SSL integration tests: SSL/Connect, SSL/Authenticate, SSL/Query, SSL/Refused
 
-**`_test_cancel.pony`** — Cancel query unit tests (mock servers):
+**`_test_cancel.pony`** — Cancel query tests (mock servers + integration):
 - `_TestCancelQueryInFlight` — mock server accepts two connections; first authenticates with BackendKeyData(pid, key) and receives query; second receives CancelRequest and verifies 16-byte format with correct magic number, pid, and key
 - `_TestSSLCancelQueryInFlight` — same as `_TestCancelQueryInFlight` but with SSL on both connections; verifies that `_CancelSender` performs SSL negotiation before sending CancelRequest
+- Cancel integration tests: Cancel/Query, SSL/Cancel
 
 **`_test_auth.pony`** — Authentication protocol unit tests (mock servers):
 - `_TestSCRAMAuthenticationSuccess` — mock server completes full SCRAM-SHA-256 handshake; verifies `pg_session_authenticated` fires
@@ -166,18 +167,17 @@ Tests live in the main `postgres/` package (private test classes), organized acr
 - Simple query: Query/Results, Query/AfterAuthenticationFailure, Query/AfterConnectionFailure, Query/AfterSessionHasBeenClosed, Query/OfNonExistentTable, Query/CreateAndDropTable, Query/InsertAndDelete, Query/EmptyQuery, ZeroRowSelect, MultiStatementMixedResults
 - Prepared query: PreparedQuery/Results, PreparedQuery/NullParam, PreparedQuery/OfNonExistentTable, PreparedQuery/InsertAndDelete, PreparedQuery/MixedWithSimple
 - Named prepared statements: PreparedStatement/Prepare, PreparedStatement/PrepareAndExecute, PreparedStatement/PrepareAndExecuteMultiple, PreparedStatement/PrepareAndClose, PreparedStatement/PrepareFails, PreparedStatement/PrepareAfterClose, PreparedStatement/CloseNonexistent, PreparedStatement/PrepareDuplicateName, PreparedStatement/MixedWithSimpleAndPrepared
-- Cancel integration: Cancel/Query, SSL/Cancel
-- Explicit transaction: Transaction/Commit, Transaction/RollbackAfterFailure
 
 **`_test_notification.pony`** — LISTEN/NOTIFY tests (mock servers + integration):
 - `_TestNotificationDelivery` — mock server authenticates, responds to query with CommandComplete + NotificationResponse + ReadyForQuery; verifies `pg_notification` fires with correct channel, payload, and pid
 - `_TestNotificationDuringDataRows` — mock server sends RowDescription + DataRow + NotificationResponse + DataRow + CommandComplete + ReadyForQuery; verifies both query result (2 rows) and notification are delivered
 - `_TestListenNotify` — integration test: full LISTEN/NOTIFY round-trip through a real PostgreSQL server
 
-**`_test_transaction_status.pony`** — Transaction status callback unit tests (mock servers):
+**`_test_transaction_status.pony`** — Transaction status tests (mock servers + integration):
 - `_TestTransactionStatusOnAuthentication` — mock server authenticates; verifies `pg_transaction_status` fires with `TransactionIdle` on initial ReadyForQuery
 - `_TestTransactionStatusDuringTransaction` — mock server tracks BEGIN/COMMIT; verifies status sequence idle→in-block→idle
 - `_TestTransactionStatusOnFailedTransaction` — mock server tracks BEGIN/error/ROLLBACK; verifies status sequence idle→in-block→failed→idle
+- Explicit transaction integration tests: Transaction/Commit, Transaction/RollbackAfterFailure
 
 **`_test_response_parser.pony`** — Parser unit tests (`_TestResponseParser*`) + test message builder classes (`_Incoming*TestMessage`) that construct raw protocol bytes for mock servers across all test files. `_TestResponseParserNotificationResponseMessage` verifies parsing into `_NotificationResponseMessage` with correct fields (including empty-payload edge case). `_TestResponseParserMultipleMessagesAsyncThenAuth` verifies buffer advancement across async message types (two skipped, one parsed notification) followed by AuthenticationOk.
 
@@ -373,7 +373,7 @@ postgres/                         # Main package (44 files)
   _test.pony                      # Main test actor + shared test config + basic connect/auth integration tests
   _test_session.pony              # Mock-server session behavior tests (junk, shutdown, terminate, zero-row)
   _test_ssl.pony                  # SSL negotiation unit tests + SSL integration tests
-  _test_cancel.pony               # Cancel query unit tests (mock servers)
+  _test_cancel.pony               # Cancel query tests (mock servers + integration)
   _test_auth.pony                 # Authentication protocol unit tests (SCRAM, unsupported auth)
   _test_md5.pony                  # MD5 integration tests
   _test_query.pony                # Query integration tests
@@ -382,7 +382,7 @@ postgres/                         # Main package (44 files)
   _test_equality.pony             # Equality tests for Field/Row/Rows (example + PonyCheck property)
   _test_scram.pony                # SCRAM-SHA-256 computation tests
   _test_notification.pony         # LISTEN/NOTIFY tests (mock servers)
-  _test_transaction_status.pony   # Transaction status callback tests (mock servers)
+  _test_transaction_status.pony   # Transaction status tests (mock servers + integration)
 assets/test-cert.pem              # Self-signed test certificate for SSL unit tests
 assets/test-key.pem               # Private key for SSL unit tests
 examples/README.md                # Examples overview

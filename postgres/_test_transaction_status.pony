@@ -349,3 +349,190 @@ actor \nodoc\ _TxnStatusTestServer
     var i: USize = 5
     let end_idx = data.size() - 1  // last byte is null terminator
     String.from_array(recover val data.slice(i, end_idx) end)
+
+// Explicit transaction integration tests
+
+class \nodoc\ iso _TestTransactionCommit is UnitTest
+  """
+  Verifies that an explicit transaction (BEGIN, INSERT, COMMIT) completes
+  successfully. This exercises the bug fix where non-idle ReadyForQuery
+  responses (status 'T') previously stalled the query queue.
+  """
+  fun name(): String =>
+    "integration/Transaction/Commit"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _TransactionCommitClient(h, info)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _TransactionCommitClient is
+  ( SessionStatusNotify
+  & ResultReceiver )
+  let _h: TestHelper
+  let _session: Session
+  var _phase: USize = 0
+
+  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+    _h = h
+
+    _session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
+
+  be pg_session_authenticated(session: Session) =>
+    // Phase 0: create the table
+    _phase = 0
+    session.execute(
+      SimpleQuery(
+        """
+        CREATE TABLE txn_commit_test (col VARCHAR(50) NOT NULL)
+        """),
+      this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate")
+    _h.complete(false)
+
+  be pg_query_result(session: Session, result: Result) =>
+    _phase = _phase + 1
+
+    match _phase
+    | 1 =>
+      // Table created, BEGIN
+      _session.execute(SimpleQuery("BEGIN"), this)
+    | 2 =>
+      // In transaction, INSERT
+      _session.execute(
+        SimpleQuery(
+          "INSERT INTO txn_commit_test (col) VALUES ('hello')"),
+        this)
+    | 3 =>
+      // Insert done, verify RowModifying
+      match result
+      | let r: RowModifying =>
+        if r.impacted() != 1 then
+          _h.fail(
+            "Expected 1 impacted row but got " + r.impacted().string())
+          _drop_and_finish()
+          return
+        end
+      else
+        _h.fail("Expected RowModifying for INSERT.")
+        _drop_and_finish()
+        return
+      end
+      // COMMIT
+      _session.execute(SimpleQuery("COMMIT"), this)
+    | 4 =>
+      // Committed, drop table
+      _session.execute(SimpleQuery("DROP TABLE txn_commit_test"), this)
+    | 5 =>
+      // All done
+      _h.complete(true)
+    else
+      _h.fail("Unexpected phase " + _phase.string())
+      _drop_and_finish()
+    end
+
+  be pg_query_failed(session: Session, query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure at phase " + _phase.string())
+    _drop_and_finish()
+
+  fun ref _drop_and_finish() =>
+    _session.execute(
+      SimpleQuery("DROP TABLE IF EXISTS txn_commit_test"), this)
+    _h.complete(false)
+
+  be dispose() =>
+    _session.close()
+
+class \nodoc\ iso _TestTransactionRollbackAfterFailure is UnitTest
+  """
+  Verifies that after an error inside an explicit transaction (status 'E'),
+  a ROLLBACK succeeds and the session returns to idle. This exercises the
+  bug fix where failed-transaction ReadyForQuery responses previously
+  stalled the query queue.
+  """
+  fun name(): String =>
+    "integration/Transaction/RollbackAfterFailure"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _TransactionRollbackClient(h, info)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _TransactionRollbackClient is
+  ( SessionStatusNotify
+  & ResultReceiver )
+  let _h: TestHelper
+  let _session: Session
+  var _phase: USize = 0
+
+  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+    _h = h
+
+    _session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
+
+  be pg_session_authenticated(session: Session) =>
+    // Phase 0: BEGIN
+    _phase = 0
+    session.execute(SimpleQuery("BEGIN"), this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate")
+    _h.complete(false)
+
+  be pg_query_result(session: Session, result: Result) =>
+    _phase = _phase + 1
+
+    match _phase
+    | 1 =>
+      // BEGIN succeeded, send invalid query to trigger error state
+      _session.execute(
+        SimpleQuery("SELECT * FROM this_table_does_not_exist_txn"), this)
+    | 3 =>
+      // ROLLBACK succeeded, verify we can still query
+      _session.execute(SimpleQuery("SELECT 1::text"), this)
+    | 4 =>
+      // Post-rollback query succeeded
+      _h.complete(true)
+    else
+      _h.fail("Unexpected phase " + _phase.string())
+      _h.complete(false)
+    end
+
+  be pg_query_failed(session: Session, query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _phase = _phase + 1
+
+    match _phase
+    | 2 =>
+      // Expected failure from invalid query, now ROLLBACK
+      _session.execute(SimpleQuery("ROLLBACK"), this)
+    else
+      _h.fail("Unexpected query failure at phase " + _phase.string())
+      _h.complete(false)
+    end
+
+  be dispose() =>
+    _session.close()

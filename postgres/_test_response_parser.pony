@@ -316,9 +316,8 @@ class \nodoc\ iso _TestResponseParserReadyForQueryMessage is UnitTest
 
     match _ResponseParser(r)?
     | let m: _ReadyForQueryMessage =>
-      if not m.idle() then
-        h.fail("Incorrect status.")
-      end
+      h.assert_is[TransactionStatus](TransactionIdle,
+        m.transaction_status())
     else
       h.fail("Wrong message returned.")
     end
@@ -332,9 +331,8 @@ class \nodoc\ iso _TestResponseParserReadyForQueryMessage is UnitTest
 
     match _ResponseParser(r)?
     | let m: _ReadyForQueryMessage =>
-      if not m.in_transaction_block() then
-        h.fail("Incorrect status.")
-      end
+      h.assert_is[TransactionStatus](TransactionInBlock,
+        m.transaction_status())
     else
       h.fail("Wrong message returned.")
     end
@@ -348,9 +346,8 @@ class \nodoc\ iso _TestResponseParserReadyForQueryMessage is UnitTest
 
     match _ResponseParser(r)?
     | let m: _ReadyForQueryMessage =>
-      if not m.failed_transaction() then
-        h.fail("Incorrect status.")
-      end
+      h.assert_is[TransactionStatus](TransactionFailed,
+        m.transaction_status())
     else
       h.fail("Wrong message returned.")
     end
@@ -627,9 +624,8 @@ class \nodoc\ iso
 
     match _ResponseParser(r)?
     | let m: _ReadyForQueryMessage =>
-      if not m.idle() then
-        h.fail("Expected idle status.")
-      end
+      h.assert_is[TransactionStatus](TransactionIdle,
+        m.transaction_status())
     else
       h.fail("Wrong message for ReadyForQuery.")
     end
@@ -681,9 +677,8 @@ class \nodoc\ iso
 
     match _ResponseParser(r)?
     | let m: _ReadyForQueryMessage =>
-      if not m.idle() then
-        h.fail("Expected idle status.")
-      end
+      h.assert_is[TransactionStatus](TransactionIdle,
+        m.transaction_status())
     else
       h.fail("Wrong message returned for second message.")
     end

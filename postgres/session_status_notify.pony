@@ -28,6 +28,15 @@ interface tag SessionStatusNotify
     """
     None
 
+  be pg_transaction_status(session: Session, status: TransactionStatus) =>
+    """
+    Called when the server reports its transaction status via ReadyForQuery.
+    Fires after every query cycle completes, including the initial ready
+    signal after authentication. The status indicates whether the session is
+    idle, in a transaction block, or in a failed transaction.
+    """
+    None
+
   be pg_session_shutdown(session: Session) =>
     """
     Called when a session ends.

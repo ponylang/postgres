@@ -101,24 +101,14 @@ class val _ReadyForQueryMessage
   new val create(status: U8) =>
     _status = status
 
-  fun val idle(): Bool =>
+  fun val transaction_status(): TransactionStatus =>
     """
-    Returns true if the backend status is "idle"
+    Returns the transaction status reported by the server.
     """
-    _status == 'I'
-
-  fun val in_transaction_block(): Bool =>
-    """
-    Returns true if the backend is executing a transaction
-    """
-    _status == 'T'
-
-  fun val failed_transaction(): Bool =>
-    """
-    Returns true if the backend is in a failed transaction block. Queries will
-    be rejected until the transaction has ended.
-    """
-    _status == 'E'
+    if _status == 'I' then TransactionIdle
+    elseif _status == 'T' then TransactionInBlock
+    else TransactionFailed
+    end
 
 class val _RowDescriptionMessage
   """

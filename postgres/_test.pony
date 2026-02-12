@@ -106,6 +106,11 @@ actor \nodoc\ Main is TestList
       _TestFieldSymmetricProperty))
     test(Property1UnitTest[Row](_TestRowReflexiveProperty))
     test(Property1UnitTest[Rows](_TestRowsReflexiveProperty))
+    test(_TestFrontendMessageCancelRequest)
+    test(_TestCancelQueryInFlight)
+    test(_TestSSLCancelQueryInFlight)
+    test(_TestCancelPgSleep)
+    test(_TestCancelSSLPgSleep)
 
 class \nodoc\ iso _TestAuthenticate is UnitTest
   """
@@ -120,10 +125,8 @@ class \nodoc\ iso _TestAuthenticate is UnitTest
     let info = _ConnectionTestConfiguration(h.env.vars)
 
     let session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       _AuthenticateTestNotify(h, true),
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -144,10 +147,8 @@ class \nodoc\ iso _TestAuthenticateFailure is UnitTest
     let info = _ConnectionTestConfiguration(h.env.vars)
 
     let session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       _AuthenticateTestNotify(h, false),
-      info.host,
-      info.port,
       info.username,
       info.password + " " + info.password,
       info.database)
@@ -184,10 +185,8 @@ class \nodoc\ iso _TestConnect is UnitTest
     let info = _ConnectionTestConfiguration(h.env.vars)
 
     let session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
       _ConnectTestNotify(h, true),
-      info.host,
-      info.port,
       info.username,
       info.password,
       info.database)
@@ -210,10 +209,8 @@ class \nodoc\ iso _TestConnectFailure is UnitTest
     let host = ifdef linux then "127.0.0.2" else "localhost" end
 
     let session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), host, info.port.reverse()),
       _ConnectTestNotify(h, false),
-      host,
-      info.port.reverse(),
       info.username,
       info.password,
       info.database)
@@ -318,10 +315,8 @@ actor \nodoc\ _JunkSendingTestListener is lori.TCPListenerActor
   fun ref _on_listening() =>
     // Now that we are listening, start a client session
     Session(
-      lori.TCPConnectAuth(_h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       _HandlingJunkTestNotify(_h),
-      _host,
-      _port,
       "postgres",
       "postgres",
       "postgres")
@@ -457,10 +452,8 @@ actor \nodoc\ _DoesntAnswerTestListener is lori.TCPListenerActor
   fun ref _on_listening() =>
     // Now that we are listening, start a client session
     Session(
-      lori.TCPConnectAuth(_h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       _DoesntAnswerClient(_h),
-      _host,
-      _port,
       "postgres",
       "postgres",
       "postgres")
@@ -611,10 +604,8 @@ actor \nodoc\ _ZeroRowSelectTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     Session(
-      lori.TCPConnectAuth(_h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       _ZeroRowSelectTestClient(_h),
-      _host,
-      _port,
       "postgres",
       "postgres",
       "postgres")
@@ -755,10 +746,8 @@ actor \nodoc\ _PrepareShutdownTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     Session(
-      lori.TCPConnectAuth(_h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       _PrepareShutdownTestClient(_h),
-      _host,
-      _port,
       "postgres",
       "postgres",
       "postgres")
@@ -836,10 +825,8 @@ actor \nodoc\ _TerminateSentTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     Session(
-      lori.TCPConnectAuth(_h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       _TerminateSentTestNotify(_h),
-      _host,
-      _port,
       "postgres",
       "postgres",
       "postgres")
@@ -956,14 +943,11 @@ actor \nodoc\ _SSLRefusedTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     Session(
-      lori.TCPConnectAuth(_h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port, SSLRequired(_sslctx)),
       _SSLRefusedTestNotify(_h),
-      _host,
-      _port,
       "postgres",
       "postgres",
-      "postgres",
-      SSLRequired(_sslctx))
+      "postgres")
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -1060,14 +1044,11 @@ actor \nodoc\ _SSLJunkTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     Session(
-      lori.TCPConnectAuth(_h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port, SSLRequired(_sslctx)),
       _SSLJunkTestNotify(_h),
-      _host,
-      _port,
       "postgres",
       "postgres",
-      "postgres",
-      SSLRequired(_sslctx))
+      "postgres")
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -1190,14 +1171,11 @@ actor \nodoc\ _SSLSuccessTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     Session(
-      lori.TCPConnectAuth(_h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port, SSLRequired(_client_sslctx)),
       _SSLSuccessTestNotify(_h),
-      _host,
-      _port,
       "postgres",
       "postgres",
-      "postgres",
-      SSLRequired(_client_sslctx))
+      "postgres")
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -1257,14 +1235,11 @@ class \nodoc\ iso _TestSSLConnect is UnitTest
     end
 
     let session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host, info.ssl_port, SSLRequired(sslctx)),
       _ConnectTestNotify(h, true),
-      info.ssl_host,
-      info.ssl_port,
       info.username,
       info.password,
-      info.database,
-      SSLRequired(sslctx))
+      info.database)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -1287,14 +1262,11 @@ class \nodoc\ iso _TestSSLAuthenticate is UnitTest
     end
 
     let session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host, info.ssl_port, SSLRequired(sslctx)),
       _AuthenticateTestNotify(h, true),
-      info.ssl_host,
-      info.ssl_port,
       info.username,
       info.password,
-      info.database,
-      SSLRequired(sslctx))
+      info.database)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -1319,14 +1291,11 @@ class \nodoc\ iso _TestSSLQueryResults is UnitTest
     let client = _ResultsIncludeOriginatingQueryReceiver(h)
 
     let session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host, info.ssl_port, SSLRequired(sslctx)),
       client,
-      info.ssl_host,
-      info.ssl_port,
       info.username,
       info.password,
-      info.database,
-      SSLRequired(sslctx))
+      info.database)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -1351,14 +1320,385 @@ class \nodoc\ iso _TestSSLRefused is UnitTest
     end
 
     let session = Session(
-      lori.TCPConnectAuth(h.env.root),
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port, SSLRequired(sslctx)),
       _ConnectTestNotify(h, false),
-      info.host,
-      info.port,
       info.username,
       info.password,
-      info.database,
-      SSLRequired(sslctx))
+      info.database)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
+
+// Cancel query unit test
+
+class \nodoc\ iso _TestCancelQueryInFlight is UnitTest
+  """
+  Verifies that calling cancel() when a query is in flight opens a separate
+  TCP connection and sends a valid CancelRequest message containing the
+  correct process ID and secret key from BackendKeyData.
+  """
+  fun name(): String =>
+    "CancelQueryInFlight"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "7675"
+
+    let listener = _CancelTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _CancelTestClient is (SessionStatusNotify & ResultReceiver)
+  let _h: TestHelper
+
+  new create(h: TestHelper) =>
+    _h = h
+
+  be pg_session_connection_failed(s: Session) =>
+    _h.fail("Unable to establish connection.")
+    _h.complete(false)
+
+  be pg_session_authenticated(session: Session) =>
+    session.execute(SimpleQuery("SELECT pg_sleep(100)"), this)
+    session.cancel()
+
+  be pg_session_authentication_failed(
+    session: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate.")
+    _h.complete(false)
+
+  be pg_query_result(session: Session, result: Result) =>
+    None
+
+  be pg_query_failed(session: Session, query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    None
+
+actor \nodoc\ _CancelTestListener is lori.TCPListenerActor
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _h: TestHelper
+  let _host: String
+  let _port: String
+  var _connection_count: USize = 0
+
+  new create(listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper)
+  =>
+    _host = host
+    _port = port
+    _h = h
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): _CancelTestServer =>
+    _connection_count = _connection_count + 1
+    _CancelTestServer(_server_auth, fd, _h, _connection_count > 1)
+
+  fun ref _on_listening() =>
+    let session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      _CancelTestClient(_h),
+      "postgres",
+      "postgres",
+      "postgres")
+    _h.dispose_when_done(session)
+
+  fun ref _on_listen_failure() =>
+    _h.fail("Unable to listen")
+    _h.complete(false)
+
+actor \nodoc\ _CancelTestServer
+  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  """
+  Mock server that handles two connections: the first is the main session
+  (authenticates and becomes ready), the second is the cancel sender
+  (verifies CancelRequest format and content).
+  """
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  let _h: TestHelper
+  let _is_cancel_connection: Bool
+  var _authed: Bool = false
+
+  new create(auth: lori.TCPServerAuth, fd: U32, h: TestHelper,
+    is_cancel: Bool)
+  =>
+    _h = h
+    _is_cancel_connection = is_cancel
+    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
+
+  fun ref _on_received(data: Array[U8] iso) =>
+    if _is_cancel_connection then
+      // Verify CancelRequest: 16 bytes total
+      // Int32(16) Int32(80877102) Int32(pid=12345) Int32(key=67890)
+      if data.size() != 16 then
+        _h.fail("CancelRequest should be 16 bytes, got "
+          + data.size().string())
+        _h.complete(false)
+        return
+      end
+
+      try
+        // Verify length field: big-endian 16
+        if (data(0)? != 0) or (data(1)? != 0) or (data(2)? != 0)
+          or (data(3)? != 16) then
+          _h.fail("CancelRequest length field is incorrect")
+          _h.complete(false)
+          return
+        end
+
+        // Verify magic number: big-endian 80877102 = 0x04D2162E
+        if (data(4)? != 4) or (data(5)? != 210) or (data(6)? != 22)
+          or (data(7)? != 46) then
+          _h.fail("CancelRequest magic number is incorrect")
+          _h.complete(false)
+          return
+        end
+
+        // Verify pid: big-endian 12345 = 0x00003039
+        if (data(8)? != 0) or (data(9)? != 0) or (data(10)? != 48)
+          or (data(11)? != 57) then
+          _h.fail("CancelRequest process_id is incorrect")
+          _h.complete(false)
+          return
+        end
+
+        // Verify key: big-endian 67890 = 0x00010932
+        if (data(12)? != 0) or (data(13)? != 1) or (data(14)? != 9)
+          or (data(15)? != 50) then
+          _h.fail("CancelRequest secret_key is incorrect")
+          _h.complete(false)
+          return
+        end
+
+        _h.complete(true)
+      else
+        _h.fail("Error reading CancelRequest bytes")
+        _h.complete(false)
+      end
+    else
+      if not _authed then
+        _authed = true
+        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
+        let bkd = _IncomingBackendKeyDataTestMessage(12345, 67890).bytes()
+        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        // Send all auth messages in a single write so the Session processes
+        // them atomically. If sent separately, TCP may deliver them in
+        // different reads, causing ReadyForQuery to arrive after the client
+        // has already called cancel() (which would see _QueryNotReady).
+        let combined: Array[U8] val = recover val
+          let arr = Array[U8]
+          arr.append(auth_ok)
+          arr.append(bkd)
+          arr.append(ready)
+          arr
+        end
+        _tcp_connection.send(combined)
+      end
+      // After auth, receive query data and hold (don't respond)
+    end
+
+// SSL cancel query unit test
+
+class \nodoc\ iso _TestSSLCancelQueryInFlight is UnitTest
+  """
+  Verifies that calling cancel() on an SSL session opens a separate
+  SSL-negotiated TCP connection and sends a valid CancelRequest message
+  containing the correct process ID and secret key.
+  """
+  fun name(): String =>
+    "SSLCancelQueryInFlight"
+
+  fun apply(h: TestHelper) ? =>
+    let host = "127.0.0.1"
+    let port = "7676"
+
+    let cert_path = FilePath(FileAuth(h.env.root),
+      "assets/test-cert.pem")
+    let key_path = FilePath(FileAuth(h.env.root),
+      "assets/test-key.pem")
+
+    let client_sslctx = recover val
+      SSLContext
+        .> set_client_verify(false)
+        .> set_server_verify(false)
+    end
+
+    let server_sslctx = recover val
+      SSLContext
+        .> set_cert(cert_path, key_path)?
+        .> set_client_verify(false)
+        .> set_server_verify(false)
+    end
+
+    let listener = _SSLCancelTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h,
+      client_sslctx,
+      server_sslctx)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _SSLCancelTestListener is lori.TCPListenerActor
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _h: TestHelper
+  let _host: String
+  let _port: String
+  let _client_sslctx: SSLContext val
+  let _server_sslctx: SSLContext val
+  var _connection_count: USize = 0
+
+  new create(listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper,
+    client_sslctx: SSLContext val,
+    server_sslctx: SSLContext val)
+  =>
+    _host = host
+    _port = port
+    _h = h
+    _client_sslctx = client_sslctx
+    _server_sslctx = server_sslctx
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): _SSLCancelTestServer =>
+    _connection_count = _connection_count + 1
+    _SSLCancelTestServer(_server_auth, _server_sslctx, fd, _h,
+      _connection_count > 1)
+
+  fun ref _on_listening() =>
+    let session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port, SSLRequired(_client_sslctx)),
+      _CancelTestClient(_h),
+      "postgres",
+      "postgres",
+      "postgres")
+    _h.dispose_when_done(session)
+
+  fun ref _on_listen_failure() =>
+    _h.fail("Unable to listen")
+    _h.complete(false)
+
+actor \nodoc\ _SSLCancelTestServer
+  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  """
+  Mock SSL server that handles two connections: the first is the main session
+  (SSL negotiation + authenticate + ready), the second is the cancel sender
+  (SSL negotiation + verify CancelRequest format and content).
+  """
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  let _sslctx: SSLContext val
+  let _h: TestHelper
+  let _is_cancel_connection: Bool
+  var _ssl_started: Bool = false
+  var _authed: Bool = false
+
+  new create(auth: lori.TCPServerAuth, sslctx: SSLContext val, fd: U32,
+    h: TestHelper, is_cancel: Bool)
+  =>
+    _sslctx = sslctx
+    _h = h
+    _is_cancel_connection = is_cancel
+    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
+
+  fun ref _on_received(data: Array[U8] iso) =>
+    if not _ssl_started then
+      // SSLRequest — respond 'S' and upgrade to TLS
+      let response: Array[U8] val = ['S']
+      _tcp_connection.send(response)
+      match _tcp_connection.start_tls(_sslctx)
+      | None => _ssl_started = true
+      | let _: lori.StartTLSError =>
+        _tcp_connection.close()
+      end
+    elseif _is_cancel_connection then
+      // Verify CancelRequest: 16 bytes total
+      // Int32(16) Int32(80877102) Int32(pid=12345) Int32(key=67890)
+      if data.size() != 16 then
+        _h.fail("CancelRequest should be 16 bytes, got "
+          + data.size().string())
+        _h.complete(false)
+        return
+      end
+
+      try
+        if (data(0)? != 0) or (data(1)? != 0) or (data(2)? != 0)
+          or (data(3)? != 16) then
+          _h.fail("CancelRequest length field is incorrect")
+          _h.complete(false)
+          return
+        end
+
+        if (data(4)? != 4) or (data(5)? != 210) or (data(6)? != 22)
+          or (data(7)? != 46) then
+          _h.fail("CancelRequest magic number is incorrect")
+          _h.complete(false)
+          return
+        end
+
+        if (data(8)? != 0) or (data(9)? != 0) or (data(10)? != 48)
+          or (data(11)? != 57) then
+          _h.fail("CancelRequest process_id is incorrect")
+          _h.complete(false)
+          return
+        end
+
+        if (data(12)? != 0) or (data(13)? != 1) or (data(14)? != 9)
+          or (data(15)? != 50) then
+          _h.fail("CancelRequest secret_key is incorrect")
+          _h.complete(false)
+          return
+        end
+
+        _h.complete(true)
+      else
+        _h.fail("Error reading CancelRequest bytes")
+        _h.complete(false)
+      end
+    else
+      if not _authed then
+        _authed = true
+        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
+        let bkd = _IncomingBackendKeyDataTestMessage(12345, 67890).bytes()
+        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        // Send all auth messages in a single write so the Session processes
+        // them atomically (same reason as _CancelTestServer).
+        let combined: Array[U8] val = recover val
+          let arr = Array[U8]
+          arr.append(auth_ok)
+          arr.append(bkd)
+          arr.append(ready)
+          arr
+        end
+        _tcp_connection.send(combined)
+      end
+      // After auth, receive query data and hold (don't respond)
+    end

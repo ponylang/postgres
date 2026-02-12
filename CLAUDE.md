@@ -31,7 +31,7 @@ Managed via `corral`.
 
 ### Session State Machine
 
-`Session` actor is the main entry point. Implements `lori.TCPConnectionActor` and `lori.ClientLifecycleEventReceiver`. State transitions via `_SessionState` interface with four concrete states:
+`Session` actor is the main entry point. Constructor takes `ServerConnectInfo` (auth, host, service, ssl_mode) as its first parameter. Implements `lori.TCPConnectionActor` and `lori.ClientLifecycleEventReceiver`. The stored `ServerConnectInfo` is accessible via `server_connect_info()` for use by `_CancelSender`. State transitions via `_SessionState` interface with four concrete states:
 
 ```
 _SessionUnopened  --connect (no SSL)-->  _SessionConnected
@@ -71,10 +71,12 @@ This design makes illegal state transitions call `_IllegalState()` (panic) by de
 
 Only one operation is in-flight at a time. The queue serializes execution. `query_queue`, `query_state`, `backend_pid`, and `backend_secret_key` are non-underscore-prefixed fields on `_SessionLoggedIn` because other types in this package need cross-type access (Pony private fields are type-private).
 
+**Query cancellation:** `session.cancel()` requests cancellation of the currently executing query by opening a separate TCP connection via `_CancelSender` and sending a `CancelRequest`. The `cancel` method on `_SessionState` follows the same "never illegal" contract as `close` — it is a no-op in all states except `_SessionLoggedIn`, where it fires only when a query is in flight (not in `_QueryReady` or `_QueryNotReady`). Cancellation is best-effort; the server may or may not honor it. If cancelled, the query's `ResultReceiver` receives `pg_query_failed` with an `ErrorResponseMessage` (SQLSTATE 57014).
+
 ### Protocol Layer
 
 **Frontend (client → server):**
-- `_FrontendMessage` primitive: `startup()`, `password()`, `query()`, `parse()`, `bind()`, `describe_portal()`, `describe_statement()`, `execute_msg()`, `close_statement()`, `sync()`, `ssl_request()`, `terminate()` — builds raw byte arrays with big-endian wire format
+- `_FrontendMessage` primitive: `startup()`, `password()`, `query()`, `parse()`, `bind()`, `describe_portal()`, `describe_statement()`, `execute_msg()`, `close_statement()`, `sync()`, `ssl_request()`, `cancel_request()`, `terminate()` — builds raw byte arrays with big-endian wire format
 
 **Backend (server → client):**
 - `_ResponseParser` primitive: incremental parser consuming from a `Reader` buffer. Returns one parsed message per call, `None` if incomplete, errors on junk.
@@ -95,6 +97,7 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 - `ResultReceiver` interface (tag) — `pg_query_result(Session, Result)`, `pg_query_failed(Session, Query, (ErrorResponseMessage | ClientQueryError))`
 - `PrepareReceiver` interface (tag) — `pg_statement_prepared(Session, name)`, `pg_prepare_failed(Session, name, (ErrorResponseMessage | ClientQueryError))`
 - `ClientQueryError` trait — `SessionNeverOpened`, `SessionClosed`, `SessionNotAuthenticated`, `DataError`
+- `ServerConnectInfo` — val class grouping connection parameters (auth, host, service, ssl_mode). Passed to `Session.create()` as the first parameter. Also used by `_CancelSender`.
 - `SSLMode` — union type `(SSLDisabled | SSLRequired)`. `SSLDisabled` is the default (plaintext). `SSLRequired` wraps an `SSLContext val` for TLS negotiation.
 - `ErrorResponseMessage` — full PostgreSQL error with all standard fields
 - `AuthenticationFailureReason` = `(InvalidAuthenticationSpecification | InvalidPassword)`
@@ -110,6 +113,10 @@ In `_RowsBuilder._field_to_type()`:
 - 701 (float8) → `F64`
 - Everything else → `String`
 - NULL → `None`
+
+### Query Cancellation
+
+`_CancelSender` actor — fire-and-forget actor that sends a `CancelRequest` on a separate TCP connection. PostgreSQL requires cancel requests on a different connection from the one executing the query. No response is expected on the cancel connection — the result (if any) arrives as an `ErrorResponse` on the original session connection. When the session uses `SSLRequired`, the cancel connection performs SSL negotiation before sending the CancelRequest — mirroring the main session's connection setup. If the server refuses SSL or the TLS handshake fails, the cancel is silently abandoned. Created by `_SessionLoggedIn.cancel()` using the session's `ServerConnectInfo`, `backend_pid`, and `backend_secret_key`. Design: [discussion #88](https://github.com/ponylang/postgres/discussions/88).
 
 ### Mort Primitives
 
@@ -129,6 +136,8 @@ Tests live in the main `postgres/` package (private test classes).
 - `_TestSSLNegotiationRefused` — mock server responds 'N' to SSLRequest; verifies `pg_session_connection_failed` fires
 - `_TestSSLNegotiationJunkResponse` — mock server responds with junk byte to SSLRequest; verifies session shuts down
 - `_TestSSLNegotiationSuccess` — mock server responds 'S', both sides upgrade to TLS, sends AuthOk+ReadyForQuery; verifies full SSL→auth flow
+- `_TestCancelQueryInFlight` — mock server accepts two connections; first authenticates with BackendKeyData(pid, key) and receives query; second receives CancelRequest and verifies 16-byte format with correct magic number, pid, and key
+- `_TestSSLCancelQueryInFlight` — same as `_TestCancelQueryInFlight` but with SSL on both connections; verifies that `_CancelSender` performs SSL negotiation before sending CancelRequest
 - `_TestField*Equality*` / `_TestFieldInequality` — example-based reflexive, structural, symmetric equality and inequality tests for Field
 - `_TestRowEquality` / `_TestRowInequality` — example-based equality and inequality tests for Row
 - `_TestRowsEquality` / `_TestRowsInequality` — example-based equality and inequality tests for Rows
@@ -145,7 +154,8 @@ Tests live in the main `postgres/` package (private test classes).
 - PreparedStatement/PrepareAndClose, PreparedStatement/PrepareFails, PreparedStatement/PrepareAfterClose
 - PreparedStatement/CloseNonexistent, PreparedStatement/PrepareDuplicateName
 - PreparedStatement/MixedWithSimpleAndPrepared
-- SSL/Connect, SSL/Authenticate, SSL/Query, SSL/Refused
+- Cancel/Query
+- SSL/Connect, SSL/Authenticate, SSL/Query, SSL/Refused, SSL/Cancel
 
 Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Several test message builder classes (`_Incoming*TestMessage`) construct raw protocol bytes for unit tests.
 
@@ -298,8 +308,9 @@ Can arrive between any other messages (must always handle):
 ## File Layout
 
 ```
-postgres/                         # Main package (30 files)
+postgres/                         # Main package (32 files)
   session.pony                    # Session actor + state machine traits + query sub-state machine
+  server_connect_info.pony        # ServerConnectInfo val class (auth, host, service, ssl_mode)
   ssl_mode.pony                   # SSLDisabled, SSLRequired, SSLMode types
   simple_query.pony               # SimpleQuery class
   prepared_query.pony             # PreparedQuery class
@@ -315,6 +326,7 @@ postgres/                         # Main package (30 files)
   field_data_types.pony           # FieldDataTypes union
   row.pony                        # Row class
   rows.pony                       # Rows, RowIterator, _RowsBuilder
+  _cancel_sender.pony              # Fire-and-forget cancel request actor
   _frontend_message.pony          # Client-to-server messages
   _backend_messages.pony          # Server-to-client message types
   _message_type.pony              # Protocol message type codes
@@ -337,5 +349,6 @@ examples/ssl-query/ssl-query-example.pony # SSL-encrypted query with SSLRequired
 examples/prepared-query/prepared-query-example.pony # PreparedQuery with params and NULL
 examples/named-prepared-query/named-prepared-query-example.pony # Named prepared statements with reuse
 examples/crud/crud-example.pony   # Multi-query CRUD workflow
+examples/cancel/cancel-example.pony # Query cancellation with pg_sleep
 .ci-dockerfiles/pg-ssl/           # Dockerfile for SSL-enabled PostgreSQL CI container
 ```

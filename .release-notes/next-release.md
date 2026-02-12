@@ -131,9 +131,7 @@ end
 let session = Session(
   ServerConnectInfo(auth, host, port, SSLRequired(sslctx)),
   notify,
-  username,
-  password,
-  database)
+  DatabaseConnectInfo(username, password, database))
 ```
 
 If the server accepts SSL, the connection is encrypted before authentication begins. If the server refuses, `pg_session_connection_failed` fires.
@@ -281,6 +279,7 @@ After:
 ```pony
 let session = Session(
   ServerConnectInfo(auth, host, port),
-  notify, username, password, database)
+  notify,
+  DatabaseConnectInfo(username, password, database))
 ```
 

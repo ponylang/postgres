@@ -27,9 +27,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     _session = Session(
       ServerConnectInfo(auth, info.host, info.port),
       this,
-      info.username,
-      info.password,
-      info.database)
+      DatabaseConnectInfo(info.username, info.password, info.database))
 
   be close() =>
     _session.close()

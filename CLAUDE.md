@@ -175,7 +175,7 @@ Tests live in the main `postgres/` package (private test classes).
 - SSL/Connect, SSL/Authenticate, SSL/Query, SSL/Refused, SSL/Cancel
 - MD5/Authenticate, MD5/AuthenticateFailure, MD5/QueryResults
 
-Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Several test message builder classes (`_Incoming*TestMessage`) construct raw protocol bytes for unit tests.
+Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Several test message builder classes (`_Incoming*TestMessage`) construct raw protocol bytes for unit tests. Mock server tests use ports in the 7669–7682 range and 9667–9668. **Port 7680 is reserved by Windows** (Update Delivery Optimization) and will fail to bind on WSL2 — do not use it.
 
 ## Known Issues and TODOs in Code
 

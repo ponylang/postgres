@@ -479,6 +479,10 @@ class _SessionLoggedIn is _AuthenticatedState
     _readbuf = readbuf'
     query_state = _QueryNotReady
 
+  fun ref on_notification(s: Session ref, msg: _NotificationResponseMessage) =>
+    _notify.pg_notification(s,
+      Notification(msg.channel, msg.payload, msg.process_id))
+
   fun ref on_backend_key_data(s: Session ref, msg: _BackendKeyDataMessage) =>
     backend_pid = msg.process_id
     backend_secret_key = msg.secret_key
@@ -1141,6 +1145,11 @@ interface _SessionState
     Called when a row description is receivedfrom the server.
     """
 
+  fun ref on_notification(s: Session ref, msg: _NotificationResponseMessage)
+    """
+    Called when the server sends a LISTEN/NOTIFY notification.
+    """
+
   fun ref on_authentication_sasl(s: Session ref,
     msg: _AuthenticationSASLMessage)
     """
@@ -1395,6 +1404,9 @@ trait _NotAuthenticated
   A session that has yet to be authenticated. Before being authenticated, then
   all "query related" commands should not be received.
   """
+  fun ref on_notification(s: Session ref, msg: _NotificationResponseMessage) =>
+    _IllegalState()
+
   fun ref on_backend_key_data(s: Session ref, msg: _BackendKeyDataMessage) =>
     _IllegalState()
 

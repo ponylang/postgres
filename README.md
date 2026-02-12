@@ -44,7 +44,7 @@ Optional SSL/TLS encryption is supported. Pass `SSLRequired` with an `SSLContext
 
 ### Commands
 
-Simple queries, parameterized queries (extended query protocol), named prepared statements, and query cancellation are supported.
+Simple queries, parameterized queries (extended query protocol), named prepared statements, query cancellation, and LISTEN/NOTIFY are supported.
 
 Some functionality that isn't yet supported is:
 
@@ -52,7 +52,6 @@ Some functionality that isn't yet supported is:
 * Pipelining queries
 * Function calls
 * COPY operations
-* LISTEN/NOTIFY
 
 Note the appearance of an item on the above list isn't a guarantee that it will be supported in the future.
 

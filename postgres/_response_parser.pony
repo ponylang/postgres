@@ -22,6 +22,7 @@ type _ResponseParserResult is
   | _CloseCompleteMessage
   | _NoDataMessage
   | _ParameterDescriptionMessage
+  | _NotificationResponseMessage
   | _PortalSuspendedMessage
   | _SkippedMessage
   | _UnsupportedMessage
@@ -31,9 +32,9 @@ type _ResponseParserResult is
 primitive _SkippedMessage
   """
   Returned by the parser for known PostgreSQL asynchronous message types that
-  the driver recognizes but intentionally does not process: ParameterStatus,
-  NoticeResponse, and NotificationResponse. These can arrive between any other
-  messages and are safely ignored.
+  the driver recognizes but intentionally does not process: ParameterStatus
+  and NoticeResponse. These can arrive between any other messages and are
+  safely ignored.
 
   Distinct from `_UnsupportedMessage`, which represents truly unknown message
   types that the parser does not recognize at all.
@@ -212,9 +213,11 @@ primitive _ResponseParser
       buffer.skip(message_size)?
       return _SkippedMessage
     | _MessageType.notification_response() =>
-      // Known async message — skip payload without parsing
-      buffer.skip(message_size)?
-      return _SkippedMessage
+      // Slide past the header...
+      buffer.skip(5)?
+      // and parse the notification payload in an isolated reader
+      let notification_payload = buffer.block(payload_size)?
+      return _notification_response(consume notification_payload)?
     else
       buffer.skip(message_size)?
       return _UnsupportedMessage
@@ -365,6 +368,20 @@ primitive _ResponseParser
     else
       _CommandCompleteMessage(id, 0)
     end
+
+  fun _notification_response(payload: Array[U8] val)
+    : _NotificationResponseMessage ?
+  =>
+    """
+    Parse a notification response message.
+    """
+    let reader: Reader = Reader.>append(payload)
+    let pid = reader.i32_be()?
+    let channel_bytes = reader.read_until(0)?
+    let channel = String.from_array(consume channel_bytes)
+    let payload_bytes = reader.read_until(0)?
+    let payload' = String.from_array(consume payload_bytes)
+    _NotificationResponseMessage(pid, channel, payload')
 
   fun _parameter_description(payload: Array[U8] val)
     : _ParameterDescriptionMessage ?

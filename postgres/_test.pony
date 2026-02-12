@@ -53,8 +53,8 @@ actor \nodoc\ Main is TestList
     test(_TestResponseParserMultipleMessagesBackendKeyDataFirst)
     test(_TestResponseParserParameterStatusSkipped)
     test(_TestResponseParserNoticeResponseSkipped)
-    test(_TestResponseParserNotificationResponseSkipped)
-    test(_TestResponseParserMultipleMessagesSkippedFirst)
+    test(_TestResponseParserNotificationResponseMessage)
+    test(_TestResponseParserMultipleMessagesAsyncThenAuth)
     test(_TestFrontendMessageParse)
     test(_TestFrontendMessageParseWithTypes)
     test(_TestFrontendMessageBind)
@@ -134,6 +134,9 @@ actor \nodoc\ Main is TestList
     test(_TestTransactionStatusOnAuthentication)
     test(_TestTransactionStatusDuringTransaction)
     test(_TestTransactionStatusOnFailedTransaction)
+    test(_TestNotificationDelivery)
+    test(_TestNotificationDuringDataRows)
+    test(_TestListenNotify)
 
 class \nodoc\ iso _TestAuthenticate is UnitTest
   """

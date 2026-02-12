@@ -64,7 +64,7 @@ This design makes illegal state transitions call `_IllegalState()` (panic) by de
 1. Client calls `session.execute(query, ResultReceiver)` where query is `SimpleQuery`, `PreparedQuery`, or `NamedPreparedQuery`; or `session.prepare(name, sql, PrepareReceiver)` to create a named statement; or `session.close_statement(name)` to destroy one
 2. `_SessionLoggedIn` queues operations as `_QueueItem` — a union of `_QueuedQuery` (execute), `_QueuedPrepare` (prepare), and `_QueuedCloseStatement` (close_statement)
 3. The `_QueryState` sub-state machine manages operation lifecycle:
-   - `_QueryNotReady`: initial state after auth, waiting for server readiness
+   - `_QueryNotReady`: initial state after auth, before the first ReadyForQuery arrives
    - `_QueryReady`: server is idle, `try_run_query` dispatches based on queue item type — `SimpleQuery` transitions to `_SimpleQueryInFlight`, `PreparedQuery` and `NamedPreparedQuery` transition to `_ExtendedQueryInFlight`, `_QueuedPrepare` transitions to `_PrepareInFlight`, `_QueuedCloseStatement` transitions to `_CloseStatementInFlight`
    - `_SimpleQueryInFlight`: owns per-query accumulation data (`_data_rows`, `_row_description`), delivers results on `CommandComplete`
    - `_ExtendedQueryInFlight`: same data accumulation and result delivery as `_SimpleQueryInFlight` (duplicated because Pony traits can't have iso fields). Entered after sending Parse+Bind+Describe(portal)+Execute+Sync (unnamed) or Bind+Describe(portal)+Execute+Sync (named)
@@ -72,7 +72,7 @@ This design makes illegal state transitions call `_IllegalState()` (panic) by de
    - `_CloseStatementInFlight`: handles Close(statement)+Sync cycle. Fire-and-forget (no callback); errors silently absorbed
 4. Response data arrives: `_RowDescriptionMessage` sets column metadata, `_DataRowMessage` accumulates rows
 5. `_CommandCompleteMessage` triggers result delivery to receiver
-6. `_ReadyForQueryMessage` dequeues completed operation, transitions to `_QueryReady` (idle) or `_QueryNotReady` (non-idle)
+6. `_ReadyForQueryMessage` dequeues completed operation, transitions to `_QueryReady`
 
 Only one operation is in-flight at a time. The queue serializes execution. `query_queue`, `query_state`, `backend_pid`, and `backend_secret_key` are non-underscore-prefixed fields on `_SessionLoggedIn` because other types in this package need cross-type access (Pony private fields are type-private).
 
@@ -165,6 +165,7 @@ Tests live in the main `postgres/` package (private test classes), organized acr
 - Prepared query: PreparedQuery/Results, PreparedQuery/NullParam, PreparedQuery/OfNonExistentTable, PreparedQuery/InsertAndDelete, PreparedQuery/MixedWithSimple
 - Named prepared statements: PreparedStatement/Prepare, PreparedStatement/PrepareAndExecute, PreparedStatement/PrepareAndExecuteMultiple, PreparedStatement/PrepareAndClose, PreparedStatement/PrepareFails, PreparedStatement/PrepareAfterClose, PreparedStatement/CloseNonexistent, PreparedStatement/PrepareDuplicateName, PreparedStatement/MixedWithSimpleAndPrepared
 - Cancel integration: Cancel/Query, SSL/Cancel
+- Explicit transaction: Transaction/Commit, Transaction/RollbackAfterFailure
 
 **`_test_response_parser.pony`** — Parser unit tests (`_TestResponseParser*`) + test message builder classes (`_Incoming*TestMessage`) that construct raw protocol bytes for mock servers across all test files.
 

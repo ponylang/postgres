@@ -484,7 +484,7 @@ class _SessionLoggedIn is _AuthenticatedState
     backend_secret_key = msg.secret_key
 
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage) =>
-    query_state.on_ready_for_query(s, this, msg)
+    query_state.on_ready_for_query(s, this)
 
   fun ref on_command_complete(s: Session ref, msg: _CommandCompleteMessage) =>
     query_state.on_command_complete(s, this, msg)
@@ -559,8 +559,7 @@ interface _QueryState
   Callbacks for query-related protocol messages plus an entry point to
   attempt starting the next queued query.
   """
-  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref,
-    msg: _ReadyForQueryMessage)
+  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref)
   fun ref on_command_complete(s: Session ref, li: _SessionLoggedIn ref,
     msg: _CommandCompleteMessage)
   fun ref on_data_row(s: Session ref, li: _SessionLoggedIn ref,
@@ -593,28 +592,21 @@ trait _QueryNoQueryInFlight is _QueryState
 class _QueryNotReady is _QueryNoQueryInFlight
   """
   Server has not yet signaled readiness. This is the initial state after
-  authentication and the state after a non-idle ReadyForQuery (failed
-  transaction).
+  authentication, before the first ReadyForQuery arrives.
   """
-  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref,
-    msg: _ReadyForQueryMessage)
-  =>
-    if msg.idle() then
-      li.query_state = _QueryReady
-      li.query_state.try_run_query(s, li)
-    end
+  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref) =>
+    li.query_state = _QueryReady
+    li.query_state.try_run_query(s, li)
 
 class _QueryReady is _QueryNoQueryInFlight
   """
-  Server is idle and ready to accept a query. If the queue is non-empty,
-  `try_run_query` immediately transitions to an in-flight state.
+  Server has signaled readiness and can accept a query. If the queue is
+  non-empty, `try_run_query` immediately transitions to an in-flight state.
 
   ReadyForQuery while already ready indicates a protocol anomaly — the
   server only sends ReadyForQuery in response to a query cycle or Sync.
   """
-  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref,
-    msg: _ReadyForQueryMessage)
-  =>
+  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref) =>
     li.shutdown(s)
 
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) =>
@@ -728,20 +720,14 @@ class _SimpleQueryInFlight is _QueryState
   =>
     _row_description = msg.columns
 
-  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref,
-    msg: _ReadyForQueryMessage)
-  =>
+  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref) =>
     try
       li.query_queue.shift()?
     else
       _Unreachable()
     end
-    if msg.idle() then
-      li.query_state = _QueryReady
-      li.query_state.try_run_query(s, li)
-    else
-      li.query_state = _QueryNotReady
-    end
+    li.query_state = _QueryReady
+    li.query_state.try_run_query(s, li)
 
   fun ref on_command_complete(s: Session ref, li: _SessionLoggedIn ref,
     msg: _CommandCompleteMessage)
@@ -846,20 +832,14 @@ class _ExtendedQueryInFlight is _QueryState
   =>
     _row_description = msg.columns
 
-  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref,
-    msg: _ReadyForQueryMessage)
-  =>
+  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref) =>
     try
       li.query_queue.shift()?
     else
       _Unreachable()
     end
-    if msg.idle() then
-      li.query_state = _QueryReady
-      li.query_state.try_run_query(s, li)
-    else
-      li.query_state = _QueryNotReady
-    end
+    li.query_state = _QueryReady
+    li.query_state.try_run_query(s, li)
 
   fun ref on_command_complete(s: Session ref, li: _SessionLoggedIn ref,
     msg: _CommandCompleteMessage)
@@ -965,9 +945,7 @@ class _PrepareInFlight is _QueryState
       _Unreachable()
     end
 
-  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref,
-    msg: _ReadyForQueryMessage)
-  =>
+  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref) =>
     if not _error then
       try
         match li.query_queue(0)?
@@ -985,12 +963,8 @@ class _PrepareInFlight is _QueryState
     else
       _Unreachable()
     end
-    if msg.idle() then
-      li.query_state = _QueryReady
-      li.query_state.try_run_query(s, li)
-    else
-      li.query_state = _QueryNotReady
-    end
+    li.query_state = _QueryReady
+    li.query_state.try_run_query(s, li)
 
   fun ref on_data_row(s: Session ref, li: _SessionLoggedIn ref,
     msg: _DataRowMessage)
@@ -1014,20 +988,14 @@ class _CloseStatementInFlight is _QueryState
   """
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
 
-  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref,
-    msg: _ReadyForQueryMessage)
-  =>
+  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref) =>
     try
       li.query_queue.shift()?
     else
       _Unreachable()
     end
-    if msg.idle() then
-      li.query_state = _QueryReady
-      li.query_state.try_run_query(s, li)
-    else
-      li.query_state = _QueryNotReady
-    end
+    li.query_state = _QueryReady
+    li.query_state.try_run_query(s, li)
 
   fun ref on_error_response(s: Session ref, li: _SessionLoggedIn ref,
     msg: ErrorResponseMessage)

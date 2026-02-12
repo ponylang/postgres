@@ -129,6 +129,8 @@ actor \nodoc\ Main is TestList
     test(_TestMD5Authenticate)
     test(_TestMD5AuthenticateFailure)
     test(_TestMD5QueryResults)
+    test(_TestTransactionCommit)
+    test(_TestTransactionRollbackAfterFailure)
 
 class \nodoc\ iso _TestAuthenticate is UnitTest
   """

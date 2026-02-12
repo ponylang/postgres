@@ -12,9 +12,9 @@ actor Main
 
     let client = Client(auth, server_info, env.out)
 
-// This example demonstrates transaction status tracking. It runs a BEGIN /
-// INSERT / COMMIT sequence and prints the transaction status reported by
-// pg_transaction_status at each step.
+// This example demonstrates the pg_transaction_status callback. It sends
+// BEGIN and COMMIT to show the status changing from idle to in-transaction
+// and back.
 actor Client is (SessionStatusNotify & ResultReceiver)
   let _session: Session
   let _out: OutStream
@@ -32,10 +32,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
 
   be pg_session_authenticated(session: Session) =>
     _out.print("Authenticated.")
-    // Drop the table first in case a previous run was interrupted.
-    _phase = 0
-    session.execute(
-      SimpleQuery("DROP TABLE IF EXISTS txn_example"), this)
+    session.execute(SimpleQuery("BEGIN"), this)
 
   be pg_session_authentication_failed(
     s: Session,
@@ -55,39 +52,10 @@ actor Client is (SessionStatusNotify & ResultReceiver)
 
     match _phase
     | 1 =>
-      // Table dropped. Create it.
-      _out.print("Creating table...")
-      _session.execute(
-        SimpleQuery(
-          "CREATE TABLE txn_example (name VARCHAR(50) NOT NULL)"),
-        this)
-    | 2 =>
-      // Table created. Start a transaction.
-      _out.print("Table created. Starting transaction...")
-      _session.execute(SimpleQuery("BEGIN"), this)
-    | 3 =>
-      // BEGIN done. Insert a row inside the transaction.
-      _out.print("Inserting row inside transaction...")
-      _session.execute(
-        SimpleQuery("INSERT INTO txn_example (name) VALUES ('Alice')"), this)
-    | 4 =>
-      // Insert done. Commit.
-      _out.print("Committing transaction...")
+      // BEGIN done. Commit to return to idle.
       _session.execute(SimpleQuery("COMMIT"), this)
-    | 5 =>
-      // Commit done. Verify the row is there.
-      _out.print("Verifying...")
-      _session.execute(
-        SimpleQuery("SELECT name FROM txn_example"), this)
-    | 6 =>
-      // Select done. Print and clean up.
-      match result
-      | let r: ResultSet =>
-        _out.print("Rows after commit: " + r.rows().size().string())
-      end
-      _session.execute(
-        SimpleQuery("DROP TABLE txn_example"), this)
-    | 7 =>
+    | 2 =>
+      // COMMIT done.
       _out.print("Done.")
       close()
     end

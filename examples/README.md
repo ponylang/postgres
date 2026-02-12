@@ -28,4 +28,4 @@ Multi-query workflow mixing `SimpleQuery` and `PreparedQuery`. Creates a table, 
 
 ## transaction-status
 
-Transaction status tracking using `pg_transaction_status`. Runs a `BEGIN` / `INSERT` / `COMMIT` sequence inside an explicit transaction and prints the `TransactionStatus` reported at each step. Shows how `SessionStatusNotify.pg_transaction_status` fires on every `ReadyForQuery` with `TransactionIdle`, `TransactionInBlock`, or `TransactionFailed`.
+Transaction status tracking using `pg_transaction_status`. Sends `BEGIN` and `COMMIT` and prints the `TransactionStatus` reported at each step. Shows how `SessionStatusNotify.pg_transaction_status` fires on every `ReadyForQuery` with `TransactionIdle`, `TransactionInBlock`, or `TransactionFailed`.

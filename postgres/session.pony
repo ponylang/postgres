@@ -1,5 +1,7 @@
 use "buffered"
+use "encode/base64"
 use lori = "lori"
+use "ssl/crypto"
 use "ssl/net"
 
 actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
@@ -282,6 +284,147 @@ class ref _SessionConnected is _AuthenticableState
 
   fun password(): String =>
     _database_connect_info.password
+
+  fun ref readbuf(): Reader =>
+    _readbuf
+
+  fun notify(): SessionStatusNotify =>
+    _notify
+
+class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
+  """
+  Mid-SCRAM-SHA-256 authentication exchange. Has sent the client-first-message
+  and is waiting for the server's SASL challenge and final messages.
+  """
+  let _notify: SessionStatusNotify
+  let _readbuf: Reader
+  let _client_nonce: String
+  let _client_first_bare: String
+  let _password: String
+  var _expected_server_signature: (Array[U8] val | None) = None
+
+  new ref create(notify': SessionStatusNotify, readbuf': Reader,
+    client_nonce': String, client_first_bare': String, password': String)
+  =>
+    _notify = notify'
+    _readbuf = readbuf'
+    _client_nonce = client_nonce'
+    _client_first_bare = client_first_bare'
+    _password = password'
+
+  fun ref on_authentication_ok(s: Session ref) =>
+    s.state = _SessionLoggedIn(notify(), readbuf())
+    notify().pg_session_authenticated(s)
+
+  fun ref on_authentication_failed(s: Session ref,
+    r: AuthenticationFailureReason)
+  =>
+    notify().pg_session_authentication_failed(s, r)
+    shutdown(s)
+
+  fun on_authentication_md5_password(s: Session ref,
+    msg: _AuthenticationMD5PasswordMessage)
+  =>
+    _IllegalState()
+
+  fun ref on_authentication_sasl(s: Session ref,
+    msg: _AuthenticationSASLMessage)
+  =>
+    _IllegalState()
+
+  fun ref on_authentication_sasl_continue(s: Session ref,
+    msg: _AuthenticationSASLContinueMessage)
+  =>
+    // Parse server-first-message: r=<combined_nonce>,s=<base64_salt>,i=<iter>
+    let server_first: String val = String.from_array(msg.data)
+    let parts = server_first.split(",")
+    try
+      var combined_nonce: String val = ""
+      var salt_b64: String val = ""
+      var iterations_str: String val = ""
+
+      for part in (consume parts).values() do
+        if part.at("r=") then
+          let v = part.substring(2)
+          combined_nonce = consume v
+        elseif part.at("s=") then
+          let v = part.substring(2)
+          salt_b64 = consume v
+        elseif part.at("i=") then
+          let v = part.substring(2)
+          iterations_str = consume v
+        end
+      end
+
+      // Validate combined nonce starts with our client nonce
+      if not combined_nonce.at(_client_nonce) then
+        shutdown(s)
+        return
+      end
+
+      let salt = Base64.decode[Array[U8] iso](salt_b64)?
+      let iterations = iterations_str.u32()?
+
+      (let client_proof, let server_signature) =
+        _ScramSha256.compute_proof(_password, consume salt, iterations,
+          _client_first_bare, server_first, combined_nonce)?
+
+      let proof_b64_iso = Base64.encode(client_proof)
+      let proof_b64: String val = consume proof_b64_iso
+      let client_final: String val =
+        _ScramSha256.client_final_message(combined_nonce, proof_b64)
+      let response: Array[U8] val = client_final.array()
+      s._connection().send(_FrontendMessage.sasl_response(response))
+      _expected_server_signature = server_signature
+    else
+      shutdown(s)
+    end
+
+  fun ref on_authentication_sasl_final(s: Session ref,
+    msg: _AuthenticationSASLFinalMessage)
+  =>
+    let server_final: String val = String.from_array(msg.data)
+
+    if server_final.at("e=") then
+      on_authentication_failed(s, InvalidPassword)
+      return
+    end
+
+    if server_final.at("v=") then
+      try
+        let sig_b64_iso = server_final.substring(2)
+        let sig_b64: String val = consume sig_b64_iso
+        let received_sig = Base64.decode[Array[U8] iso](sig_b64)?
+        match _expected_server_signature
+        | let expected: Array[U8] val =>
+          if not ConstantTimeCompare(expected, consume received_sig) then
+            on_authentication_failed(s, ServerVerificationFailed)
+          end
+          // If match, wait for AuthenticationOk(0) which PostgreSQL always
+          // sends after a successful SASLFinal.
+        | None =>
+          shutdown(s)
+        end
+      else
+        shutdown(s)
+      end
+    else
+      shutdown(s)
+    end
+
+  fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
+    r.pg_query_failed(s, q, SessionNotAuthenticated)
+
+  fun ref prepare(s: Session ref, name: String, sql: String,
+    receiver: PrepareReceiver)
+  =>
+    receiver.pg_prepare_failed(s, name, SessionNotAuthenticated)
+
+  fun ref close_statement(s: Session ref, name: String) =>
+    None
+
+  fun ref on_shutdown(s: Session ref) =>
+    _readbuf.clear()
 
   fun ref readbuf(): Reader =>
     _readbuf
@@ -1029,6 +1172,23 @@ interface _SessionState
     Called when a row description is receivedfrom the server.
     """
 
+  fun ref on_authentication_sasl(s: Session ref,
+    msg: _AuthenticationSASLMessage)
+    """
+    Called when the server requests SASL authentication, providing a list of
+    supported mechanisms.
+    """
+  fun ref on_authentication_sasl_continue(s: Session ref,
+    msg: _AuthenticationSASLContinueMessage)
+    """
+    Called when the server sends a SASL challenge (server-first-message).
+    """
+  fun ref on_authentication_sasl_final(s: Session ref,
+    msg: _AuthenticationSASLFinalMessage)
+    """
+    Called when the server sends a SASL completion (server-final-message).
+    """
+
 trait _ConnectableState is _UnconnectedState
   """
   An unopened session that can be connected to a server.
@@ -1170,6 +1330,50 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
     let reply = _FrontendMessage.password(md5_password)
     s._connection().send(reply)
 
+  fun ref on_authentication_sasl(s: Session ref,
+    msg: _AuthenticationSASLMessage)
+  =>
+    // Check if the server supports SCRAM-SHA-256
+    var found = false
+    for mechanism in msg.mechanisms.values() do
+      if mechanism == "SCRAM-SHA-256" then
+        found = true
+        break
+      end
+    end
+    if not found then
+      on_authentication_failed(s, UnsupportedAuthenticationMethod)
+      return
+    end
+
+    // Generate nonce and build client-first-message
+    try
+      let nonce_bytes = RandBytes(24)?
+      let nonce_iso = Base64.encode(nonce_bytes)
+      let nonce: String val = consume nonce_iso
+      let client_first_bare: String val =
+        _ScramSha256.client_first_message_bare(nonce)
+      let client_first: String val =
+        _ScramSha256.client_first_message(nonce)
+      let response: Array[U8] val = client_first.array()
+      s._connection().send(
+        _FrontendMessage.sasl_initial_response("SCRAM-SHA-256", response))
+      s.state = _SessionSCRAMAuthenticating(
+        notify(), readbuf(), nonce, client_first_bare, password())
+    else
+      shutdown(s)
+    end
+
+  fun ref on_authentication_sasl_continue(s: Session ref,
+    msg: _AuthenticationSASLContinueMessage)
+  =>
+    _IllegalState()
+
+  fun ref on_authentication_sasl_final(s: Session ref,
+    msg: _AuthenticationSASLFinalMessage)
+  =>
+    _IllegalState()
+
   fun user(): String
   fun password(): String
   fun ref readbuf(): Reader
@@ -1191,6 +1395,21 @@ trait _NotAuthenticableState
 
   fun on_authentication_md5_password(s: Session ref,
     msg: _AuthenticationMD5PasswordMessage)
+  =>
+    _IllegalState()
+
+  fun ref on_authentication_sasl(s: Session ref,
+    msg: _AuthenticationSASLMessage)
+  =>
+    _IllegalState()
+
+  fun ref on_authentication_sasl_continue(s: Session ref,
+    msg: _AuthenticationSASLContinueMessage)
+  =>
+    _IllegalState()
+
+  fun ref on_authentication_sasl_final(s: Session ref,
+    msg: _AuthenticationSASLFinalMessage)
   =>
     _IllegalState()
 

@@ -14,6 +14,37 @@ primitive _AuthenticationOkMessage
   authenticated.
   """
 
+class val _AuthenticationSASLMessage
+  """
+  Message from the backend that indicates SASL authentication is required.
+  Contains a list of supported SASL mechanism names (e.g., "SCRAM-SHA-256").
+  """
+  let mechanisms: Array[String] val
+
+  new val create(mechanisms': Array[String] val) =>
+    mechanisms = mechanisms'
+
+class val _AuthenticationSASLContinueMessage
+  """
+  Message from the backend containing SASL challenge data (the server-first-
+  message in a SCRAM exchange).
+  """
+  let data: Array[U8] val
+
+  new val create(data': Array[U8] val) =>
+    data = data'
+
+class val _AuthenticationSASLFinalMessage
+  """
+  Message from the backend containing SASL completion data (the server-final-
+  message in a SCRAM exchange). Contains the server's signature for mutual
+  authentication verification.
+  """
+  let data: Array[U8] val
+
+  new val create(data': Array[U8] val) =>
+    data = data'
+
 class val _BackendKeyDataMessage
   """
   Message from the backend containing the process ID and secret key for this

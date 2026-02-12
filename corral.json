@@ -6,6 +6,10 @@
    {
       "locator": "github.com/ponylang/lori.git",
       "version": "0.7.2"
+    },
+    {
+      "locator": "github.com/ponylang/ssl.git",
+      "version": "2.0.0"
     }
   ],
   "info": {

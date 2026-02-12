@@ -9,6 +9,8 @@ RUN openssl req -new -x509 -days 3650 -nodes \
     chmod 600 /var/lib/postgresql/server.key && \
     chown postgres:postgres /var/lib/postgresql/server.crt /var/lib/postgresql/server.key
 
+COPY init-md5-user.sh /docker-entrypoint-initdb.d/
+
 CMD ["postgres", "-c", "ssl=on", \
      "-c", "ssl_cert_file=/var/lib/postgresql/server.crt", \
      "-c", "ssl_key_file=/var/lib/postgresql/server.key"]

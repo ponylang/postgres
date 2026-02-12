@@ -231,6 +231,53 @@ class \nodoc\ iso _TestFrontendMessageCancelRequest is UnitTest
     h.assert_array_eq[U8](expected,
       _FrontendMessage.cancel_request(12345, 67890))
 
+class \nodoc\ iso _TestFrontendMessageSASLInitialResponse is UnitTest
+  fun name(): String =>
+    "FrontendMessage/SASLInitialResponse"
+
+  fun apply(h: TestHelper) =>
+    // SASLInitialResponse("SCRAM-SHA-256", "n,,n=,r=abc")
+    // mechanism = "SCRAM-SHA-256" (13 bytes + null)
+    // response = "n,,n=,r=abc" (11 bytes)
+    // Length = 4 + 13+1 + 4 + 11 = 33, total = 34
+    let response: Array[U8] val = "n,,n=,r=abc".array()
+    let expected: Array[U8] = ifdef bigendian then
+      [ 'p'; 33; 0; 0; 0
+        83; 67; 82; 65; 77; 45; 83; 72; 65; 45; 50; 53; 54; 0  // SCRAM-SHA-256\0
+        11; 0; 0; 0  // response length
+        110; 44; 44; 110; 61; 44; 114; 61; 97; 98; 99 ]  // n,,n=,r=abc
+    else
+      [ 'p'; 0; 0; 0; 33
+        83; 67; 82; 65; 77; 45; 83; 72; 65; 45; 50; 53; 54; 0
+        0; 0; 0; 11
+        110; 44; 44; 110; 61; 44; 114; 61; 97; 98; 99 ]
+    end
+
+    h.assert_array_eq[U8](expected,
+      _FrontendMessage.sasl_initial_response("SCRAM-SHA-256", response))
+
+class \nodoc\ iso _TestFrontendMessageSASLResponse is UnitTest
+  fun name(): String =>
+    "FrontendMessage/SASLResponse"
+
+  fun apply(h: TestHelper) =>
+    // SASLResponse("c=biws,r=abc,p=proof")
+    // response = 20 bytes
+    // Length = 4 + 20 = 24, total = 25
+    let response: Array[U8] val = "c=biws,r=abc,p=proof".array()
+    let expected: Array[U8] = ifdef bigendian then
+      [ 'p'; 24; 0; 0; 0
+        99; 61; 98; 105; 119; 115; 44; 114; 61; 97; 98; 99; 44; 112; 61
+        112; 114; 111; 111; 102 ]
+    else
+      [ 'p'; 0; 0; 0; 24
+        99; 61; 98; 105; 119; 115; 44; 114; 61; 97; 98; 99; 44; 112; 61
+        112; 114; 111; 111; 102 ]
+    end
+
+    h.assert_array_eq[U8](expected,
+      _FrontendMessage.sasl_response(response))
+
 class \nodoc\ iso _TestFrontendMessageTerminate is UnitTest
   fun name(): String =>
     "FrontendMessage/Terminate"

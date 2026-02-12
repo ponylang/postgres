@@ -399,6 +399,71 @@ primitive _FrontendMessage
       []
     end
 
+  fun sasl_initial_response(mechanism: String, response: Array[U8] val)
+    : Array[U8] val
+  =>
+    """
+    Build a SASLInitialResponse message.
+
+    Format: Byte1('p') Int32(len) String(mechanism) Int32(response_length)
+            Byte[](response)
+    """
+    try
+      recover val
+        // 1 type + 4 length + mechanism + null + 4 response_length + response
+        let length: U32 = 4 + mechanism.size().u32() + 1 + 4
+          + response.size().u32()
+        let msg_size = (length + 1).usize()
+        let msg: Array[U8] = Array[U8].init(0, msg_size)
+        msg.update_u8(0, 'p')?
+        ifdef bigendian then
+          msg.update_u32(1, length)?
+        else
+          msg.update_u32(1, length.bswap())?
+        end
+        var offset: USize = 5
+        msg.copy_from(mechanism.array(), 0, offset, mechanism.size())
+        offset = offset + mechanism.size() + 1 // null terminator from init
+        ifdef bigendian then
+          msg.update_u32(offset, response.size().u32())?
+        else
+          msg.update_u32(offset, response.size().u32().bswap())?
+        end
+        offset = offset + 4
+        msg.copy_from(response, 0, offset, response.size())
+        msg
+      end
+    else
+      _Unreachable()
+      []
+    end
+
+  fun sasl_response(response: Array[U8] val): Array[U8] val =>
+    """
+    Build a SASLResponse message.
+
+    Format: Byte1('p') Int32(len) Byte[](response)
+    """
+    try
+      recover val
+        // 1 type + 4 length + response
+        let length: U32 = 4 + response.size().u32()
+        let msg_size = (length + 1).usize()
+        let msg: Array[U8] = Array[U8].init(0, msg_size)
+        msg.update_u8(0, 'p')?
+        ifdef bigendian then
+          msg.update_u32(1, length)?
+        else
+          msg.update_u32(1, length.bswap())?
+        end
+        msg.copy_from(response, 0, 5, response.size())
+        msg
+      end
+    else
+      _Unreachable()
+      []
+    end
+
   fun terminate(): Array[U8] val =>
     """
     Build a Terminate message. Sent before closing the TCP connection to

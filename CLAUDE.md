@@ -167,12 +167,12 @@ Tests live in the main `postgres/` package (private test classes), organized acr
 - Prepared query: PreparedQuery/Results, PreparedQuery/NullParam, PreparedQuery/OfNonExistentTable, PreparedQuery/InsertAndDelete, PreparedQuery/MixedWithSimple
 - Named prepared statements: PreparedStatement/Prepare, PreparedStatement/PrepareAndExecute, PreparedStatement/PrepareAndExecuteMultiple, PreparedStatement/PrepareAndClose, PreparedStatement/PrepareFails, PreparedStatement/PrepareAfterClose, PreparedStatement/CloseNonexistent, PreparedStatement/PrepareDuplicateName, PreparedStatement/MixedWithSimpleAndPrepared
 - Cancel integration: Cancel/Query, SSL/Cancel
-- LISTEN/NOTIFY integration: ListenNotify
 - Explicit transaction: Transaction/Commit, Transaction/RollbackAfterFailure
 
-**`_test_notification.pony`** — LISTEN/NOTIFY unit tests (mock servers):
+**`_test_notification.pony`** — LISTEN/NOTIFY tests (mock servers + integration):
 - `_TestNotificationDelivery` — mock server authenticates, responds to query with CommandComplete + NotificationResponse + ReadyForQuery; verifies `pg_notification` fires with correct channel, payload, and pid
 - `_TestNotificationDuringDataRows` — mock server sends RowDescription + DataRow + NotificationResponse + DataRow + CommandComplete + ReadyForQuery; verifies both query result (2 rows) and notification are delivered
+- `_TestListenNotify` — integration test: full LISTEN/NOTIFY round-trip through a real PostgreSQL server
 
 **`_test_transaction_status.pony`** — Transaction status callback unit tests (mock servers):
 - `_TestTransactionStatusOnAuthentication` — mock server authenticates; verifies `pg_transaction_status` fires with `TransactionIdle` on initial ReadyForQuery

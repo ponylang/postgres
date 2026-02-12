@@ -352,3 +352,106 @@ actor \nodoc\ _NotificationMidQueryTestServer
         _tcp_connection.send(ready)
       end
     end
+
+// Integration test
+
+class \nodoc\ iso _TestListenNotify is UnitTest
+  """
+  Verifies the full LISTEN/NOTIFY path through a real PostgreSQL server.
+  Subscribes to a channel, sends a notification, and verifies the
+  pg_notification callback fires with the correct channel and payload.
+  """
+  fun name(): String =>
+    "integration/ListenNotify"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _ListenNotifyClient(h, info)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _ListenNotifyClient
+  is (SessionStatusNotify & ResultReceiver)
+  let _h: TestHelper
+  let _session: Session
+  var _phase: USize = 0
+  var _got_notification: Bool = false
+  let _channel: String = "test_listen_notify_ch"
+
+  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+    _h = h
+
+    _session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
+
+  be pg_session_authenticated(session: Session) =>
+    _phase = 0
+    session.execute(SimpleQuery("LISTEN " + _channel), this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate")
+    _h.complete(false)
+
+  be pg_query_result(session: Session, result: Result) =>
+    _phase = _phase + 1
+
+    match _phase
+    | 1 =>
+      // LISTEN done, send NOTIFY
+      _session.execute(
+        SimpleQuery("NOTIFY " + _channel + ", 'hello'"), this)
+    | 2 =>
+      // NOTIFY done — notification should have arrived by now
+      // (PostgreSQL delivers pending notifications just before ReadyForQuery)
+      None
+    | 3 =>
+      // UNLISTEN done
+      _h.complete(true)
+    else
+      _h.fail("Unexpected phase " + _phase.string())
+      _h.complete(false)
+    end
+
+  be pg_query_failed(session: Session, query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure at phase " + _phase.string())
+    _h.complete(false)
+
+  be pg_notification(session: Session, notification: Notification) =>
+    _got_notification = true
+    if notification.channel != _channel then
+      _h.fail("Expected channel '" + _channel + "' but got '" +
+        notification.channel + "'")
+      _session.close()
+      _h.complete(false)
+      return
+    end
+    if notification.payload != "hello" then
+      _h.fail("Expected payload 'hello' but got '" +
+        notification.payload + "'")
+      _session.close()
+      _h.complete(false)
+      return
+    end
+
+  be pg_transaction_status(session: Session, status: TransactionStatus) =>
+    // After the NOTIFY result, check that the notification arrived and
+    // clean up
+    if (_phase == 2) and _got_notification then
+      _session.execute(SimpleQuery("UNLISTEN " + _channel), this)
+    elseif (_phase == 2) and not _got_notification then
+      _h.fail("NOTIFY completed but no notification received.")
+      _session.close()
+      _h.complete(false)
+    end
+
+  be dispose() =>
+    _session.close()

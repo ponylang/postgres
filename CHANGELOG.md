@@ -26,6 +26,7 @@ All notable changes to this project will be documented in this file. This projec
 - Add query cancellation support ([PR #89](https://github.com/ponylang/postgres/pull/89))
 - Add SCRAM-SHA-256 authentication support ([PR #94](https://github.com/ponylang/postgres/pull/94))
 - Add transaction status tracking ([PR #106](https://github.com/ponylang/postgres/pull/106))
+- Add LISTEN/NOTIFY support ([PR #108](https://github.com/ponylang/postgres/pull/108))
 
 ### Changed
 

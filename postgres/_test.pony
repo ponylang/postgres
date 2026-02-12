@@ -1242,7 +1242,7 @@ class \nodoc\ iso _TestSSLConnect is UnitTest
 class \nodoc\ iso _TestSSLAuthenticate is UnitTest
   """
   Verifies that connecting with SSLRequired to a PostgreSQL server with SSL
-  enabled allows successful MD5 authentication over the encrypted connection.
+  enabled allows successful authentication over the encrypted connection.
   """
   fun name(): String =>
     "integration/SSL/Authenticate"

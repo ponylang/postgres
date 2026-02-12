@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. This projec
 - Process query cycle messages synchronously to prevent double-delivery ([PR #69](https://github.com/ponylang/postgres/pull/69))
 - Send Terminate message before closing TCP connection ([PR #86](https://github.com/ponylang/postgres/pull/86))
 - Fix unsupported authentication type causing silent hang ([PR #97](https://github.com/ponylang/postgres/pull/97))
+- Fix ReadyForQuery queue stall with explicit transactions ([PR #105](https://github.com/ponylang/postgres/pull/105))
 
 ### Added
 

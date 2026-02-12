@@ -18,11 +18,15 @@ Please note that if this library encounters a state that the programmers thought
 * `use "postgres"` to include this package
 * `corral run -- ponyc` to compile your application
 
-This library has a transitive dependency on [ponylang/net_ssl](https://github.com/ponylang/net_ssl). It requires a C SSL library to be installed. Please see the [net_ssl installation instructions](https://github.com/ponylang/net_ssl?tab=readme-ov-file#installation) for more information.
+This library has a transitive dependency on [ponylang/ssl](https://github.com/ponylang/ssl). It requires a C SSL library to be installed. Please see the [ssl installation instructions](https://github.com/ponylang/ssl?tab=readme-ov-file#installation) for more information.
 
 ## API Documentation
 
 [https://ponylang.github.io/postgres](https://ponylang.github.io/postgres)
+
+## Examples
+
+The [examples](examples/) directory contains self-contained programs demonstrating different parts of the library. See [examples/README.md](examples/README.md) for descriptions.
 
 ## Postgres API Support
 
@@ -30,19 +34,25 @@ This library aims to support the Postgres API to the level required to use Postg
 
 ### Authentication
 
-Only MD5 password authentication is supported. KerberosV5, cleartext, SCM, GSS, SSPI, and SASL authentication methods are not supported.
+MD5 password and SCRAM-SHA-256 authentication are supported. SCRAM-SHA-256 is the default authentication method in PostgreSQL 10 and later.
+
+KerberosV5, cleartext, SCM, GSS, SSPI, SCRAM-SHA-256-PLUS (channel binding), and certificate authentication methods are not supported.
+
+### SSL/TLS
+
+Optional SSL/TLS encryption is supported. Pass `SSLRequired` with an `SSLContext` to `ServerConnectInfo` to enable encrypted connections. If the server refuses SSL negotiation, the connection fails. Plaintext connections are the default.
 
 ### Commands
 
-Basic API commands related to querying are supported at this time. Some functionality that isn't yet supported is:
+Simple queries, parameterized queries (extended query protocol), named prepared statements, and query cancellation are supported.
+
+Some functionality that isn't yet supported is:
 
 * Supplying connection configuration to the server
-* Prepared statements (aka Extended Queries)
 * Pipelining queries
 * Function calls
 * COPY operations
-* Cancelling in progress requests
-* Session encryption
+* LISTEN/NOTIFY
 
 Note the appearance of an item on the above list isn't a guarantee that it will be supported in the future.
 

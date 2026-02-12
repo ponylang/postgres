@@ -154,6 +154,21 @@ class val _ParameterDescriptionMessage
   new val create(param_oids': Array[U32] val) =>
     param_oids = param_oids'
 
+class val _NotificationResponseMessage
+  """
+  Message from the backend delivering a LISTEN/NOTIFY notification.
+  Contains the process ID of the notifying backend, the channel name,
+  and the payload string.
+  """
+  let process_id: I32
+  let channel: String
+  let payload: String
+
+  new val create(process_id': I32, channel': String, payload': String) =>
+    process_id = process_id'
+    channel = channel'
+    payload = payload'
+
 primitive _PortalSuspendedMessage
   """
   Message from the backend indicating that an Execute command has been

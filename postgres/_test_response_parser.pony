@@ -1154,30 +1154,50 @@ class \nodoc\ iso _TestResponseParserNoticeResponseSkipped is UnitTest
       h.fail("Wrong message returned.")
     end
 
-class \nodoc\ iso _TestResponseParserNotificationResponseSkipped is UnitTest
+class \nodoc\ iso _TestResponseParserNotificationResponseMessage is UnitTest
   """
-  Verify that NotificationResponse ('A') messages are parsed as
-  _SkippedMessage.
+  Verify that NotificationResponse ('A') messages are parsed into
+  _NotificationResponseMessage with correct fields.
   """
   fun name(): String =>
-    "ResponseParser/NotificationResponseSkipped"
+    "ResponseParser/NotificationResponseMessage"
 
   fun apply(h: TestHelper) ? =>
+    // Normal case: non-empty channel and payload
     let bytes = _IncomingNotificationResponseTestMessage(
       12345, "test_channel", "test_payload").bytes()
     let r: Reader = Reader.>append(bytes)
 
-    if _ResponseParser(r)? isnt _SkippedMessage then
-      h.fail("Wrong message returned.")
+    match _ResponseParser(r)?
+    | let msg: _NotificationResponseMessage =>
+      h.assert_eq[I32](12345, msg.process_id)
+      h.assert_eq[String]("test_channel", msg.channel)
+      h.assert_eq[String]("test_payload", msg.payload)
+    else
+      h.fail("Wrong message type returned.")
     end
 
-class \nodoc\ iso _TestResponseParserMultipleMessagesSkippedFirst is UnitTest
+    // Edge case: empty payload
+    let bytes2 = _IncomingNotificationResponseTestMessage(
+      42, "ch", "").bytes()
+    let r2: Reader = Reader.>append(bytes2)
+
+    match _ResponseParser(r2)?
+    | let msg: _NotificationResponseMessage =>
+      h.assert_eq[I32](42, msg.process_id)
+      h.assert_eq[String]("ch", msg.channel)
+      h.assert_eq[String]("", msg.payload)
+    else
+      h.fail("Wrong message type for empty payload case.")
+    end
+
+class \nodoc\ iso _TestResponseParserMultipleMessagesAsyncThenAuth is UnitTest
   """
-  Verify correct buffer advancement across all three skipped async message
-  types followed by a known message (AuthenticationOk).
+  Verify correct buffer advancement across async message types (two skipped,
+  one parsed) followed by a known message (AuthenticationOk).
   """
   fun name(): String =>
-    "ResponseParser/MultipleMessages/SkippedFirst"
+    "ResponseParser/MultipleMessages/AsyncThenAuth"
 
   fun apply(h: TestHelper) ? =>
     let r: Reader = Reader
@@ -1197,7 +1217,12 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesSkippedFirst is UnitTest
       h.fail("Wrong message for NoticeResponse.")
     end
 
-    if _ResponseParser(r)? isnt _SkippedMessage then
+    match _ResponseParser(r)?
+    | let msg: _NotificationResponseMessage =>
+      h.assert_eq[I32](42, msg.process_id)
+      h.assert_eq[String]("ch", msg.channel)
+      h.assert_eq[String]("msg", msg.payload)
+    else
       h.fail("Wrong message for NotificationResponse.")
     end
 

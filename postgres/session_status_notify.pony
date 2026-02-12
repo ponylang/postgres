@@ -37,6 +37,14 @@ interface tag SessionStatusNotify
     """
     None
 
+  be pg_notification(session: Session, notification: Notification) =>
+    """
+    Called when the server delivers a LISTEN/NOTIFY notification. Subscribe
+    to notifications by executing LISTEN via Session.execute(). Notifications
+    arrive asynchronously between query cycles.
+    """
+    None
+
   be pg_session_shutdown(session: Session) =>
     """
     Called when a session ends.

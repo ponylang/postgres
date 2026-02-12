@@ -25,6 +25,7 @@ All notable changes to this project will be documented in this file. This projec
 - Add equality comparison for Rows ([PR #85](https://github.com/ponylang/postgres/pull/85))
 - Add query cancellation support ([PR #89](https://github.com/ponylang/postgres/pull/89))
 - Add SCRAM-SHA-256 authentication support ([PR #94](https://github.com/ponylang/postgres/pull/94))
+- Add transaction status tracking ([PR #106](https://github.com/ponylang/postgres/pull/106))
 
 ### Changed
 

@@ -370,3 +370,101 @@ actor \nodoc\ _SSLCancelTestServer
       end
       // After auth, receive query data and hold (don't respond)
     end
+
+// Cancel integration tests
+
+class \nodoc\ iso _TestCancelPgSleep is UnitTest
+  """
+  Verifies that cancelling a long-running query on a real PostgreSQL server
+  produces a query failure with SQLSTATE 57014 (query_canceled).
+  """
+  fun name(): String =>
+    "integration/Cancel/Query"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _CancelPgSleepClient(h)
+
+    let session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      client)
+
+    h.dispose_when_done(session)
+    h.long_test(10_000_000_000)
+
+actor \nodoc\ _CancelPgSleepClient is
+  ( SessionStatusNotify
+  & ResultReceiver )
+  let _h: TestHelper
+  let _query: SimpleQuery
+
+  new create(h: TestHelper) =>
+    _h = h
+    _query = SimpleQuery("SELECT pg_sleep(30)")
+
+  be pg_session_authenticated(session: Session) =>
+    session.execute(_query, this)
+    session.cancel()
+
+  be pg_session_authentication_failed(
+    session: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate.")
+    _h.complete(false)
+
+  be pg_query_result(session: Session, result: Result) =>
+    _h.fail("Expected query to be cancelled, but got a result.")
+    _h.complete(false)
+
+  be pg_query_failed(session: Session, query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    if query isnt _query then
+      _h.fail("Got failure for unexpected query.")
+      _h.complete(false)
+      return
+    end
+
+    match failure
+    | let err: ErrorResponseMessage =>
+      if err.code == "57014" then
+        _h.complete(true)
+      else
+        _h.fail("Expected SQLSTATE 57014 but got " + err.code)
+        _h.complete(false)
+      end
+    | let ce: ClientQueryError =>
+      _h.fail("Expected ErrorResponseMessage but got ClientQueryError.")
+      _h.complete(false)
+    end
+
+class \nodoc\ iso _TestCancelSSLPgSleep is UnitTest
+  """
+  Verifies that cancelling a long-running query on a real PostgreSQL server
+  over an SSL-encrypted connection produces a query failure with SQLSTATE
+  57014 (query_canceled).
+  """
+  fun name(): String =>
+    "integration/SSL/Cancel"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let sslctx = recover val
+      SSLContext
+        .> set_client_verify(false)
+        .> set_server_verify(false)
+    end
+
+    let client = _CancelPgSleepClient(h)
+
+    let session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host, info.ssl_port, SSLRequired(sslctx)),
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      client)
+
+    h.dispose_when_done(session)
+    h.long_test(10_000_000_000)

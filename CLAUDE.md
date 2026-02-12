@@ -384,6 +384,6 @@ examples/prepared-query/prepared-query-example.pony # PreparedQuery with params 
 examples/named-prepared-query/named-prepared-query-example.pony # Named prepared statements with reuse
 examples/crud/crud-example.pony   # Multi-query CRUD workflow
 examples/cancel/cancel-example.pony # Query cancellation with pg_sleep
-examples/transaction/transaction-example.pony # Transaction status tracking with BEGIN/COMMIT
+examples/transaction-status/transaction-status-example.pony # Transaction status tracking with BEGIN/COMMIT
 .ci-dockerfiles/pg-ssl/           # Dockerfile + init scripts for SSL-enabled PostgreSQL CI container (SCRAM-SHA-256 default + MD5 user)
 ```

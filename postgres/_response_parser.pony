@@ -23,11 +23,29 @@ type _ResponseParserResult is
   | _NoDataMessage
   | _ParameterDescriptionMessage
   | _PortalSuspendedMessage
+  | _SkippedMessage
   | _UnsupportedMessage
   | ErrorResponseMessage
   | None )
 
+primitive _SkippedMessage
+  """
+  Returned by the parser for known PostgreSQL asynchronous message types that
+  the driver recognizes but intentionally does not process: ParameterStatus,
+  NoticeResponse, and NotificationResponse. These can arrive between any other
+  messages and are safely ignored.
+
+  Distinct from `_UnsupportedMessage`, which represents truly unknown message
+  types that the parser does not recognize at all.
+  """
+
 primitive _UnsupportedMessage
+  """
+  Returned by the parser for message types that are not recognized. This
+  represents truly unknown messages — not messages the driver intentionally
+  skips (those return `_SkippedMessage`). A future PostgreSQL version could
+  introduce new message types that would hit this path.
+  """
 
 primitive _ResponseParser
   """
@@ -185,6 +203,18 @@ primitive _ResponseParser
       let process_id = buffer.i32_be()?
       let secret_key = buffer.i32_be()?
       return _BackendKeyDataMessage(process_id, secret_key)
+    | _MessageType.parameter_status() =>
+      // Known async message — skip payload without parsing
+      buffer.skip(message_size)?
+      return _SkippedMessage
+    | _MessageType.notice_response() =>
+      // Known async message — skip payload without parsing
+      buffer.skip(message_size)?
+      return _SkippedMessage
+    | _MessageType.notification_response() =>
+      // Known async message — skip payload without parsing
+      buffer.skip(message_size)?
+      return _SkippedMessage
     else
       buffer.skip(message_size)?
       return _UnsupportedMessage

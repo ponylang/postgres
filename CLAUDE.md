@@ -87,7 +87,7 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 - `_ResponseParser` primitive: incremental parser consuming from a `Reader` buffer. Returns one parsed message per call, `None` if incomplete, errors on junk.
 - `_ResponseMessageParser` primitive: routes parsed messages to the current session state's callbacks. Processes messages synchronously within a query cycle (looping until `ReadyForQuery` or buffer exhaustion), then yields via `s._process_again()` between cycles. This prevents behaviors like `close()` from interleaving between result delivery and query dequeuing. If a callback triggers shutdown during the loop, `on_shutdown` clears the read buffer, causing the next parse to return `None` and exit the loop.
 
-**Supported message types:** AuthenticationOk, AuthenticationMD5Password, AuthenticationSASL, AuthenticationSASLContinue, AuthenticationSASLFinal, BackendKeyData, CommandComplete, DataRow, EmptyQueryResponse, ErrorResponse, ReadyForQuery, RowDescription, ParseComplete, BindComplete, NoData, CloseComplete, ParameterDescription, PortalSuspended. BackendKeyData is parsed and stored in `_SessionLoggedIn` (`backend_pid`, `backend_secret_key`) for future query cancellation. Extended query acknowledgment messages (ParseComplete, BindComplete, NoData, etc.) are parsed but silently consumed — they fall through the `_ResponseMessageParser` match without routing since the state machine tracks query lifecycle through data-carrying messages only.
+**Supported message types:** AuthenticationOk, AuthenticationMD5Password, AuthenticationSASL, AuthenticationSASLContinue, AuthenticationSASLFinal, BackendKeyData, CommandComplete, DataRow, EmptyQueryResponse, ErrorResponse, ReadyForQuery, RowDescription, ParseComplete, BindComplete, NoData, CloseComplete, ParameterDescription, PortalSuspended. BackendKeyData is parsed and stored in `_SessionLoggedIn` (`backend_pid`, `backend_secret_key`) for future query cancellation. Extended query acknowledgment messages (ParseComplete, BindComplete, NoData, etc.) are parsed but silently consumed — they fall through the `_ResponseMessageParser` match without routing since the state machine tracks query lifecycle through data-carrying messages only. **Skipped async message types:** ParameterStatus (`'S'`), NoticeResponse (`'N'`), NotificationResponse (`'A'`) — explicitly matched in the parser and returned as `_SkippedMessage`, then ignored by `_ResponseMessageParser`. These are distinct from `_UnsupportedMessage`, which represents truly unknown message types.
 
 ### Public API Types
 
@@ -151,6 +151,10 @@ Tests live in the main `postgres/` package (private test classes).
 - `_TestSCRAMServerVerificationFailed` — mock server sends wrong signature in SASLFinal; verifies `pg_session_authentication_failed` with `ServerVerificationFailed`
 - `_TestSCRAMErrorDuringAuth` — mock server sends ErrorResponse 28P01 during SCRAM exchange; verifies `pg_session_authentication_failed` with `InvalidPassword`
 - `_TestUnsupportedAuthentication` — mock server sends unsupported auth type (cleartext password); verifies `pg_session_authentication_failed` with `UnsupportedAuthenticationMethod`
+- `_TestResponseParserParameterStatusSkipped` — verify ParameterStatus ('S') returns `_SkippedMessage`
+- `_TestResponseParserNoticeResponseSkipped` — verify NoticeResponse ('N') returns `_SkippedMessage`
+- `_TestResponseParserNotificationResponseSkipped` — verify NotificationResponse ('A') returns `_SkippedMessage`
+- `_TestResponseParserMultipleMessagesSkippedFirst` — chain all three skipped types + AuthenticationOk to verify buffer advancement
 - `_TestField*Equality*` / `_TestFieldInequality` — example-based reflexive, structural, symmetric equality and inequality tests for Field
 - `_TestRowEquality` / `_TestRowInequality` — example-based equality and inequality tests for Row
 - `_TestRowsEquality` / `_TestRowsInequality` — example-based equality and inequality tests for Rows

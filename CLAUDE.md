@@ -150,6 +150,7 @@ Tests live in the main `postgres/` package (private test classes).
 - `_TestSCRAMUnsupportedMechanism` — mock server offers only unsupported SASL mechanisms; verifies `pg_session_authentication_failed` with `UnsupportedAuthenticationMethod`
 - `_TestSCRAMServerVerificationFailed` — mock server sends wrong signature in SASLFinal; verifies `pg_session_authentication_failed` with `ServerVerificationFailed`
 - `_TestSCRAMErrorDuringAuth` — mock server sends ErrorResponse 28P01 during SCRAM exchange; verifies `pg_session_authentication_failed` with `InvalidPassword`
+- `_TestUnsupportedAuthentication` — mock server sends unsupported auth type (cleartext password); verifies `pg_session_authentication_failed` with `UnsupportedAuthenticationMethod`
 - `_TestField*Equality*` / `_TestFieldInequality` — example-based reflexive, structural, symmetric equality and inequality tests for Field
 - `_TestRowEquality` / `_TestRowInequality` — example-based equality and inequality tests for Row
 - `_TestRowsEquality` / `_TestRowsInequality` — example-based equality and inequality tests for Rows

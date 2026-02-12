@@ -45,6 +45,12 @@ class val _AuthenticationSASLFinalMessage
   new val create(data': Array[U8] val) =>
     data = data'
 
+primitive _UnsupportedAuthenticationMessage
+  """
+  Message indicating the server requested an authentication method that this
+  driver does not support (e.g., cleartext password, Kerberos, GSSAPI).
+  """
+
 class val _BackendKeyDataMessage
   """
   Message from the backend containing the process ID and secret key for this

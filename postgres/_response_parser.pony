@@ -6,7 +6,8 @@ type _AuthenticationMessages is
   | _AuthenticationMD5PasswordMessage
   | _AuthenticationSASLMessage
   | _AuthenticationSASLContinueMessage
-  | _AuthenticationSASLFinalMessage )
+  | _AuthenticationSASLFinalMessage
+  | _UnsupportedAuthenticationMessage )
 
 type _ResponseParserResult is
   ( _AuthenticationMessages
@@ -120,7 +121,7 @@ primitive _ResponseParser
         return _AuthenticationSASLFinalMessage(consume data)
       else
         buffer.skip(message_size)?
-        return _UnsupportedMessage
+        return _UnsupportedAuthenticationMessage
       end
     | _MessageType.error_response() =>
       // Slide past the header...

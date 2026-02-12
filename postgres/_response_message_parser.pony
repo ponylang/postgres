@@ -24,6 +24,9 @@ primitive _ResponseMessageParser
           s.state.on_authentication_sasl_continue(s, msg)
         | let msg: _AuthenticationSASLFinalMessage =>
           s.state.on_authentication_sasl_final(s, msg)
+        | _UnsupportedAuthenticationMessage =>
+          s.state.on_authentication_failed(s, UnsupportedAuthenticationMethod)
+          return
         | let msg: _CommandCompleteMessage =>
           s.state.on_command_complete(s, msg)
         | let msg: _DataRowMessage =>

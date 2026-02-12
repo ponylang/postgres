@@ -115,6 +115,7 @@ actor \nodoc\ Main is TestList
     test(_TestResponseParserAuthenticationSASLMessage)
     test(_TestResponseParserAuthenticationSASLContinueMessage)
     test(_TestResponseParserAuthenticationSASLFinalMessage)
+    test(_TestResponseParserUnsupportedAuthenticationMessage)
     test(_TestResponseParserMultipleMessagesSASLFirst)
     test(_TestFrontendMessageSASLInitialResponse)
     test(_TestFrontendMessageSASLResponse)
@@ -124,6 +125,7 @@ actor \nodoc\ Main is TestList
     test(_TestSCRAMUnsupportedMechanism)
     test(_TestSCRAMServerVerificationFailed)
     test(_TestSCRAMErrorDuringAuth)
+    test(_TestUnsupportedAuthentication)
     test(_TestMD5Authenticate)
     test(_TestMD5AuthenticateFailure)
     test(_TestMD5QueryResults)
@@ -1779,6 +1781,84 @@ class \nodoc\ iso _TestSCRAMErrorDuringAuth is UnitTest
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
+
+class \nodoc\ iso _TestUnsupportedAuthentication is UnitTest
+  """
+  Verifies that when the server requests an unsupported authentication type
+  (e.g., cleartext password), the session fires pg_session_authentication_failed
+  with UnsupportedAuthenticationMethod.
+  """
+  fun name(): String =>
+    "UnsupportedAuthentication"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "7682"
+
+    let listener = _UnsupportedAuthenticationTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _UnsupportedAuthenticationTestListener is lori.TCPListenerActor
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _h: TestHelper
+  let _host: String
+  let _port: String
+
+  new create(listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper)
+  =>
+    _host = host
+    _port = port
+    _h = h
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): _UnsupportedAuthenticationTestServer =>
+    _UnsupportedAuthenticationTestServer(_server_auth, fd)
+
+  fun ref _on_listening() =>
+    Session(
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _SCRAMFailureTestNotify(_h, UnsupportedAuthenticationMethod))
+
+  fun ref _on_listen_failure() =>
+    _h.fail("Unable to listen")
+    _h.complete(false)
+
+actor \nodoc\ _UnsupportedAuthenticationTestServer
+  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  """
+  Mock server that sends a cleartext password authentication request (type 3),
+  which the driver does not support.
+  """
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _received: Bool = false
+
+  new create(auth: lori.TCPServerAuth, fd: U32) =>
+    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
+
+  fun ref _on_received(data: Array[U8] iso) =>
+    if not _received then
+      _received = true
+      let msg = _IncomingUnsupportedAuthenticationTestMessage(3).bytes()
+      _tcp_connection.send(msg)
+    end
 
 actor \nodoc\ _SCRAMSuccessTestNotify is SessionStatusNotify
   let _h: TestHelper

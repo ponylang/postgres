@@ -27,6 +27,10 @@ Managed via `corral`.
 - `changelog - added`, `changelog - changed`, `changelog - fixed` — **PR-only labels**. CI uses these to auto-generate CHANGELOG entries on merge. Never apply to issues.
 - `bug`, `help wanted`, `good first issue`, `documentation`, etc. — issue classification labels.
 
+## Package Docstring
+
+`postgres/postgres.pony` is the package-level docstring — the entry point users see in generated API documentation. When adding major new features, update it to guide users toward the new API. Not everything needs coverage, but significant user-facing capabilities (new query types, new session methods, new receiver interfaces) should be represented with a brief description and code example.
+
 ## Architecture
 
 ### Session State Machine

@@ -27,6 +27,7 @@ All notable changes to this project will be documented in this file. This projec
 - Add SCRAM-SHA-256 authentication support ([PR #94](https://github.com/ponylang/postgres/pull/94))
 - Add transaction status tracking ([PR #106](https://github.com/ponylang/postgres/pull/106))
 - Add LISTEN/NOTIFY support ([PR #108](https://github.com/ponylang/postgres/pull/108))
+- Add COPY IN support ([PR #112](https://github.com/ponylang/postgres/pull/112))
 
 ### Changed
 

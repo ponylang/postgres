@@ -137,6 +137,17 @@ actor \nodoc\ Main is TestList
     test(_TestNotificationDelivery)
     test(_TestNotificationDuringDataRows)
     test(_TestListenNotify)
+    test(_TestResponseParserCopyInResponseMessage)
+    test(_TestFrontendMessageCopyData)
+    test(_TestFrontendMessageCopyDone)
+    test(_TestFrontendMessageCopyFail)
+    test(_TestCopyInSuccess)
+    test(_TestCopyInAbort)
+    test(_TestCopyInServerError)
+    test(_TestCopyInShutdownDrainsCopyQueue)
+    test(_TestCopyInAfterSessionClosed)
+    test(_TestCopyInInsert)
+    test(_TestCopyInAbortRollback)
 
 class \nodoc\ iso _TestAuthenticate is UnitTest
   """

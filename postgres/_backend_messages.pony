@@ -169,6 +169,18 @@ class val _NotificationResponseMessage
     channel = channel'
     payload = payload'
 
+class val _CopyInResponseMessage
+  """
+  Message from the backend indicating it is ready to receive COPY data.
+  Contains the overall format (0=text, 1=binary) and per-column format codes.
+  """
+  let format: U8
+  let column_formats: Array[U8] val
+
+  new val create(format': U8, column_formats': Array[U8] val) =>
+    format = format'
+    column_formats = column_formats'
+
 primitive _PortalSuspendedMessage
   """
   Message from the backend indicating that an Execute command has been

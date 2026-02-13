@@ -37,5 +37,8 @@ primitive _MessageType
   fun parameter_status(): U8 =>
     'S'
 
+  fun copy_in_response(): U8 =>
+    'G'
+
   fun row_description(): U8 =>
     'T'

@@ -61,15 +61,16 @@ This design makes illegal state transitions call `_IllegalState()` (panic) by de
 
 ### Query Execution Flow
 
-1. Client calls `session.execute(query, ResultReceiver)` where query is `SimpleQuery`, `PreparedQuery`, or `NamedPreparedQuery`; or `session.prepare(name, sql, PrepareReceiver)` to create a named statement; or `session.close_statement(name)` to destroy one
-2. `_SessionLoggedIn` queues operations as `_QueueItem` — a union of `_QueuedQuery` (execute), `_QueuedPrepare` (prepare), and `_QueuedCloseStatement` (close_statement)
+1. Client calls `session.execute(query, ResultReceiver)` where query is `SimpleQuery`, `PreparedQuery`, or `NamedPreparedQuery`; or `session.prepare(name, sql, PrepareReceiver)` to create a named statement; or `session.close_statement(name)` to destroy one; or `session.copy_in(sql, CopyInReceiver)` to start a COPY FROM STDIN operation
+2. `_SessionLoggedIn` queues operations as `_QueueItem` — a union of `_QueuedQuery` (execute), `_QueuedPrepare` (prepare), `_QueuedCloseStatement` (close_statement), and `_QueuedCopyIn` (copy_in)
 3. The `_QueryState` sub-state machine manages operation lifecycle:
    - `_QueryNotReady`: initial state after auth, before the first ReadyForQuery arrives
-   - `_QueryReady`: server is idle, `try_run_query` dispatches based on queue item type — `SimpleQuery` transitions to `_SimpleQueryInFlight`, `PreparedQuery` and `NamedPreparedQuery` transition to `_ExtendedQueryInFlight`, `_QueuedPrepare` transitions to `_PrepareInFlight`, `_QueuedCloseStatement` transitions to `_CloseStatementInFlight`
+   - `_QueryReady`: server is idle, `try_run_query` dispatches based on queue item type — `SimpleQuery` transitions to `_SimpleQueryInFlight`, `PreparedQuery` and `NamedPreparedQuery` transition to `_ExtendedQueryInFlight`, `_QueuedPrepare` transitions to `_PrepareInFlight`, `_QueuedCloseStatement` transitions to `_CloseStatementInFlight`, `_QueuedCopyIn` transitions to `_CopyInInFlight`
    - `_SimpleQueryInFlight`: owns per-query accumulation data (`_data_rows`, `_row_description`), delivers results on `CommandComplete`
    - `_ExtendedQueryInFlight`: same data accumulation and result delivery as `_SimpleQueryInFlight` (duplicated because Pony traits can't have iso fields). Entered after sending Parse+Bind+Describe(portal)+Execute+Sync (unnamed) or Bind+Describe(portal)+Execute+Sync (named)
    - `_PrepareInFlight`: handles Parse+Describe(statement)+Sync cycle. Notifies `PrepareReceiver` on success/failure via `ReadyForQuery`
    - `_CloseStatementInFlight`: handles Close(statement)+Sync cycle. Fire-and-forget (no callback); errors silently absorbed
+   - `_CopyInInFlight`: handles COPY FROM STDIN data transfer. Sends the COPY query via simple query protocol, receives `CopyInResponse`, then uses pull-based flow: calls `pg_copy_ready` on the `CopyInReceiver` to request data. Client calls `send_copy_data` (sends CopyData + pulls again), `finish_copy` (sends CopyDone), or `abort_copy` (sends CopyFail). Server responds with CommandComplete+ReadyForQuery on success, or ErrorResponse+ReadyForQuery on failure
 4. Response data arrives: `_RowDescriptionMessage` sets column metadata, `_DataRowMessage` accumulates rows
 5. `_CommandCompleteMessage` triggers result delivery to receiver
 6. `_ReadyForQueryMessage` dequeues completed operation, transitions to `_QueryReady`
@@ -81,13 +82,13 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 ### Protocol Layer
 
 **Frontend (client → server):**
-- `_FrontendMessage` primitive: `startup()`, `password()`, `query()`, `parse()`, `bind()`, `describe_portal()`, `describe_statement()`, `execute_msg()`, `close_statement()`, `sync()`, `ssl_request()`, `cancel_request()`, `terminate()`, `sasl_initial_response()`, `sasl_response()` — builds raw byte arrays with big-endian wire format
+- `_FrontendMessage` primitive: `startup()`, `password()`, `query()`, `parse()`, `bind()`, `describe_portal()`, `describe_statement()`, `execute_msg()`, `close_statement()`, `sync()`, `ssl_request()`, `cancel_request()`, `terminate()`, `sasl_initial_response()`, `sasl_response()`, `copy_data()`, `copy_done()`, `copy_fail()` — builds raw byte arrays with big-endian wire format
 
 **Backend (server → client):**
 - `_ResponseParser` primitive: incremental parser consuming from a `Reader` buffer. Returns one parsed message per call, `None` if incomplete, errors on junk.
 - `_ResponseMessageParser` primitive: routes parsed messages to the current session state's callbacks. Processes messages synchronously within a query cycle (looping until `ReadyForQuery` or buffer exhaustion), then yields via `s._process_again()` between cycles. This prevents behaviors like `close()` from interleaving between result delivery and query dequeuing. If a callback triggers shutdown during the loop, `on_shutdown` clears the read buffer, causing the next parse to return `None` and exit the loop.
 
-**Supported message types:** AuthenticationOk, AuthenticationMD5Password, AuthenticationSASL, AuthenticationSASLContinue, AuthenticationSASLFinal, BackendKeyData, CommandComplete, DataRow, EmptyQueryResponse, ErrorResponse, NotificationResponse, ReadyForQuery, RowDescription, ParseComplete, BindComplete, NoData, CloseComplete, ParameterDescription, PortalSuspended. BackendKeyData is parsed and stored in `_SessionLoggedIn` (`backend_pid`, `backend_secret_key`) for future query cancellation. NotificationResponse is parsed into `_NotificationResponseMessage` and routed to `_SessionLoggedIn.on_notification()`, which delivers `pg_notification` to `SessionStatusNotify`. Extended query acknowledgment messages (ParseComplete, BindComplete, NoData, etc.) are parsed but silently consumed — they fall through the `_ResponseMessageParser` match without routing since the state machine tracks query lifecycle through data-carrying messages only. **Skipped async message types:** ParameterStatus (`'S'`), NoticeResponse (`'N'`) — explicitly matched in the parser and returned as `_SkippedMessage`, then ignored by `_ResponseMessageParser`. These are distinct from `_UnsupportedMessage`, which represents truly unknown message types.
+**Supported message types:** AuthenticationOk, AuthenticationMD5Password, AuthenticationSASL, AuthenticationSASLContinue, AuthenticationSASLFinal, BackendKeyData, CommandComplete, CopyInResponse, DataRow, EmptyQueryResponse, ErrorResponse, NotificationResponse, ReadyForQuery, RowDescription, ParseComplete, BindComplete, NoData, CloseComplete, ParameterDescription, PortalSuspended. BackendKeyData is parsed and stored in `_SessionLoggedIn` (`backend_pid`, `backend_secret_key`) for future query cancellation. NotificationResponse is parsed into `_NotificationResponseMessage` and routed to `_SessionLoggedIn.on_notification()`, which delivers `pg_notification` to `SessionStatusNotify`. Extended query acknowledgment messages (ParseComplete, BindComplete, NoData, etc.) are parsed but silently consumed — they fall through the `_ResponseMessageParser` match without routing since the state machine tracks query lifecycle through data-carrying messages only. **Skipped async message types:** ParameterStatus (`'S'`), NoticeResponse (`'N'`) — explicitly matched in the parser and returned as `_SkippedMessage`, then ignored by `_ResponseMessageParser`. These are distinct from `_UnsupportedMessage`, which represents truly unknown message types.
 
 ### Public API Types
 
@@ -103,6 +104,7 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 - `SessionStatusNotify` interface (tag) — lifecycle callbacks (connected, connection_failed, authenticated, authentication_failed, transaction_status, notification, shutdown)
 - `ResultReceiver` interface (tag) — `pg_query_result(Session, Result)`, `pg_query_failed(Session, Query, (ErrorResponseMessage | ClientQueryError))`
 - `PrepareReceiver` interface (tag) — `pg_statement_prepared(Session, name)`, `pg_prepare_failed(Session, name, (ErrorResponseMessage | ClientQueryError))`
+- `CopyInReceiver` interface (tag) — `pg_copy_ready(Session)`, `pg_copy_complete(Session, count)`, `pg_copy_failed(Session, (ErrorResponseMessage | ClientQueryError))`. Pull-based: session calls `pg_copy_ready` after `copy_in` and after each `send_copy_data`, letting the client control data flow
 - `ClientQueryError` trait — `SessionNeverOpened`, `SessionClosed`, `SessionNotAuthenticated`, `DataError`
 - `DatabaseConnectInfo` — val class grouping database authentication parameters (user, password, database). Passed to `Session.create()` alongside `ServerConnectInfo`.
 - `ServerConnectInfo` — val class grouping connection parameters (auth, host, service, ssl_mode). Passed to `Session.create()` as the first parameter. Also used by `_CancelSender`.
@@ -167,6 +169,7 @@ Tests live in the main `postgres/` package (private test classes), organized acr
 - Simple query: Query/Results, Query/AfterAuthenticationFailure, Query/AfterConnectionFailure, Query/AfterSessionHasBeenClosed, Query/OfNonExistentTable, Query/CreateAndDropTable, Query/InsertAndDelete, Query/EmptyQuery, ZeroRowSelect, MultiStatementMixedResults
 - Prepared query: PreparedQuery/Results, PreparedQuery/NullParam, PreparedQuery/OfNonExistentTable, PreparedQuery/InsertAndDelete, PreparedQuery/MixedWithSimple
 - Named prepared statements: PreparedStatement/Prepare, PreparedStatement/PrepareAndExecute, PreparedStatement/PrepareAndExecuteMultiple, PreparedStatement/PrepareAndClose, PreparedStatement/PrepareFails, PreparedStatement/PrepareAfterClose, PreparedStatement/CloseNonexistent, PreparedStatement/PrepareDuplicateName, PreparedStatement/MixedWithSimpleAndPrepared
+- COPY IN: CopyIn/Insert, CopyIn/AbortRollback
 
 **`_test_notification.pony`** — LISTEN/NOTIFY tests (mock servers + integration):
 - `_TestNotificationDelivery` — mock server authenticates, responds to query with CommandComplete + NotificationResponse + ReadyForQuery; verifies `pg_notification` fires with correct channel, payload, and pid
@@ -179,6 +182,13 @@ Tests live in the main `postgres/` package (private test classes), organized acr
 - `_TestTransactionStatusOnFailedTransaction` — mock server tracks BEGIN/error/ROLLBACK; verifies status sequence idle→in-block→failed→idle
 - Explicit transaction integration tests: Transaction/Commit, Transaction/RollbackAfterFailure
 
+**`_test_copy_in.pony`** — COPY IN tests (mock servers + integration):
+- `_TestCopyInSuccess` — mock server authenticates, responds with CopyInResponse, accepts CopyData messages and CopyDone, responds with CommandComplete("COPY 2") + ReadyForQuery; verifies pull-based flow and `pg_copy_complete(2)`
+- `_TestCopyInAbort` — mock server authenticates, responds with CopyInResponse; client sends CopyFail in `pg_copy_ready`; server responds with ErrorResponse + ReadyForQuery; verifies `pg_copy_failed` with `ErrorResponseMessage`
+- `_TestCopyInServerError` — mock server responds to CopyData with ErrorResponse + ReadyForQuery; verifies `pg_copy_failed` and session remains usable (follow-up query succeeds)
+- `_TestCopyInShutdownDrainsCopyQueue` — uses `_DoesntAnswerTestServer` that authenticates but never becomes ready; verifies pending `copy_in` calls receive `pg_copy_failed(SessionClosed)` on shutdown
+- `_TestCopyInAfterSessionClosed` — integration test: connect, authenticate, close, call `copy_in`; verifies `pg_copy_failed(SessionClosed)`
+
 **`_test_response_parser.pony`** — Parser unit tests (`_TestResponseParser*`) + test message builder classes (`_Incoming*TestMessage`) that construct raw protocol bytes for mock servers across all test files. `_TestResponseParserNotificationResponseMessage` verifies parsing into `_NotificationResponseMessage` with correct fields (including empty-payload edge case). `_TestResponseParserMultipleMessagesAsyncThenAuth` verifies buffer advancement across async message types (two skipped, one parsed notification) followed by AuthenticationOk.
 
 **`_test_frontend_message.pony`** — Frontend message unit tests (`_TestFrontendMessage*`).
@@ -187,7 +197,7 @@ Tests live in the main `postgres/` package (private test classes), organized acr
 
 **`_test_scram.pony`** — SCRAM-SHA-256 computation unit tests (`_TestScramSha256MessageBuilders`, `_TestScramSha256ComputeProof`).
 
-Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Several test message builder classes (`_Incoming*TestMessage`) construct raw protocol bytes for unit tests. Mock server tests use ports in the 7669–7687 range and 9667–9668. **Port 7680 is reserved by Windows** (Update Delivery Optimization) and will fail to bind on WSL2 — do not use it.
+Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Several test message builder classes (`_Incoming*TestMessage`) construct raw protocol bytes for unit tests. Mock server tests use ports in the 7669–7691 range and 9667–9668. **Port 7680 is reserved by Windows** (Update Delivery Optimization) and will fail to bind on WSL2 — do not use it.
 
 ## Known Issues and TODOs in Code
 
@@ -195,7 +205,7 @@ Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Sever
 
 ## Roadmap
 
-**SSL/TLS negotiation** is implemented. Pass `SSLRequired(sslctx)` to `Session.create()` to enable. Design: [discussion #76](https://github.com/ponylang/postgres/discussions/76). **SCRAM-SHA-256 authentication** is implemented. It is the default PostgreSQL auth method since version 10. Design: [discussion #83](https://github.com/ponylang/postgres/discussions/83). **Transaction status tracking** is implemented. The `pg_transaction_status` callback on `SessionStatusNotify` fires on every `ReadyForQuery` with `TransactionIdle`, `TransactionInBlock`, or `TransactionFailed`. Design: [discussion #102](https://github.com/ponylang/postgres/discussions/102). **LISTEN/NOTIFY** is implemented. Notifications are parsed from `NotificationResponse` messages and delivered via `pg_notification` callback on `SessionStatusNotify`. Design: [discussion #103](https://github.com/ponylang/postgres/discussions/103). Full feature roadmap: [discussion #72](https://github.com/ponylang/postgres/discussions/72). CI uses stock `postgres:14.5` for the non-SSL container (no md5user, SCRAM-SHA-256 default) and `ghcr.io/ponylang/postgres-ci-pg-ssl:latest` for the SSL container (SSL + md5user init script for backward-compat tests); built via `build-ci-image.yml` workflow dispatch or locally via `.ci-dockerfiles/pg-ssl/build-and-push.bash`. MD5 integration tests connect to the SSL container (without using SSL) because only that container has the md5user.
+**SSL/TLS negotiation** is implemented. Pass `SSLRequired(sslctx)` to `Session.create()` to enable. Design: [discussion #76](https://github.com/ponylang/postgres/discussions/76). **SCRAM-SHA-256 authentication** is implemented. It is the default PostgreSQL auth method since version 10. Design: [discussion #83](https://github.com/ponylang/postgres/discussions/83). **Transaction status tracking** is implemented. The `pg_transaction_status` callback on `SessionStatusNotify` fires on every `ReadyForQuery` with `TransactionIdle`, `TransactionInBlock`, or `TransactionFailed`. Design: [discussion #102](https://github.com/ponylang/postgres/discussions/102). **LISTEN/NOTIFY** is implemented. Notifications are parsed from `NotificationResponse` messages and delivered via `pg_notification` callback on `SessionStatusNotify`. Design: [discussion #103](https://github.com/ponylang/postgres/discussions/103). **COPY FROM STDIN** is implemented. `Session.copy_in()` initiates bulk data loading with a pull-based `CopyInReceiver` interface. The session calls `pg_copy_ready` after each `send_copy_data`, giving the client O(1) bounded memory flow control. Design: [discussion #104](https://github.com/ponylang/postgres/discussions/104). Full feature roadmap: [discussion #72](https://github.com/ponylang/postgres/discussions/72). CI uses stock `postgres:14.5` for the non-SSL container (no md5user, SCRAM-SHA-256 default) and `ghcr.io/ponylang/postgres-ci-pg-ssl:latest` for the SSL container (SSL + md5user init script for backward-compat tests); built via `build-ci-image.yml` workflow dispatch or locally via `.ci-dockerfiles/pg-ssl/build-and-push.bash`. MD5 integration tests connect to the SSL container (without using SSL) because only that container has the md5user.
 
 ## Supported PostgreSQL Features
 
@@ -203,7 +213,7 @@ Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Sever
 
 **Authentication:** MD5 password and SCRAM-SHA-256. No SCRAM-SHA-256-PLUS (channel binding), Kerberos, GSS, or certificate auth. Design: [discussion #83](https://github.com/ponylang/postgres/discussions/83).
 
-**Protocol:** Simple query protocol and extended query protocol (parameterized queries via unnamed and named prepared statements). Parameters are text-format only; type OIDs are inferred by the server. LISTEN/NOTIFY notifications are delivered via `pg_notification` callback. No COPY or function calls.
+**Protocol:** Simple query protocol and extended query protocol (parameterized queries via unnamed and named prepared statements). Parameters are text-format only; type OIDs are inferred by the server. LISTEN/NOTIFY notifications are delivered via `pg_notification` callback. COPY FROM STDIN (bulk data loading) via `Session.copy_in()` with pull-based `CopyInReceiver` flow. No COPY TO STDOUT or function calls. Design: [discussion #104](https://github.com/ponylang/postgres/discussions/104).
 
 ## PostgreSQL Wire Protocol Reference
 
@@ -331,14 +341,14 @@ Can arrive between any other messages (must always handle):
 
 ### Complete Message Type Bytes
 
-**Frontend**: `Q`=Query, `P`=Parse, `B`=Bind, `D`=Describe, `E`=Execute, `C`=Close, `S`=Sync, `H`=Flush, `X`=Terminate, `p`=PasswordMessage/SASLInitialResponse/SASLResponse
+**Frontend**: `Q`=Query, `P`=Parse, `B`=Bind, `D`=Describe, `E`=Execute, `C`=Close, `S`=Sync, `H`=Flush, `X`=Terminate, `p`=PasswordMessage/SASLInitialResponse/SASLResponse, `d`=CopyData, `c`=CopyDone, `f`=CopyFail
 
-**Backend**: `R`=Auth, `K`=BackendKeyData, `S`=ParameterStatus, `Z`=ReadyForQuery, `T`=RowDescription, `D`=DataRow, `C`=CommandComplete, `I`=EmptyQueryResponse, `1`=ParseComplete, `2`=BindComplete, `3`=CloseComplete, `t`=ParameterDescription, `n`=NoData, `s`=PortalSuspended, `E`=ErrorResponse, `N`=NoticeResponse, `A`=NotificationResponse
+**Backend**: `R`=Auth, `K`=BackendKeyData, `S`=ParameterStatus, `Z`=ReadyForQuery, `T`=RowDescription, `D`=DataRow, `C`=CommandComplete, `G`=CopyInResponse, `I`=EmptyQueryResponse, `1`=ParseComplete, `2`=BindComplete, `3`=CloseComplete, `t`=ParameterDescription, `n`=NoData, `s`=PortalSuspended, `E`=ErrorResponse, `N`=NoticeResponse, `A`=NotificationResponse
 
 ## File Layout
 
 ```
-postgres/                         # Main package (44 files)
+postgres/                         # Main package (46 files)
   notification.pony                # Notification val class (channel, payload, pid)
   session.pony                    # Session actor + state machine traits + query sub-state machine
   database_connect_info.pony       # DatabaseConnectInfo val class (user, password, database)
@@ -351,6 +361,7 @@ postgres/                         # Main package (44 files)
   result.pony                     # Result, ResultSet, SimpleResult, RowModifying
   result_receiver.pony            # ResultReceiver interface
   prepare_receiver.pony           # PrepareReceiver interface
+  copy_in_receiver.pony           # CopyInReceiver interface (pull-based COPY IN callbacks)
   session_status_notify.pony      # SessionStatusNotify interface
   transaction_status.pony         # TransactionStatus union type (TransactionIdle, TransactionInBlock, TransactionFailed)
   query_error.pony                # ClientQueryError types
@@ -383,6 +394,7 @@ postgres/                         # Main package (44 files)
   _test_scram.pony                # SCRAM-SHA-256 computation tests
   _test_notification.pony         # LISTEN/NOTIFY tests (mock servers)
   _test_transaction_status.pony   # Transaction status tests (mock servers + integration)
+  _test_copy_in.pony              # COPY IN tests (mock servers + integration)
 assets/test-cert.pem              # Self-signed test certificate for SSL unit tests
 assets/test-key.pem               # Private key for SSL unit tests
 examples/README.md                # Examples overview
@@ -392,6 +404,7 @@ examples/prepared-query/prepared-query-example.pony # PreparedQuery with params 
 examples/named-prepared-query/named-prepared-query-example.pony # Named prepared statements with reuse
 examples/crud/crud-example.pony   # Multi-query CRUD workflow
 examples/cancel/cancel-example.pony # Query cancellation with pg_sleep
+examples/copy-in/copy-in-example.pony # Bulk data loading with COPY FROM STDIN
 examples/transaction-status/transaction-status-example.pony # Transaction status tracking with BEGIN/COMMIT
 .ci-dockerfiles/pg-ssl/           # Dockerfile + init scripts for SSL-enabled PostgreSQL CI container (SCRAM-SHA-256 default + MD5 user)
 ```

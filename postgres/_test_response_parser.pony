@@ -1004,6 +1004,7 @@ class \nodoc\ val _IncomingRowDescriptionTestMessage
       let name: String = column._1
       let column_type: U32 = match column._2
         | "text" => 25
+        | "bytea" => 17
         | "bool" => 16
         | "int2" => 21
         | "int4" => 23

@@ -5,13 +5,14 @@ use "pony_test"
 class \nodoc\ iso _TestFieldEqualityReflexive is UnitTest
   """
   Every FieldDataTypes variant produces a Field that is equal to itself.
-  Covers all 8 variants of the FieldDataTypes union to verify each match
+  Covers all 9 variants of the FieldDataTypes union to verify each match
   branch in Field.eq.
   """
   fun name(): String => "Field/Equality/Reflexive"
 
   fun apply(h: TestHelper) =>
     let fields: Array[Field] val = [
+      Field("bytes", recover val [as U8: 1; 2; 3] end)
       Field("b", true)
       Field("f32", F32(1.5))
       Field("f64", F64(2.5))
@@ -28,11 +29,14 @@ class \nodoc\ iso _TestFieldEqualityReflexive is UnitTest
 class \nodoc\ iso _TestFieldEqualityStructural is UnitTest
   """
   Two independently constructed Fields with the same name and value are equal.
-  Covers all 8 variants of the FieldDataTypes union.
+  Covers all 9 variants of the FieldDataTypes union.
   """
   fun name(): String => "Field/Equality/Structural"
 
   fun apply(h: TestHelper) =>
+    h.assert_true(
+      Field("a", recover val [as U8: 1; 2] end)
+        == Field("a", recover val [as U8: 1; 2] end))
     h.assert_true(Field("a", true) == Field("a", true))
     h.assert_true(Field("a", F32(1.5)) == Field("a", F32(1.5)))
     h.assert_true(Field("a", F64(2.5)) == Field("a", F64(2.5)))
@@ -70,6 +74,11 @@ class \nodoc\ iso _TestFieldEqualitySymmetric is UnitTest
     let f8 = Field("x", I32(0))
     h.assert_true(f7.eq(f8) == f8.eq(f7))
 
+    // Array[U8] vs String
+    let f9 = Field("x", recover val [as U8: 1; 2] end)
+    let f10 = Field("x", "hello")
+    h.assert_true(f9.eq(f10) == f10.eq(f9))
+
 class \nodoc\ iso _TestFieldInequality is UnitTest
   fun name(): String => "Field/Inequality"
 
@@ -91,6 +100,19 @@ class \nodoc\ iso _TestFieldInequality is UnitTest
     // None vs non-None
     h.assert_false(Field("a", None) == Field("a", I32(0)))
     h.assert_false(Field("a", I32(0)) == Field("a", None))
+
+    // Array[U8] vs different Array[U8]
+    h.assert_false(
+      Field("a", recover val [as U8: 1; 2] end)
+        == Field("a", recover val [as U8: 1; 3] end))
+    h.assert_false(
+      Field("a", recover val [as U8: 1; 2] end)
+        == Field("a", recover val [as U8: 1; 2; 3] end))
+
+    // Array[U8] vs String
+    h.assert_false(
+      Field("a", recover val [as U8: 1; 2] end)
+        == Field("a", "hello"))
 
 
 class \nodoc\ iso _TestRowEquality is UnitTest
@@ -182,6 +204,17 @@ class \nodoc\ iso _TestRowsInequality is UnitTest
 primitive \nodoc\ _FieldDataTypesGen
   fun apply(): Generator[FieldDataTypes] =>
     Generators.frequency[FieldDataTypes]([
+      (1, Generator[FieldDataTypes](object is GenObj[FieldDataTypes]
+        fun generate(rnd: Randomness): FieldDataTypes =>
+          let size = rnd.usize(0, 10)
+          recover val
+            let arr = Array[U8](size)
+            for _ in Range(0, size) do
+              arr.push(rnd.u8())
+            end
+            arr
+          end
+      end))
       (1, Generators.bool().map[FieldDataTypes]({(v) => v }))
       (1, Generators.i32().map[FieldDataTypes]({(v) => F32.from[I32](v) }))
       (1, Generators.i64().map[FieldDataTypes]({(v) => F64.from[I64](v) }))
@@ -213,7 +246,7 @@ primitive \nodoc\ _RowGen
         Row(consume fields)
 
       fun _random_field_value(rnd: Randomness): FieldDataTypes =>
-        match rnd.usize(0, 7)
+        match rnd.usize(0, 8)
         | 0 => rnd.bool()
         | 1 => F32.from[I32](rnd.i32())
         | 2 => F64.from[I64](rnd.i64())
@@ -221,6 +254,14 @@ primitive \nodoc\ _RowGen
         | 4 => rnd.i32()
         | 5 => rnd.i64()
         | 6 => None
+        | 7 =>
+          recover val
+            let arr = Array[U8](rnd.usize(0, 10))
+            for _ in Range(0, arr.space()) do
+              arr.push(rnd.u8())
+            end
+            arr
+          end
         else
           "str" + rnd.u32().string()
         end
@@ -244,7 +285,7 @@ primitive \nodoc\ _RowsGen
         Rows(consume rows)
 
       fun _random_field_value(rnd: Randomness): FieldDataTypes =>
-        match rnd.usize(0, 7)
+        match rnd.usize(0, 8)
         | 0 => rnd.bool()
         | 1 => F32.from[I32](rnd.i32())
         | 2 => F64.from[I64](rnd.i64())
@@ -252,6 +293,14 @@ primitive \nodoc\ _RowsGen
         | 4 => rnd.i32()
         | 5 => rnd.i64()
         | 6 => None
+        | 7 =>
+          recover val
+            let arr = Array[U8](rnd.usize(0, 10))
+            for _ in Range(0, arr.space()) do
+              arr.push(rnd.u8())
+            end
+            arr
+          end
         else
           "str" + rnd.u32().string()
         end

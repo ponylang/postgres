@@ -628,3 +628,205 @@ actor \nodoc\ _TerminateSentTestServer
         end
       end
     end
+
+class \nodoc\ iso _TestByteaResultDecoding is UnitTest
+  """
+  Verifies that a bytea column (OID 17) is decoded from PostgreSQL's hex
+  format into Array[U8] val. Uses a mock server that sends RowDescription
+  with a bytea column followed by a DataRow containing hex-encoded bytes.
+  """
+  fun name(): String =>
+    "Bytea/ResultDecoding"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "7694"
+
+    let listener = _ByteaTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h,
+      "\\x48656c6c6f",
+      recover val [as U8: 72; 101; 108; 108; 111] end)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+class \nodoc\ iso _TestEmptyByteaResultDecoding is UnitTest
+  """
+  Verifies that an empty bytea value (just the \\x prefix) is decoded into
+  an empty Array[U8] val.
+  """
+  fun name(): String =>
+    "Bytea/EmptyResultDecoding"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "7695"
+
+    let listener = _ByteaTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h,
+      "\\x",
+      recover val Array[U8] end)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _ByteaTestClient is (SessionStatusNotify & ResultReceiver)
+  let _h: TestHelper
+  let _expected: Array[U8] val
+  let _query: SimpleQuery
+  var _session: (Session | None) = None
+
+  new create(h: TestHelper, expected: Array[U8] val) =>
+    _h = h
+    _expected = expected
+    _query = SimpleQuery("SELECT col")
+
+  be pg_session_connection_failed(s: Session) =>
+    _h.fail("Unable to establish connection.")
+    _h.complete(false)
+
+  be pg_session_authenticated(session: Session) =>
+    _session = session
+    session.execute(_query, this)
+
+  be pg_session_authentication_failed(
+    session: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate.")
+    _h.complete(false)
+
+  be pg_query_result(session: Session, result: Result) =>
+    match result
+    | let r: ResultSet =>
+      try
+        let field = r.rows()(0)?.fields(0)?
+        match field.value
+        | let actual: Array[U8] val =>
+          _h.assert_array_eq[U8](_expected, actual)
+        else
+          _h.fail("Expected Array[U8] val but got a different type.")
+        end
+      else
+        _h.fail("Expected at least one row with one field.")
+      end
+    else
+      _h.fail("Expected ResultSet.")
+    end
+    _close_and_complete(true)
+
+  be pg_query_failed(session: Session, query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure.")
+    _close_and_complete(false)
+
+  fun ref _close_and_complete(success: Bool) =>
+    match _session
+    | let s: Session => s.close()
+    end
+    _h.complete(success)
+
+actor \nodoc\ _ByteaTestListener is lori.TCPListenerActor
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _h: TestHelper
+  let _host: String
+  let _port: String
+  let _hex_data: String
+  let _expected: Array[U8] val
+
+  new create(listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper,
+    hex_data: String,
+    expected: Array[U8] val)
+  =>
+    _host = host
+    _port = port
+    _h = h
+    _hex_data = hex_data
+    _expected = expected
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): _ByteaTestServer =>
+    _ByteaTestServer(_server_auth, fd, _hex_data)
+
+  fun ref _on_listening() =>
+    Session(
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _ByteaTestClient(_h, _expected))
+
+  fun ref _on_listen_failure() =>
+    _h.fail("Unable to listen")
+    _h.complete(false)
+
+actor \nodoc\ _ByteaTestServer
+  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  """
+  Mock server that authenticates and responds to a query with
+  RowDescription (one bytea column) + DataRow (hex-encoded value) +
+  CommandComplete("SELECT 1") + ReadyForQuery.
+  """
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _authed: Bool = false
+  let _reader: _MockMessageReader = _MockMessageReader
+  let _hex_data: String
+
+  new create(auth: lori.TCPServerAuth, fd: U32, hex_data: String) =>
+    _hex_data = hex_data
+    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
+
+  fun ref _on_received(data: Array[U8] iso) =>
+    _reader.append(consume data)
+    _process()
+
+  fun ref _process() =>
+    if not _authed then
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        _authed = true
+        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
+        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        _tcp_connection.send(auth_ok)
+        _tcp_connection.send(ready)
+        _process()
+      end
+    else
+      match _reader.read_message()
+      | let _: Array[U8] val =>
+        try
+          let columns: Array[(String, String)] val = recover val
+            [("col", "bytea")]
+          end
+          let row_desc =
+            _IncomingRowDescriptionTestMessage(columns)?.bytes()
+          let data_row_cols: Array[(String | None)] val = recover val
+            [_hex_data]
+          end
+          let data_row = _IncomingDataRowTestMessage(data_row_cols).bytes()
+          let cmd_complete =
+            _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
+          let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+          _tcp_connection.send(row_desc)
+          _tcp_connection.send(data_row)
+          _tcp_connection.send(cmd_complete)
+          _tcp_connection.send(ready)
+        end
+      end
+    end

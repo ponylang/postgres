@@ -2,6 +2,10 @@
 
 Each subdirectory is a self-contained Pony program demonstrating a different part of the postgres library.
 
+## bytea
+
+Binary data using `bytea` columns. Executes a SELECT that returns a bytea value, matches on `Array[U8] val` in the result, and prints the decoded bytes. Shows how the driver automatically decodes PostgreSQL's hex-format bytea representation into raw byte arrays.
+
 ## query
 
 Minimal example using `SimpleQuery`. Connects, authenticates, executes `SELECT 525600::text`, and prints the result by iterating rows and matching on `FieldDataTypes`. Start here if you're new to the library.

@@ -1,4 +1,4 @@
-## Surface NoticeResponse messages via pg_notice callback
+## Add notice response message support
 
 PostgreSQL sends NoticeResponse messages for non-fatal informational feedback — for example, "table does not exist, skipping" when you run `DROP TABLE IF EXISTS` on a nonexistent table, or `RAISE NOTICE` output from PL/pgSQL functions. Previously, the driver silently discarded these messages.
 

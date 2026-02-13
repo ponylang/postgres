@@ -28,6 +28,7 @@ All notable changes to this project will be documented in this file. This projec
 - Add transaction status tracking ([PR #106](https://github.com/ponylang/postgres/pull/106))
 - Add LISTEN/NOTIFY support ([PR #108](https://github.com/ponylang/postgres/pull/108))
 - Add COPY IN support ([PR #112](https://github.com/ponylang/postgres/pull/112))
+- Add notice response message support ([PR #117](https://github.com/ponylang/postgres/pull/117))
 
 ### Changed
 

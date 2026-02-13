@@ -88,7 +88,7 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 - `_ResponseParser` primitive: incremental parser consuming from a `Reader` buffer. Returns one parsed message per call, `None` if incomplete, errors on junk.
 - `_ResponseMessageParser` primitive: routes parsed messages to the current session state's callbacks. Processes messages synchronously within a query cycle (looping until `ReadyForQuery` or buffer exhaustion), then yields via `s._process_again()` between cycles. This prevents behaviors like `close()` from interleaving between result delivery and query dequeuing. If a callback triggers shutdown during the loop, `on_shutdown` clears the read buffer, causing the next parse to return `None` and exit the loop.
 
-**Supported message types:** AuthenticationOk, AuthenticationMD5Password, AuthenticationSASL, AuthenticationSASLContinue, AuthenticationSASLFinal, BackendKeyData, CommandComplete, CopyInResponse, DataRow, EmptyQueryResponse, ErrorResponse, NotificationResponse, ReadyForQuery, RowDescription, ParseComplete, BindComplete, NoData, CloseComplete, ParameterDescription, PortalSuspended. BackendKeyData is parsed and stored in `_SessionLoggedIn` (`backend_pid`, `backend_secret_key`) for future query cancellation. NotificationResponse is parsed into `_NotificationResponseMessage` and routed to `_SessionLoggedIn.on_notification()`, which delivers `pg_notification` to `SessionStatusNotify`. Extended query acknowledgment messages (ParseComplete, BindComplete, NoData, etc.) are parsed but silently consumed — they fall through the `_ResponseMessageParser` match without routing since the state machine tracks query lifecycle through data-carrying messages only. **Skipped async message types:** ParameterStatus (`'S'`), NoticeResponse (`'N'`) — explicitly matched in the parser and returned as `_SkippedMessage`, then ignored by `_ResponseMessageParser`. These are distinct from `_UnsupportedMessage`, which represents truly unknown message types.
+**Supported message types:** AuthenticationOk, AuthenticationMD5Password, AuthenticationSASL, AuthenticationSASLContinue, AuthenticationSASLFinal, BackendKeyData, CommandComplete, CopyInResponse, DataRow, EmptyQueryResponse, ErrorResponse, NoticeResponse, NotificationResponse, ReadyForQuery, RowDescription, ParseComplete, BindComplete, NoData, CloseComplete, ParameterDescription, PortalSuspended. BackendKeyData is parsed and stored in `_SessionLoggedIn` (`backend_pid`, `backend_secret_key`) for future query cancellation. NotificationResponse is parsed into `_NotificationResponseMessage` and routed to `_SessionLoggedIn.on_notification()`, which delivers `pg_notification` to `SessionStatusNotify`. NoticeResponse is parsed into `NoticeResponseMessage` (using shared `_ResponseFieldBuilder` / `_parse_response_fields` with ErrorResponse) and routed via `on_notice()` to `SessionStatusNotify.pg_notice()`. Notices are delivered in all connected states (including during authentication) since PostgreSQL can send them at any time. Extended query acknowledgment messages (ParseComplete, BindComplete, NoData, etc.) are parsed but silently consumed — they fall through the `_ResponseMessageParser` match without routing since the state machine tracks query lifecycle through data-carrying messages only. **Skipped async message type:** ParameterStatus (`'S'`) — explicitly matched in the parser and returned as `_SkippedMessage`, then ignored by `_ResponseMessageParser`. Distinct from `_UnsupportedMessage`, which represents truly unknown message types.
 
 ### Public API Types
 
@@ -101,7 +101,8 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 - `FieldDataTypes` = `(Bool | F32 | F64 | I16 | I32 | I64 | None | String)`
 - `TransactionStatus` — union type `(TransactionIdle | TransactionInBlock | TransactionFailed)`. Reported via `pg_transaction_status` callback on every `ReadyForQuery`.
 - `Notification` — val class wrapping channel name, payload string, and notifying backend's process ID. Delivered via `pg_notification` callback.
-- `SessionStatusNotify` interface (tag) — lifecycle callbacks (connected, connection_failed, authenticated, authentication_failed, transaction_status, notification, shutdown)
+- `NoticeResponseMessage` — non-fatal PostgreSQL notice with all standard fields (same structure as `ErrorResponseMessage`). Delivered via `pg_notice` callback.
+- `SessionStatusNotify` interface (tag) — lifecycle callbacks (connected, connection_failed, authenticated, authentication_failed, transaction_status, notification, notice, shutdown)
 - `ResultReceiver` interface (tag) — `pg_query_result(Session, Result)`, `pg_query_failed(Session, Query, (ErrorResponseMessage | ClientQueryError))`
 - `PrepareReceiver` interface (tag) — `pg_statement_prepared(Session, name)`, `pg_prepare_failed(Session, name, (ErrorResponseMessage | ClientQueryError))`
 - `CopyInReceiver` interface (tag) — `pg_copy_ready(Session)`, `pg_copy_complete(Session, count)`, `pg_copy_failed(Session, (ErrorResponseMessage | ClientQueryError))`. Pull-based: session calls `pg_copy_ready` after `copy_in` and after each `send_copy_data`, letting the client control data flow
@@ -189,7 +190,12 @@ Tests live in the main `postgres/` package (private test classes), organized acr
 - `_TestCopyInShutdownDrainsCopyQueue` — uses `_DoesntAnswerTestServer` that authenticates but never becomes ready; verifies pending `copy_in` calls receive `pg_copy_failed(SessionClosed)` on shutdown
 - `_TestCopyInAfterSessionClosed` — integration test: connect, authenticate, close, call `copy_in`; verifies `pg_copy_failed(SessionClosed)`
 
-**`_test_response_parser.pony`** — Parser unit tests (`_TestResponseParser*`) + test message builder classes (`_Incoming*TestMessage`) that construct raw protocol bytes for mock servers across all test files. `_TestResponseParserNotificationResponseMessage` verifies parsing into `_NotificationResponseMessage` with correct fields (including empty-payload edge case). `_TestResponseParserMultipleMessagesAsyncThenAuth` verifies buffer advancement across async message types (two skipped, one parsed notification) followed by AuthenticationOk.
+**`_test_notice.pony`** — NoticeResponse tests (mock servers + integration):
+- `_TestNoticeDelivery` — mock server authenticates, responds to query with CommandComplete + NoticeResponse + ReadyForQuery; verifies `pg_notice` fires with correct severity, code, and message fields
+- `_TestNoticeDuringDataRows` — mock server sends RowDescription + DataRow + NoticeResponse + DataRow + CommandComplete + ReadyForQuery; verifies both query result (2 rows) and notice are delivered
+- `_TestNoticeOnDropIfExists` — integration test: executes `DROP TABLE IF EXISTS` on a nonexistent table; verifies `pg_notice` fires with severity "NOTICE" and code "00000"
+
+**`_test_response_parser.pony`** — Parser unit tests (`_TestResponseParser*`) + test message builder classes (`_Incoming*TestMessage`) that construct raw protocol bytes for mock servers across all test files. `_TestResponseParserNotificationResponseMessage` verifies parsing into `_NotificationResponseMessage` with correct fields (including empty-payload edge case). `_TestResponseParserNoticeResponseMessage` verifies parsing into `NoticeResponseMessage` with correct severity, code, and message fields. `_TestResponseParserMultipleMessagesAsyncThenAuth` verifies buffer advancement across async message types (one skipped ParameterStatus, one parsed NoticeResponse, one parsed NotificationResponse) followed by AuthenticationOk.
 
 **`_test_frontend_message.pony`** — Frontend message unit tests (`_TestFrontendMessage*`).
 
@@ -199,7 +205,7 @@ Tests live in the main `postgres/` package (private test classes), organized acr
 
 **`_test_mock_message_reader.pony`** — `_MockMessageReader` class that buffers TCP data and extracts complete PostgreSQL frontend messages. Two methods: `read_startup_message()` for startup-format messages (Int32 length + payload — StartupMessage, SSLRequest, CancelRequest) and `read_message()` for standard-format messages (Byte1 type + Int32 length + payload). Both return `(Array[U8] val | None)`. Used by all mock servers that inspect incoming data to ensure state transitions happen on message boundaries, not TCP segment boundaries.
 
-Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Several test message builder classes (`_Incoming*TestMessage`) construct raw protocol bytes for unit tests. Mock server tests use ports in the 7669–7691 range and 9667–9668. **Port 7680 is reserved by Windows** (Update Delivery Optimization) and will fail to bind on WSL2 — do not use it.
+Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Several test message builder classes (`_Incoming*TestMessage`) construct raw protocol bytes for unit tests. Mock server tests use ports in the 7669–7693 range and 9667–9668. **Port 7680 is reserved by Windows** (Update Delivery Optimization) and will fail to bind on WSL2 — do not use it.
 
 ## Known Issues and TODOs in Code
 
@@ -215,7 +221,7 @@ Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Sever
 
 **Authentication:** MD5 password and SCRAM-SHA-256. No SCRAM-SHA-256-PLUS (channel binding), Kerberos, GSS, or certificate auth. Design: [discussion #83](https://github.com/ponylang/postgres/discussions/83).
 
-**Protocol:** Simple query protocol and extended query protocol (parameterized queries via unnamed and named prepared statements). Parameters are text-format only; type OIDs are inferred by the server. LISTEN/NOTIFY notifications are delivered via `pg_notification` callback. COPY FROM STDIN (bulk data loading) via `Session.copy_in()` with pull-based `CopyInReceiver` flow. No COPY TO STDOUT or function calls. Design: [discussion #104](https://github.com/ponylang/postgres/discussions/104).
+**Protocol:** Simple query protocol and extended query protocol (parameterized queries via unnamed and named prepared statements). Parameters are text-format only; type OIDs are inferred by the server. LISTEN/NOTIFY notifications are delivered via `pg_notification` callback. NoticeResponse messages (non-fatal informational feedback) are delivered via `pg_notice` callback. COPY FROM STDIN (bulk data loading) via `Session.copy_in()` with pull-based `CopyInReceiver` flow. No COPY TO STDOUT or function calls. Design: [discussion #104](https://github.com/ponylang/postgres/discussions/104).
 
 ## PostgreSQL Wire Protocol Reference
 
@@ -350,7 +356,7 @@ Can arrive between any other messages (must always handle):
 ## File Layout
 
 ```
-postgres/                         # Main package (47 files)
+postgres/                         # Main package (49 files)
   postgres.pony                   # Package-level docstring (user-facing API overview)
   notification.pony                # Notification val class (channel, payload, pid)
   session.pony                    # Session actor + state machine traits + query sub-state machine
@@ -368,7 +374,8 @@ postgres/                         # Main package (47 files)
   session_status_notify.pony      # SessionStatusNotify interface
   transaction_status.pony         # TransactionStatus union type (TransactionIdle, TransactionInBlock, TransactionFailed)
   query_error.pony                # ClientQueryError types
-  error_response_message.pony     # ErrorResponseMessage + builder
+  error_response_message.pony     # ErrorResponseMessage + _ResponseFieldBuilder (shared with NoticeResponseMessage)
+  notice_response_message.pony    # NoticeResponseMessage (non-fatal server notices)
   field.pony                      # Field class
   field_data_types.pony           # FieldDataTypes union
   row.pony                        # Row class
@@ -397,6 +404,7 @@ postgres/                         # Main package (47 files)
   _test_equality.pony             # Equality tests for Field/Row/Rows (example + PonyCheck property)
   _test_scram.pony                # SCRAM-SHA-256 computation tests
   _test_notification.pony         # LISTEN/NOTIFY tests (mock servers)
+  _test_notice.pony               # NoticeResponse tests (mock servers + integration)
   _test_transaction_status.pony   # Transaction status tests (mock servers + integration)
   _test_copy_in.pony              # COPY IN tests (mock servers + integration)
 assets/test-cert.pem              # Self-signed test certificate for SSL unit tests
@@ -409,6 +417,7 @@ examples/named-prepared-query/named-prepared-query-example.pony # Named prepared
 examples/crud/crud-example.pony   # Multi-query CRUD workflow
 examples/cancel/cancel-example.pony # Query cancellation with pg_sleep
 examples/copy-in/copy-in-example.pony # Bulk data loading with COPY FROM STDIN
+examples/notice/notice-example.pony # NoticeResponse handling with DROP IF EXISTS
 examples/transaction-status/transaction-status-example.pony # Transaction status tracking with BEGIN/COMMIT
 .ci-dockerfiles/pg-ssl/           # Dockerfile + init scripts for SSL-enabled PostgreSQL CI container (SCRAM-SHA-256 default + MD5 user)
 ```

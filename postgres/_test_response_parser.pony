@@ -1177,19 +1177,25 @@ class \nodoc\ iso _TestResponseParserParameterStatusSkipped is UnitTest
       h.fail("Wrong message returned.")
     end
 
-class \nodoc\ iso _TestResponseParserNoticeResponseSkipped is UnitTest
+class \nodoc\ iso _TestResponseParserNoticeResponseMessage is UnitTest
   """
-  Verify that NoticeResponse ('N') messages are parsed as _SkippedMessage.
+  Verify that NoticeResponse ('N') messages are parsed into
+  NoticeResponseMessage with correct severity, code, and message fields.
   """
   fun name(): String =>
-    "ResponseParser/NoticeResponseSkipped"
+    "ResponseParser/NoticeResponseMessage"
 
   fun apply(h: TestHelper) ? =>
     let bytes = _IncomingNoticeResponseTestMessage(
       "NOTICE", "00000", "test notice").bytes()
     let r: Reader = Reader.>append(bytes)
 
-    if _ResponseParser(r)? isnt _SkippedMessage then
+    match _ResponseParser(r)?
+    | let msg: NoticeResponseMessage =>
+      h.assert_eq[String]("NOTICE", msg.severity)
+      h.assert_eq[String]("00000", msg.code)
+      h.assert_eq[String]("test notice", msg.message)
+    else
       h.fail("Wrong message returned.")
     end
 
@@ -1232,8 +1238,9 @@ class \nodoc\ iso _TestResponseParserNotificationResponseMessage is UnitTest
 
 class \nodoc\ iso _TestResponseParserMultipleMessagesAsyncThenAuth is UnitTest
   """
-  Verify correct buffer advancement across async message types (two skipped,
-  one parsed) followed by a known message (AuthenticationOk).
+  Verify correct buffer advancement across async message types (one skipped,
+  one parsed notice, one parsed notification) followed by a known message
+  (AuthenticationOk).
   """
   fun name(): String =>
     "ResponseParser/MultipleMessages/AsyncThenAuth"
@@ -1252,7 +1259,12 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesAsyncThenAuth is UnitTest
       h.fail("Wrong message for ParameterStatus.")
     end
 
-    if _ResponseParser(r)? isnt _SkippedMessage then
+    match _ResponseParser(r)?
+    | let msg: NoticeResponseMessage =>
+      h.assert_eq[String]("NOTICE", msg.severity)
+      h.assert_eq[String]("00000", msg.code)
+      h.assert_eq[String]("test", msg.message)
+    else
       h.fail("Wrong message for NoticeResponse.")
     end
 

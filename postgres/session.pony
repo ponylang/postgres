@@ -285,6 +285,9 @@ class ref _SessionSSLNegotiating
   fun ref abort_copy(s: Session ref, reason: String) =>
     None
 
+  fun ref on_notice(s: Session ref, msg: NoticeResponseMessage) =>
+    _IllegalState()
+
   fun ref cancel(s: Session ref) =>
     None
 
@@ -1468,6 +1471,13 @@ interface _SessionState
     Called when a row description is receivedfrom the server.
     """
 
+  fun ref on_notice(s: Session ref, msg: NoticeResponseMessage)
+    """
+    Called when the server sends a NoticeResponse (non-fatal informational
+    message). Can arrive in any connected state, including during
+    authentication.
+    """
+
   fun ref on_notification(s: Session ref, msg: _NotificationResponseMessage)
     """
     Called when the server sends a LISTEN/NOTIFY notification.
@@ -1542,6 +1552,9 @@ trait _ConnectedState is _NotConnectableState
   A connected session. Connected sessions are not connectable as they have
   already been connected.
   """
+  fun ref on_notice(s: Session ref, msg: NoticeResponseMessage) =>
+    notify().pg_notice(s, msg)
+
   fun ref on_tls_ready(s: Session ref) =>
     _IllegalState()
 
@@ -1591,6 +1604,9 @@ trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
   it has been closed. Unconnected sessions are not eligible to be authenticated
   and receiving an authentication event while unconnected is an error.
   """
+  fun ref on_notice(s: Session ref, msg: NoticeResponseMessage) =>
+    _IllegalState()
+
   fun ref on_tls_ready(s: Session ref) =>
     _IllegalState()
 

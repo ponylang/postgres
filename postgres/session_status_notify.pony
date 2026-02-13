@@ -45,6 +45,15 @@ interface tag SessionStatusNotify
     """
     None
 
+  be pg_notice(session: Session, notice: NoticeResponseMessage) =>
+    """
+    Called when the server sends a non-fatal informational message
+    (NoticeResponse). Common triggers include `DROP TABLE IF EXISTS` on a
+    nonexistent table and `RAISE NOTICE` from PL/pgSQL. Notices can arrive
+    in any connected state, including during authentication.
+    """
+    None
+
   be pg_session_shutdown(session: Session) =>
     """
     Called when a session ends.

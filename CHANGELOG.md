@@ -29,6 +29,7 @@ All notable changes to this project will be documented in this file. This projec
 - Add LISTEN/NOTIFY support ([PR #108](https://github.com/ponylang/postgres/pull/108))
 - Add COPY IN support ([PR #112](https://github.com/ponylang/postgres/pull/112))
 - Add notice response message support ([PR #117](https://github.com/ponylang/postgres/pull/117))
+- Add bytea type conversion ([PR #119](https://github.com/ponylang/postgres/pull/119))
 
 ### Changed
 

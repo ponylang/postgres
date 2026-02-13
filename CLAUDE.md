@@ -197,6 +197,8 @@ Tests live in the main `postgres/` package (private test classes), organized acr
 
 **`_test_scram.pony`** — SCRAM-SHA-256 computation unit tests (`_TestScramSha256MessageBuilders`, `_TestScramSha256ComputeProof`).
 
+**`_test_mock_message_reader.pony`** — `_MockMessageReader` class that buffers TCP data and extracts complete PostgreSQL frontend messages. Two methods: `read_startup_message()` for startup-format messages (Int32 length + payload — StartupMessage, SSLRequest, CancelRequest) and `read_message()` for standard-format messages (Byte1 type + Int32 length + payload). Both return `(Array[U8] val | None)`. Used by all mock servers that inspect incoming data to ensure state transitions happen on message boundaries, not TCP segment boundaries.
+
 Test helpers: `_ConnectionTestConfiguration` reads env vars with defaults. Several test message builder classes (`_Incoming*TestMessage`) construct raw protocol bytes for unit tests. Mock server tests use ports in the 7669–7691 range and 9667–9668. **Port 7680 is reserved by Windows** (Update Delivery Optimization) and will fail to bind on WSL2 — do not use it.
 
 ## Known Issues and TODOs in Code
@@ -388,6 +390,7 @@ postgres/                         # Main package (46 files)
   _test_auth.pony                 # Authentication protocol unit tests (SCRAM, unsupported auth)
   _test_md5.pony                  # MD5 integration tests
   _test_query.pony                # Query integration tests
+  _test_mock_message_reader.pony  # _MockMessageReader: TCP buffering for mock servers
   _test_response_parser.pony      # Parser unit tests + test message builders
   _test_frontend_message.pony     # Frontend message unit tests
   _test_equality.pony             # Equality tests for Field/Row/Rows (example + PonyCheck property)

@@ -286,6 +286,7 @@ actor \nodoc\ _TxnStatusTestServer
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
   var _authed: Bool = false
   var _txn_state: U8 = 'I'
+  let _reader: _MockMessageReader = _MockMessageReader
 
   new create(auth: lori.TCPServerAuth, fd: U32) =>
     _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
@@ -294,52 +295,69 @@ actor \nodoc\ _TxnStatusTestServer
     _tcp_connection
 
   fun ref _on_received(data: Array[U8] iso) =>
+    _reader.append(consume data)
+    _process()
+
+  fun ref _process() =>
     if not _authed then
-      _authed = true
-      let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-      let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-      _tcp_connection.send(auth_ok)
-      _tcp_connection.send(ready)
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        _authed = true
+        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
+        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        _tcp_connection.send(auth_ok)
+        _tcp_connection.send(ready)
+        _process()
+      end
     else
-      // Extract the query string from the SimpleQuery message.
-      // Format: 'Q' + Int32(length) + null-terminated query string
-      try
-        let query = _extract_query(consume data)?
-        if query == "BEGIN" then
-          _txn_state = 'T'
-          let cmd = _IncomingCommandCompleteTestMessage("BEGIN").bytes()
-          let ready = _IncomingReadyForQueryTestMessage(_txn_state).bytes()
-          _tcp_connection.send(cmd)
-          _tcp_connection.send(ready)
-        elseif query == "COMMIT" then
-          _txn_state = 'I'
-          let cmd = _IncomingCommandCompleteTestMessage("COMMIT").bytes()
-          let ready = _IncomingReadyForQueryTestMessage(_txn_state).bytes()
-          _tcp_connection.send(cmd)
-          _tcp_connection.send(ready)
-        elseif query == "ROLLBACK" then
-          _txn_state = 'I'
-          let cmd = _IncomingCommandCompleteTestMessage("ROLLBACK").bytes()
-          let ready = _IncomingReadyForQueryTestMessage(_txn_state).bytes()
-          _tcp_connection.send(cmd)
-          _tcp_connection.send(ready)
-        else
-          // Unknown query — if in a transaction, simulate an error
-          if _txn_state == 'T' then
-            _txn_state = 'E'
-            let err = _IncomingErrorResponseTestMessage(
-              "ERROR", "42P01", "relation does not exist").bytes()
-            let ready = _IncomingReadyForQueryTestMessage(_txn_state).bytes()
-            _tcp_connection.send(err)
-            _tcp_connection.send(ready)
-          else
-            let cmd = _IncomingCommandCompleteTestMessage("SELECT 0").bytes()
+      match _reader.read_message()
+      | let msg: Array[U8] val =>
+        // Extract the query string from the SimpleQuery message.
+        // Format: 'Q' + Int32(length) + null-terminated query string
+        try
+          let query = _extract_query(msg)?
+          if query == "BEGIN" then
+            _txn_state = 'T'
+            let cmd = _IncomingCommandCompleteTestMessage("BEGIN").bytes()
             let ready =
               _IncomingReadyForQueryTestMessage(_txn_state).bytes()
             _tcp_connection.send(cmd)
             _tcp_connection.send(ready)
+          elseif query == "COMMIT" then
+            _txn_state = 'I'
+            let cmd = _IncomingCommandCompleteTestMessage("COMMIT").bytes()
+            let ready =
+              _IncomingReadyForQueryTestMessage(_txn_state).bytes()
+            _tcp_connection.send(cmd)
+            _tcp_connection.send(ready)
+          elseif query == "ROLLBACK" then
+            _txn_state = 'I'
+            let cmd =
+              _IncomingCommandCompleteTestMessage("ROLLBACK").bytes()
+            let ready =
+              _IncomingReadyForQueryTestMessage(_txn_state).bytes()
+            _tcp_connection.send(cmd)
+            _tcp_connection.send(ready)
+          else
+            if _txn_state == 'T' then
+              _txn_state = 'E'
+              let err = _IncomingErrorResponseTestMessage(
+                "ERROR", "42P01", "relation does not exist").bytes()
+              let ready =
+                _IncomingReadyForQueryTestMessage(_txn_state).bytes()
+              _tcp_connection.send(err)
+              _tcp_connection.send(ready)
+            else
+              let cmd =
+                _IncomingCommandCompleteTestMessage("SELECT 0").bytes()
+              let ready =
+                _IncomingReadyForQueryTestMessage(_txn_state).bytes()
+              _tcp_connection.send(cmd)
+              _tcp_connection.send(ready)
+            end
           end
         end
+        _process()
       end
     end
 

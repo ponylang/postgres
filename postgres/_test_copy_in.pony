@@ -1,4 +1,3 @@
-use "buffered"
 use lori = "lori"
 use "pony_test"
 
@@ -121,8 +120,8 @@ actor \nodoc\ _CopyInSuccessTestServer
   then sends CommandComplete("COPY 2") + ReadyForQuery.
   """
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
-  var _received_count: USize = 0
-  let _readbuf: Reader = _readbuf.create()
+  var _state: U8 = 0
+  let _reader: _MockMessageReader = _MockMessageReader
 
   new create(auth: lori.TCPServerAuth, fd: U32) =>
     _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
@@ -131,50 +130,43 @@ actor \nodoc\ _CopyInSuccessTestServer
     _tcp_connection
 
   fun ref _on_received(data: Array[U8] iso) =>
-    _received_count = _received_count + 1
+    _reader.append(consume data)
+    _process()
 
-    if _received_count == 1 then
-      // Startup: send AuthOk + ReadyForQuery(idle)
-      let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-      let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-      _tcp_connection.send(auth_ok)
-      _tcp_connection.send(ready)
-    elseif _received_count == 2 then
-      // COPY query: respond with CopyInResponse (text format, 2 columns)
-      let col_fmts: Array[U8] val = recover val [as U8: 0; 0] end
-      let copy_in = _IncomingCopyInResponseTestMessage(0, col_fmts).bytes()
-      _tcp_connection.send(copy_in)
+  fun ref _process() =>
+    if _state == 0 then
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
+        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        _tcp_connection.send(auth_ok)
+        _tcp_connection.send(ready)
+        _state = 1
+        _process()
+      end
+    elseif _state == 1 then
+      match _reader.read_message()
+      | let _: Array[U8] val =>
+        let col_fmts: Array[U8] val = recover val [as U8: 0; 0] end
+        let copy_in = _IncomingCopyInResponseTestMessage(0, col_fmts).bytes()
+        _tcp_connection.send(copy_in)
+        _state = 2
+        _process()
+      end
     else
-      // Only buffer data during the COPY phase (type+length format)
-      _readbuf.append(consume data)
-      _check_for_copy_done()
-    end
-
-  fun ref _check_for_copy_done() =>
-    // Scan the buffer for a CopyDone message type ('c')
-    while _readbuf.size() >= 5 do
-      try
-        let msg_type = _readbuf.peek_u8(0)?
-        let msg_len = _readbuf.peek_u32_be(1)?.usize()
-        let total = msg_len + 1
-        if _readbuf.size() < total then
-          return
+      match _reader.read_message()
+      | let msg: Array[U8] val =>
+        try
+          if msg(0)? == 'c' then
+            let cmd_complete =
+              _IncomingCommandCompleteTestMessage("COPY 2").bytes()
+            let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+            _tcp_connection.send(cmd_complete)
+            _tcp_connection.send(ready)
+            return
+          end
         end
-        if msg_type == 'c' then
-          // CopyDone received — send CommandComplete + ReadyForQuery
-          _readbuf.skip(total)?
-          let cmd_complete =
-            _IncomingCommandCompleteTestMessage("COPY 2").bytes()
-          let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-          _tcp_connection.send(cmd_complete)
-          _tcp_connection.send(ready)
-          return
-        else
-          // Skip other messages (CopyData, Query, etc.)
-          _readbuf.skip(total)?
-        end
-      else
-        return
+        _process()
       end
     end
 
@@ -288,8 +280,8 @@ actor \nodoc\ _CopyInAbortTestServer
   responds to CopyFail with ErrorResponse + ReadyForQuery.
   """
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
-  var _received_count: USize = 0
-  let _readbuf: Reader = _readbuf.create()
+  var _state: U8 = 0
+  let _reader: _MockMessageReader = _MockMessageReader
 
   new create(auth: lori.TCPServerAuth, fd: U32) =>
     _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
@@ -298,45 +290,43 @@ actor \nodoc\ _CopyInAbortTestServer
     _tcp_connection
 
   fun ref _on_received(data: Array[U8] iso) =>
-    _received_count = _received_count + 1
+    _reader.append(consume data)
+    _process()
 
-    if _received_count == 1 then
-      let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-      let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-      _tcp_connection.send(auth_ok)
-      _tcp_connection.send(ready)
-    elseif _received_count == 2 then
-      let col_fmts: Array[U8] val = recover val [as U8: 0] end
-      let copy_in = _IncomingCopyInResponseTestMessage(0, col_fmts).bytes()
-      _tcp_connection.send(copy_in)
+  fun ref _process() =>
+    if _state == 0 then
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
+        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        _tcp_connection.send(auth_ok)
+        _tcp_connection.send(ready)
+        _state = 1
+        _process()
+      end
+    elseif _state == 1 then
+      match _reader.read_message()
+      | let _: Array[U8] val =>
+        let col_fmts: Array[U8] val = recover val [as U8: 0] end
+        let copy_in = _IncomingCopyInResponseTestMessage(0, col_fmts).bytes()
+        _tcp_connection.send(copy_in)
+        _state = 2
+        _process()
+      end
     else
-      _readbuf.append(consume data)
-      _check_for_copy_fail()
-    end
-
-  fun ref _check_for_copy_fail() =>
-    while _readbuf.size() >= 5 do
-      try
-        let msg_type = _readbuf.peek_u8(0)?
-        let msg_len = _readbuf.peek_u32_be(1)?.usize()
-        let total = msg_len + 1
-        if _readbuf.size() < total then
-          return
+      match _reader.read_message()
+      | let msg: Array[U8] val =>
+        try
+          if msg(0)? == 'f' then
+            let err = _IncomingErrorResponseTestMessage(
+              "ERROR", "57014", "COPY aborted").bytes()
+            let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+            _tcp_connection.send(err)
+            _tcp_connection.send(ready)
+            return
+          end
         end
-        if msg_type == 'f' then
-          // CopyFail received — send ErrorResponse + ReadyForQuery
-          _readbuf.skip(total)?
-          let err = _IncomingErrorResponseTestMessage(
-            "ERROR", "57014", "COPY aborted").bytes()
-          let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-          _tcp_connection.send(err)
-          _tcp_connection.send(ready)
-          return
-        else
-          _readbuf.skip(total)?
-        end
-      else
-        return
+        _process()
       end
     end
 
@@ -464,9 +454,9 @@ actor \nodoc\ _CopyInServerErrorTestServer
   server-side error during COPY). Follow-up queries get normal responses.
   """
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
-  var _received_count: USize = 0
+  var _state: U8 = 0
   var _copy_error_sent: Bool = false
-  let _readbuf: Reader = _readbuf.create()
+  let _reader: _MockMessageReader = _MockMessageReader
 
   new create(auth: lori.TCPServerAuth, fd: U32) =>
     _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
@@ -475,65 +465,64 @@ actor \nodoc\ _CopyInServerErrorTestServer
     _tcp_connection
 
   fun ref _on_received(data: Array[U8] iso) =>
-    _received_count = _received_count + 1
+    _reader.append(consume data)
+    _process()
 
-    if _received_count == 1 then
-      let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-      let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-      _tcp_connection.send(auth_ok)
-      _tcp_connection.send(ready)
-    elseif _received_count == 2 then
-      let col_fmts: Array[U8] val = recover val [as U8: 0] end
-      let copy_in = _IncomingCopyInResponseTestMessage(0, col_fmts).bytes()
-      _tcp_connection.send(copy_in)
+  fun ref _process() =>
+    if _state == 0 then
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
+        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        _tcp_connection.send(auth_ok)
+        _tcp_connection.send(ready)
+        _state = 1
+        _process()
+      end
+    elseif _state == 1 then
+      match _reader.read_message()
+      | let _: Array[U8] val =>
+        let col_fmts: Array[U8] val = recover val [as U8: 0] end
+        let copy_in = _IncomingCopyInResponseTestMessage(0, col_fmts).bytes()
+        _tcp_connection.send(copy_in)
+        _state = 2
+        _process()
+      end
     else
-      _readbuf.append(consume data)
-      _process_messages()
-    end
-
-  fun ref _process_messages() =>
-    while _readbuf.size() >= 5 do
-      try
-        let msg_type = _readbuf.peek_u8(0)?
-        let msg_len = _readbuf.peek_u32_be(1)?.usize()
-        let total = msg_len + 1
-        if _readbuf.size() < total then
-          return
-        end
-        _readbuf.skip(total)?
-
-        if (msg_type == 'd') and (not _copy_error_sent) then
-          // First CopyData: respond with ErrorResponse + ReadyForQuery
-          _copy_error_sent = true
-          let err = _IncomingErrorResponseTestMessage(
-            "ERROR", "22P04", "invalid input syntax").bytes()
-          let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-          _tcp_connection.send(err)
-          _tcp_connection.send(ready)
-        elseif msg_type == 'Q' then
-          // Follow-up query: respond with CommandComplete + ReadyForQuery
-          try
-            let columns: Array[(String, String)] val = recover val
-              [("?column?", "text")]
-            end
-            let row_desc =
-              _IncomingRowDescriptionTestMessage(columns)?.bytes()
-            let data_row_cols: Array[(String | None)] val = recover val
-              [as (String | None): "1"]
-            end
-            let data_row =
-              _IncomingDataRowTestMessage(data_row_cols).bytes()
-            let cmd_complete =
-              _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
+      match _reader.read_message()
+      | let msg: Array[U8] val =>
+        try
+          let msg_type = msg(0)?
+          if (msg_type == 'd') and (not _copy_error_sent) then
+            _copy_error_sent = true
+            let err = _IncomingErrorResponseTestMessage(
+              "ERROR", "22P04", "invalid input syntax").bytes()
             let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-            _tcp_connection.send(row_desc)
-            _tcp_connection.send(data_row)
-            _tcp_connection.send(cmd_complete)
+            _tcp_connection.send(err)
             _tcp_connection.send(ready)
+          elseif msg_type == 'Q' then
+            try
+              let columns: Array[(String, String)] val = recover val
+                [("?column?", "text")]
+              end
+              let row_desc =
+                _IncomingRowDescriptionTestMessage(columns)?.bytes()
+              let data_row_cols: Array[(String | None)] val = recover val
+                [as (String | None): "1"]
+              end
+              let data_row =
+                _IncomingDataRowTestMessage(data_row_cols).bytes()
+              let cmd_complete =
+                _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
+              let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+              _tcp_connection.send(row_desc)
+              _tcp_connection.send(data_row)
+              _tcp_connection.send(cmd_complete)
+              _tcp_connection.send(ready)
+            end
           end
         end
-      else
-        return
+        _process()
       end
     end
 

@@ -23,6 +23,7 @@ type _ResponseParserResult is
   | _NoDataMessage
   | _ParameterDescriptionMessage
   | _NotificationResponseMessage
+  | _CopyInResponseMessage
   | _PortalSuspendedMessage
   | _SkippedMessage
   | _UnsupportedMessage
@@ -218,6 +219,12 @@ primitive _ResponseParser
       // and parse the notification payload in an isolated reader
       let notification_payload = buffer.block(payload_size)?
       return _notification_response(consume notification_payload)?
+    | _MessageType.copy_in_response() =>
+      // Slide past the header...
+      buffer.skip(5)?
+      // and parse the CopyInResponse payload in an isolated reader
+      let copy_payload = buffer.block(payload_size)?
+      return _copy_in_response(consume copy_payload)?
     else
       buffer.skip(message_size)?
       return _UnsupportedMessage
@@ -382,6 +389,23 @@ primitive _ResponseParser
     let payload_bytes = reader.read_until(0)?
     let payload' = String.from_array(consume payload_bytes)
     _NotificationResponseMessage(pid, channel, payload')
+
+  fun _copy_in_response(payload: Array[U8] val)
+    : _CopyInResponseMessage ?
+  =>
+    """
+    Parse a CopyInResponse message.
+    """
+    let reader: Reader = Reader.>append(payload)
+    let format = reader.u8()?
+    let num_cols = reader.u16_be()?.usize()
+    let col_fmts: Array[U8] iso = recover iso Array[U8](num_cols) end
+
+    for i in Range(0, num_cols) do
+      col_fmts.push(reader.u16_be()?.u8())
+    end
+
+    _CopyInResponseMessage(format, consume col_fmts)
 
   fun _parameter_description(payload: Array[U8] val)
     : _ParameterDescriptionMessage ?

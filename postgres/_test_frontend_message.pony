@@ -278,6 +278,51 @@ class \nodoc\ iso _TestFrontendMessageSASLResponse is UnitTest
     h.assert_array_eq[U8](expected,
       _FrontendMessage.sasl_response(response))
 
+class \nodoc\ iso _TestFrontendMessageCopyData is UnitTest
+  fun name(): String =>
+    "FrontendMessage/CopyData"
+
+  fun apply(h: TestHelper) =>
+    // CopyData("abc")
+    // Length = 4 + 3 = 7, total = 8
+    let data: Array[U8] val = recover val [as U8: 97; 98; 99] end
+    let expected: Array[U8] = ifdef bigendian then
+      [ 'd'; 7; 0; 0; 0; 97; 98; 99 ]
+    else
+      [ 'd'; 0; 0; 0; 7; 97; 98; 99 ]
+    end
+
+    h.assert_array_eq[U8](expected, _FrontendMessage.copy_data(data))
+
+class \nodoc\ iso _TestFrontendMessageCopyDone is UnitTest
+  fun name(): String =>
+    "FrontendMessage/CopyDone"
+
+  fun apply(h: TestHelper) =>
+    // CopyDone: Byte1('c') Int32(4) = 5 bytes
+    let expected: Array[U8] = ifdef bigendian then
+      [ 'c'; 4; 0; 0; 0 ]
+    else
+      [ 'c'; 0; 0; 0; 4 ]
+    end
+
+    h.assert_array_eq[U8](expected, _FrontendMessage.copy_done())
+
+class \nodoc\ iso _TestFrontendMessageCopyFail is UnitTest
+  fun name(): String =>
+    "FrontendMessage/CopyFail"
+
+  fun apply(h: TestHelper) =>
+    // CopyFail("err")
+    // Length = 4 + 3 + 1 = 8, total = 9
+    let expected: Array[U8] = ifdef bigendian then
+      [ 'f'; 8; 0; 0; 0; 101; 114; 114; 0 ]
+    else
+      [ 'f'; 0; 0; 0; 8; 101; 114; 114; 0 ]
+    end
+
+    h.assert_array_eq[U8](expected, _FrontendMessage.copy_fail("err"))
+
 class \nodoc\ iso _TestFrontendMessageTerminate is UnitTest
   fun name(): String =>
     "FrontendMessage/Terminate"

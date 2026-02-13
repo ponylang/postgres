@@ -1826,3 +1826,234 @@ actor \nodoc\ _MixedAllThreeClient is
 
   be dispose() =>
     _session.close()
+
+class \nodoc\ iso _TestCopyInInsert is UnitTest
+  """
+  Verifies COPY IN through a real PostgreSQL server: creates a temp table,
+  COPYs 3 rows of tab-delimited text, then SELECTs to verify the count.
+  """
+  fun name(): String =>
+    "integration/CopyIn/Insert"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _CopyInInsertClient(h, info)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _CopyInInsertClient is
+  (SessionStatusNotify & CopyInReceiver & ResultReceiver)
+  let _h: TestHelper
+  let _session: Session
+  var _phase: USize = 0
+  var _rows_sent: USize = 0
+
+  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+    _h = h
+
+    _session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
+
+  be pg_session_authenticated(session: Session) =>
+    _phase = 0
+    session.execute(
+      SimpleQuery(
+        "CREATE TEMP TABLE copy_test (id INT, name TEXT)"),
+      this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate")
+    _h.complete(false)
+
+  be pg_query_result(session: Session, result: Result) =>
+    _phase = _phase + 1
+
+    match _phase
+    | 1 =>
+      // Table created, start COPY
+      _session.copy_in(
+        "COPY copy_test (id, name) FROM STDIN", this)
+    | 3 =>
+      // SELECT result — verify row count
+      match result
+      | let r: ResultSet =>
+        try
+          match r.rows()(0)?.fields(0)?.value
+          | let v: String =>
+            if v == "3" then
+              _h.complete(true)
+              return
+            end
+            _h.fail("Expected count '3' but got '" + v + "'")
+          else
+            _h.fail("Unexpected result type for count.")
+          end
+        else
+          _h.fail("Error accessing result rows.")
+        end
+      else
+        _h.fail("Expected ResultSet.")
+      end
+      _h.complete(false)
+    else
+      _h.fail("Unexpected phase " + _phase.string())
+      _h.complete(false)
+    end
+
+  be pg_query_failed(session: Session, query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure at phase " + _phase.string())
+    _h.complete(false)
+
+  be pg_copy_ready(session: Session) =>
+    _rows_sent = _rows_sent + 1
+    if _rows_sent <= 3 then
+      let row: Array[U8] val = recover val
+        (_rows_sent.string() + "\trow" + _rows_sent.string() + "\n").array()
+      end
+      _session.send_copy_data(row)
+    else
+      _session.finish_copy()
+    end
+
+  be pg_copy_complete(session: Session, count: USize) =>
+    _phase = _phase + 1
+    if count != 3 then
+      _h.fail("Expected COPY count 3 but got " + count.string())
+      _h.complete(false)
+      return
+    end
+    // Verify via SELECT
+    _session.execute(
+      SimpleQuery("SELECT count(*)::text FROM copy_test"), this)
+
+  be pg_copy_failed(session: Session,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected copy failure.")
+    _h.complete(false)
+
+  be dispose() =>
+    _session.close()
+
+class \nodoc\ iso _TestCopyInAbortRollback is UnitTest
+  """
+  Verifies that aborting a COPY IN operation prevents data from being
+  committed: creates a temp table, starts COPY, sends data, aborts, then
+  verifies via SELECT that the table is empty.
+  """
+  fun name(): String =>
+    "integration/CopyIn/AbortRollback"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _CopyInAbortRollbackClient(h, info)
+
+    h.dispose_when_done(client)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _CopyInAbortRollbackClient is
+  (SessionStatusNotify & CopyInReceiver & ResultReceiver)
+  let _h: TestHelper
+  let _session: Session
+  var _phase: USize = 0
+  var _data_sent: Bool = false
+
+  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+    _h = h
+
+    _session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      this)
+
+  be pg_session_authenticated(session: Session) =>
+    _phase = 0
+    session.execute(
+      SimpleQuery(
+        "CREATE TEMP TABLE copy_abort_test (id INT, name TEXT)"),
+      this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate")
+    _h.complete(false)
+
+  be pg_query_result(session: Session, result: Result) =>
+    _phase = _phase + 1
+
+    match _phase
+    | 1 =>
+      // Table created, start COPY
+      _session.copy_in(
+        "COPY copy_abort_test (id, name) FROM STDIN", this)
+    | 3 =>
+      // SELECT result — verify table is empty
+      match result
+      | let r: ResultSet =>
+        try
+          match r.rows()(0)?.fields(0)?.value
+          | let v: String =>
+            if v == "0" then
+              _h.complete(true)
+              return
+            end
+            _h.fail("Expected count '0' but got '" + v + "'")
+          else
+            _h.fail("Unexpected result type for count.")
+          end
+        else
+          _h.fail("Error accessing result rows.")
+        end
+      else
+        _h.fail("Expected ResultSet.")
+      end
+      _h.complete(false)
+    else
+      _h.fail("Unexpected phase " + _phase.string())
+      _h.complete(false)
+    end
+
+  be pg_query_failed(session: Session, query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure at phase " + _phase.string())
+    _h.complete(false)
+
+  be pg_copy_ready(session: Session) =>
+    if not _data_sent then
+      _data_sent = true
+      let row: Array[U8] val = recover val
+        "1\ttest\n".array()
+      end
+      _session.send_copy_data(row)
+    else
+      // After sending one row, abort
+      _session.abort_copy("client chose to abort")
+    end
+
+  be pg_copy_complete(session: Session, count: USize) =>
+    _h.fail("Unexpected copy complete after abort.")
+    _h.complete(false)
+
+  be pg_copy_failed(session: Session,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _phase = _phase + 1
+    // After abort failure, verify table is empty
+    _session.execute(
+      SimpleQuery("SELECT count(*)::text FROM copy_abort_test"), this)
+
+  be dispose() =>
+    _session.close()

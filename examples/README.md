@@ -30,6 +30,10 @@ Multi-query workflow mixing `SimpleQuery` and `PreparedQuery`. Creates a table, 
 
 Asynchronous notifications using PostgreSQL's LISTEN/NOTIFY mechanism. Subscribes to a channel with `LISTEN`, sends a notification with `NOTIFY`, receives it via the `pg_notification` callback on `SessionStatusNotify`, and unsubscribes with `UNLISTEN`. Shows the `Notification` class fields (channel, payload, pid).
 
+## copy-in
+
+Bulk data loading using `COPY ... FROM STDIN`. Creates a table, loads three rows of tab-delimited text data via `Session.copy_in()`, verifies the data with a SELECT, then drops the table. Demonstrates the pull-based `CopyInReceiver` interface: `pg_copy_ready` fires after each `send_copy_data`, and `finish_copy` completes the operation.
+
 ## transaction-status
 
 Transaction status tracking using `pg_transaction_status`. Sends `BEGIN` and `COMMIT` and prints the `TransactionStatus` reported at each step. Shows how `SessionStatusNotify.pg_transaction_status` fires on every `ReadyForQuery` with `TransactionIdle`, `TransactionInBlock`, or `TransactionFailed`.

@@ -1122,6 +1122,45 @@ class \nodoc\ val _IncomingPortalSuspendedTestMessage
   fun bytes(): Array[U8] val =>
     _bytes
 
+class \nodoc\ iso _TestResponseParserCopyInResponseMessage is UnitTest
+  """
+  Verify that CopyInResponse ('G') messages are parsed into
+  _CopyInResponseMessage with correct fields.
+  """
+  fun name(): String =>
+    "ResponseParser/CopyInResponseMessage"
+
+  fun apply(h: TestHelper) ? =>
+    // Text format (0) with 3 columns (each text format)
+    let col_fmts: Array[U8] val = recover val [as U8: 0; 0; 0] end
+    let bytes = _IncomingCopyInResponseTestMessage(0, col_fmts).bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    match _ResponseParser(r)?
+    | let msg: _CopyInResponseMessage =>
+      h.assert_eq[U8](0, msg.format)
+      h.assert_eq[USize](3, msg.column_formats.size())
+      h.assert_eq[U8](0, msg.column_formats(0)?)
+      h.assert_eq[U8](0, msg.column_formats(1)?)
+      h.assert_eq[U8](0, msg.column_formats(2)?)
+    else
+      h.fail("Wrong message type returned.")
+    end
+
+    // Binary format (1) with 1 column (binary format)
+    let col_fmts2: Array[U8] val = recover val [as U8: 1] end
+    let bytes2 = _IncomingCopyInResponseTestMessage(1, col_fmts2).bytes()
+    let r2: Reader = Reader.>append(bytes2)
+
+    match _ResponseParser(r2)?
+    | let msg: _CopyInResponseMessage =>
+      h.assert_eq[U8](1, msg.format)
+      h.assert_eq[USize](1, msg.column_formats.size())
+      h.assert_eq[U8](1, msg.column_formats(0)?)
+    else
+      h.fail("Wrong message type for binary format case.")
+    end
+
 class \nodoc\ iso _TestResponseParserParameterStatusSkipped is UnitTest
   """
   Verify that ParameterStatus ('S') messages are parsed as _SkippedMessage.
@@ -1290,6 +1329,28 @@ class \nodoc\ val _IncomingNotificationResponseTestMessage
     wb.u8(0)
     wb.write(payload)
     wb.u8(0)
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingCopyInResponseTestMessage
+  let _bytes: Array[U8] val
+
+  new val create(format: U8, column_formats: Array[U8] val) =>
+    // Payload: 4 (length) + 1 (format) + 2 (num columns) +
+    //   (num_columns * 2) (column format codes as Int16)
+    let num_cols = column_formats.size()
+    let payload_size = 4 + 1 + 2 + (num_cols * 2)
+    let wb: Writer = Writer
+    wb.u8(_MessageType.copy_in_response())
+    wb.u32_be(payload_size.u32())
+    wb.u8(format)
+    wb.u16_be(num_cols.u16())
+    for fmt in column_formats.values() do
+      wb.u16_be(fmt.u16())
+    end
 
     _bytes = WriterToByteArray(wb)
 

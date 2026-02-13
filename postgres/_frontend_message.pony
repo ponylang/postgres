@@ -464,6 +464,79 @@ primitive _FrontendMessage
       []
     end
 
+  fun copy_data(data: Array[U8] val): Array[U8] val =>
+    """
+    Build a CopyData message containing a chunk of COPY stream data.
+
+    Format: Byte1('d') Int32(4 + data.size()) Byte[](data)
+    """
+    try
+      recover val
+        let length: U32 = 4 + data.size().u32()
+        let msg_size = (length + 1).usize()
+        let msg: Array[U8] = Array[U8].init(0, msg_size)
+        msg.update_u8(0, 'd')?
+        ifdef bigendian then
+          msg.update_u32(1, length)?
+        else
+          msg.update_u32(1, length.bswap())?
+        end
+        msg.copy_from(data, 0, 5, data.size())
+        msg
+      end
+    else
+      _Unreachable()
+      []
+    end
+
+  fun copy_done(): Array[U8] val =>
+    """
+    Build a CopyDone message signaling successful end of COPY data.
+
+    Format: Byte1('c') Int32(4)
+    """
+    try
+      recover val
+        let msg: Array[U8] = Array[U8].init(0, 5)
+        msg.update_u8(0, 'c')?
+        ifdef bigendian then
+          msg.update_u32(1, U32(4))?
+        else
+          msg.update_u32(1, U32(4).bswap())?
+        end
+        msg
+      end
+    else
+      _Unreachable()
+      []
+    end
+
+  fun copy_fail(reason: String): Array[U8] val =>
+    """
+    Build a CopyFail message aborting the COPY operation.
+
+    Format: Byte1('f') Int32(4 + reason.size() + 1) String(reason)
+    """
+    try
+      recover val
+        let length: U32 = reason.size().u32() + 5
+        let msg_size = (length + 1).usize()
+        let msg: Array[U8] = Array[U8].init(0, msg_size)
+        msg.update_u8(0, 'f')?
+        ifdef bigendian then
+          msg.update_u32(1, length)?
+        else
+          msg.update_u32(1, length.bswap())?
+        end
+        msg.copy_from(reason.array(), 0, 5, reason.size())
+        // space for null left here
+        msg
+      end
+    else
+      _Unreachable()
+      []
+    end
+
   fun terminate(): Array[U8] val =>
     """
     Build a Terminate message. Sent before closing the TCP connection to

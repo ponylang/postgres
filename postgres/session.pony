@@ -59,6 +59,38 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     """
     state.cancel(this)
 
+  be copy_in(sql: String, receiver: CopyInReceiver) =>
+    """
+    Start a COPY ... FROM STDIN operation. The SQL string should be a COPY
+    command with FROM STDIN. On success, the receiver's `pg_copy_ready()` is
+    called, and the caller should then send data via `send_copy_data()`,
+    finishing with `finish_copy()` or `abort_copy()`.
+    """
+    state.copy_in(this, sql, receiver)
+
+  be send_copy_data(data: Array[U8] val) =>
+    """
+    Send a chunk of data to the server during a COPY IN operation. Data does
+    not need to align with row boundaries — the server reassembles the stream.
+    No-op if not in COPY IN mode.
+    """
+    state.send_copy_data(this, data)
+
+  be finish_copy() =>
+    """
+    Signal successful completion of the COPY data stream. The server will
+    validate the data and respond with `pg_copy_complete()` or
+    `pg_copy_failed()`. No-op if not in COPY IN mode.
+    """
+    state.finish_copy(this)
+
+  be abort_copy(reason: String) =>
+    """
+    Abort the COPY operation with the given error message. The server will
+    respond with `pg_copy_failed()`. No-op if not in COPY IN mode.
+    """
+    state.abort_copy(this, reason)
+
   be close() =>
     """
     Close the connection. Sends a Terminate message to the server before
@@ -121,6 +153,11 @@ class ref _SessionUnopened is _ConnectableState
   =>
     receiver.pg_prepare_failed(s, name, SessionNeverOpened)
 
+  fun ref copy_in(s: Session ref, sql: String,
+    receiver: CopyInReceiver)
+  =>
+    receiver.pg_copy_failed(s, SessionNeverOpened)
+
   fun ref close_statement(s: Session ref, name: String) =>
     None
 
@@ -144,6 +181,11 @@ class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
     receiver: PrepareReceiver)
   =>
     receiver.pg_prepare_failed(s, name, SessionClosed)
+
+  fun ref copy_in(s: Session ref, sql: String,
+    receiver: CopyInReceiver)
+  =>
+    receiver.pg_copy_failed(s, SessionClosed)
 
   fun ref close_statement(s: Session ref, name: String) =>
     None
@@ -226,7 +268,21 @@ class ref _SessionSSLNegotiating
   =>
     receiver.pg_prepare_failed(s, name, SessionNotAuthenticated)
 
+  fun ref copy_in(s: Session ref, sql: String,
+    receiver: CopyInReceiver)
+  =>
+    receiver.pg_copy_failed(s, SessionNotAuthenticated)
+
   fun ref close_statement(s: Session ref, name: String) =>
+    None
+
+  fun ref send_copy_data(s: Session ref, data: Array[U8] val) =>
+    None
+
+  fun ref finish_copy(s: Session ref) =>
+    None
+
+  fun ref abort_copy(s: Session ref, reason: String) =>
     None
 
   fun ref cancel(s: Session ref) =>
@@ -270,6 +326,11 @@ class ref _SessionConnected is _AuthenticableState
     receiver: PrepareReceiver)
   =>
     receiver.pg_prepare_failed(s, name, SessionNotAuthenticated)
+
+  fun ref copy_in(s: Session ref, sql: String,
+    receiver: CopyInReceiver)
+  =>
+    receiver.pg_copy_failed(s, SessionNotAuthenticated)
 
   fun ref close_statement(s: Session ref, name: String) =>
     None
@@ -420,6 +481,11 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
   =>
     receiver.pg_prepare_failed(s, name, SessionNotAuthenticated)
 
+  fun ref copy_in(s: Session ref, sql: String,
+    receiver: CopyInReceiver)
+  =>
+    receiver.pg_copy_failed(s, SessionNotAuthenticated)
+
   fun ref close_statement(s: Session ref, name: String) =>
     None
 
@@ -456,7 +522,19 @@ class val _QueuedCloseStatement
   new val create(name': String) =>
     name = name'
 
-type _QueueItem is (_QueuedQuery | _QueuedPrepare | _QueuedCloseStatement)
+class val _QueuedCopyIn
+  let sql: String
+  let receiver: CopyInReceiver
+
+  new val create(sql': String, receiver': CopyInReceiver) =>
+    sql = sql'
+    receiver = receiver'
+
+type _QueueItem is
+  ( _QueuedQuery
+  | _QueuedPrepare
+  | _QueuedCloseStatement
+  | _QueuedCopyIn )
 
 class _SessionLoggedIn is _AuthenticatedState
   """
@@ -532,6 +610,28 @@ class _SessionLoggedIn is _AuthenticatedState
     query_queue.push(_QueuedCloseStatement(name))
     query_state.try_run_query(s, this)
 
+  fun ref copy_in(s: Session ref, sql: String, receiver: CopyInReceiver) =>
+    query_queue.push(_QueuedCopyIn(sql, receiver))
+    query_state.try_run_query(s, this)
+
+  fun ref send_copy_data(s: Session ref, data: Array[U8] val) =>
+    match query_state
+    | let c: _CopyInInFlight => c.send_copy_data(s, this, data)
+    end
+
+  fun ref finish_copy(s: Session ref) =>
+    match query_state
+    | let c: _CopyInInFlight => c.finish_copy(s)
+    end
+
+  fun ref abort_copy(s: Session ref, reason: String) =>
+    match query_state
+    | let c: _CopyInInFlight => c.abort_copy(s, reason)
+    end
+
+  fun ref on_copy_in_response(s: Session ref, msg: _CopyInResponseMessage) =>
+    query_state.on_copy_in_response(s, this, msg)
+
   fun ref on_shutdown(s: Session ref) =>
     // Clearing the readbuf is required for _ResponseMessageParser's
     // synchronous loop to exit — the next parse returns None.
@@ -543,6 +643,8 @@ class _SessionLoggedIn is _AuthenticatedState
       | let prep: _QueuedPrepare =>
         prep.receiver.pg_prepare_failed(s, prep.name, SessionClosed)
       | let _: _QueuedCloseStatement => None
+      | let ci: _QueuedCopyIn =>
+        ci.receiver.pg_copy_failed(s, SessionClosed)
       end
     end
     query_queue.clear()
@@ -574,6 +676,8 @@ interface _QueryState
   fun ref on_empty_query_response(s: Session ref, li: _SessionLoggedIn ref)
   fun ref on_error_response(s: Session ref, li: _SessionLoggedIn ref,
     msg: ErrorResponseMessage)
+  fun ref on_copy_in_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyInResponseMessage)
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref)
 
 trait _QueryNoQueryInFlight is _QueryState
@@ -592,6 +696,8 @@ trait _QueryNoQueryInFlight is _QueryState
     li: _SessionLoggedIn ref) => li.shutdown(s)
   fun ref on_error_response(s: Session ref, li: _SessionLoggedIn ref,
     msg: ErrorResponseMessage) => li.shutdown(s)
+  fun ref on_copy_in_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyInResponseMessage) => li.shutdown(s)
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
 
 class _QueryNotReady is _QueryNoQueryInFlight
@@ -694,6 +800,9 @@ class _QueryReady is _QueryNoQueryInFlight
             buf
           end
           s._connection().send(consume combined)
+        | let ci: _QueuedCopyIn =>
+          li.query_state = _CopyInInFlight
+          s._connection().send(_FrontendMessage.query(ci.sql))
         end
       end
     else
@@ -807,6 +916,11 @@ class _SimpleQueryInFlight is _QueryState
       _Unreachable()
     end
 
+  fun ref on_copy_in_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyInResponseMessage)
+  =>
+    li.shutdown(s)
+
 class _ExtendedQueryInFlight is _QueryState
   """
   Extended query protocol in progress. Owns the per-query accumulation data
@@ -919,6 +1033,11 @@ class _ExtendedQueryInFlight is _QueryState
       _Unreachable()
     end
 
+  fun ref on_copy_in_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyInResponseMessage)
+  =>
+    li.shutdown(s)
+
 class _PrepareInFlight is _QueryState
   """
   Prepare (named statement) protocol in progress. Expects ParseComplete,
@@ -986,6 +1105,11 @@ class _PrepareInFlight is _QueryState
   =>
     li.shutdown(s)
 
+  fun ref on_copy_in_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyInResponseMessage)
+  =>
+    li.shutdown(s)
+
 class _CloseStatementInFlight is _QueryState
   """
   Close (named statement) protocol in progress. Expects CloseComplete then
@@ -1027,6 +1151,95 @@ class _CloseStatementInFlight is _QueryState
     li: _SessionLoggedIn ref)
   =>
     li.shutdown(s)
+
+  fun ref on_copy_in_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyInResponseMessage)
+  =>
+    li.shutdown(s)
+
+class _CopyInInFlight is _QueryState
+  """
+  COPY ... FROM STDIN operation in progress. Uses a pull-based data flow:
+  `pg_copy_ready` is called on the receiver to request each chunk. The receiver
+  responds by calling `send_copy_data`, `finish_copy`, or `abort_copy` on the
+  session.
+  """
+  var _complete_count: USize = 0
+  var _error: Bool = false
+
+  fun ref on_copy_in_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyInResponseMessage)
+  =>
+    try
+      (li.query_queue(0)? as _QueuedCopyIn).receiver.pg_copy_ready(s)
+    else
+      _Unreachable()
+    end
+
+  fun ref send_copy_data(s: Session ref, li: _SessionLoggedIn ref,
+    data: Array[U8] val)
+  =>
+    s._connection().send(_FrontendMessage.copy_data(data))
+    try
+      (li.query_queue(0)? as _QueuedCopyIn).receiver.pg_copy_ready(s)
+    else
+      _Unreachable()
+    end
+
+  fun ref finish_copy(s: Session ref) =>
+    s._connection().send(_FrontendMessage.copy_done())
+
+  fun ref abort_copy(s: Session ref, reason: String) =>
+    s._connection().send(_FrontendMessage.copy_fail(reason))
+
+  fun ref on_error_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: ErrorResponseMessage)
+  =>
+    _error = true
+    try
+      (li.query_queue(0)? as _QueuedCopyIn).receiver.pg_copy_failed(s, msg)
+    else
+      _Unreachable()
+    end
+
+  fun ref on_command_complete(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CommandCompleteMessage)
+  =>
+    _complete_count = msg.value
+
+  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        (li.query_queue(0)? as _QueuedCopyIn).receiver.pg_copy_complete(s,
+          _complete_count)
+      else
+        _Unreachable()
+      end
+    end
+    try
+      li.query_queue.shift()?
+    else
+      _Unreachable()
+    end
+    li.query_state = _QueryReady
+    li.query_state.try_run_query(s, li)
+
+  fun ref on_data_row(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _DataRowMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_row_description(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _RowDescriptionMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_empty_query_response(s: Session ref,
+    li: _SessionLoggedIn ref)
+  =>
+    li.shutdown(s)
+
+  fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
 
 interface _SessionState
   fun on_connected(s: Session ref)
@@ -1094,6 +1307,27 @@ interface _SessionState
   fun ref close_statement(s: Session ref, name: String)
     """
     Called when a client requests closing a named prepared statement.
+    """
+  fun ref copy_in(s: Session ref, sql: String, receiver: CopyInReceiver)
+    """
+    Called when a client requests a COPY ... FROM STDIN operation.
+    """
+  fun ref send_copy_data(s: Session ref, data: Array[U8] val)
+    """
+    Called when a client sends a chunk of COPY data.
+    """
+  fun ref finish_copy(s: Session ref)
+    """
+    Called when a client signals completion of the COPY data stream.
+    """
+  fun ref abort_copy(s: Session ref, reason: String)
+    """
+    Called when a client aborts the COPY operation.
+    """
+  fun ref on_copy_in_response(s: Session ref, msg: _CopyInResponseMessage)
+    """
+    Called when the server responds to a COPY FROM STDIN query with a
+    CopyInResponse message, indicating it is ready to receive data.
     """
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage)
     """
@@ -1234,6 +1468,15 @@ trait _ConnectedState is _NotConnectableState
   fun ref cancel(s: Session ref) =>
     None
 
+  fun ref send_copy_data(s: Session ref, data: Array[U8] val) =>
+    None
+
+  fun ref finish_copy(s: Session ref) =>
+    None
+
+  fun ref abort_copy(s: Session ref, reason: String) =>
+    None
+
   fun ref close(s: Session ref) =>
     shutdown(s)
 
@@ -1276,6 +1519,15 @@ trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
     None
 
   fun ref cancel(s: Session ref) =>
+    None
+
+  fun ref send_copy_data(s: Session ref, data: Array[U8] val) =>
+    None
+
+  fun ref finish_copy(s: Session ref) =>
+    None
+
+  fun ref abort_copy(s: Session ref, reason: String) =>
     None
 
   fun ref close(s: Session ref) =>
@@ -1426,4 +1678,7 @@ trait _NotAuthenticated
     _IllegalState()
 
   fun ref on_row_description(s: Session ref, msg: _RowDescriptionMessage) =>
+    _IllegalState()
+
+  fun ref on_copy_in_response(s: Session ref, msg: _CopyInResponseMessage) =>
     _IllegalState()

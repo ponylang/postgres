@@ -28,14 +28,14 @@ type _ResponseParserResult is
   | _SkippedMessage
   | _UnsupportedMessage
   | ErrorResponseMessage
+  | NoticeResponseMessage
   | None )
 
 primitive _SkippedMessage
   """
   Returned by the parser for known PostgreSQL asynchronous message types that
-  the driver recognizes but intentionally does not process: ParameterStatus
-  and NoticeResponse. These can arrive between any other messages and are
-  safely ignored.
+  the driver recognizes but intentionally does not process: ParameterStatus.
+  These can arrive between any other messages and are safely ignored.
 
   Distinct from `_UnsupportedMessage`, which represents truly unknown message
   types that the parser does not recognize at all.
@@ -210,9 +210,11 @@ primitive _ResponseParser
       buffer.skip(message_size)?
       return _SkippedMessage
     | _MessageType.notice_response() =>
-      // Known async message — skip payload without parsing
-      buffer.skip(message_size)?
-      return _SkippedMessage
+      // Slide past the header...
+      buffer.skip(5)?
+      // and only get the payload
+      let notice_payload = buffer.block(payload_size)?
+      return _notice_response(consume notice_payload)?
     | _MessageType.notification_response() =>
       // Slide past the header...
       buffer.skip(5)?
@@ -230,20 +232,21 @@ primitive _ResponseParser
       return _UnsupportedMessage
     end
 
-  fun _error_response(payload: Array[U8] val): ErrorResponseMessage ? =>
+  fun _parse_response_fields(payload: Array[U8] val)
+    : _ResponseFieldBuilder ?
+  =>
     """
-    Parse error response messages.
+    Parse the field list shared by ErrorResponse and NoticeResponse messages.
     """
-    var code = ""
-    var code_index: USize = 0
+    var index: USize = 0
 
-    let builder = _ErrorResponseMessageBuilder
-    while (payload(code_index)? > 0) do
-      let field_type = payload(code_index)?
+    let builder = _ResponseFieldBuilder
+    while (payload(index)? > 0) do
+      let field_type = payload(index)?
 
       // Find the field terminator. All fields are null terminated.
-      let null_index = payload.find(0, code_index)?
-      let field_index = code_index + 1
+      let null_index = payload.find(0, index)?
+      let field_index = index + 1
       let field_data = String.from_array(recover
           payload.slice(field_index, null_index)
         end)
@@ -269,10 +272,22 @@ primitive _ResponseParser
       | 'R' => builder.routine = field_data
       end
 
-      code_index = null_index + 1
+      index = null_index + 1
     end
 
-    builder.build()?
+    builder
+
+  fun _error_response(payload: Array[U8] val): ErrorResponseMessage ? =>
+    """
+    Parse error response messages.
+    """
+    _parse_response_fields(payload)?.build_error()?
+
+  fun _notice_response(payload: Array[U8] val): NoticeResponseMessage ? =>
+    """
+    Parse notice response messages.
+    """
+    _parse_response_fields(payload)?.build_notice()?
 
   fun _data_row(payload: Array[U8] val): _DataRowMessage ? =>
     """

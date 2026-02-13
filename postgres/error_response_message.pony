@@ -56,7 +56,7 @@ class val ErrorResponseMessage
     line = line'
     routine = routine'
 
-class _ErrorResponseMessageBuilder
+class _ResponseFieldBuilder
   var severity: (String | None) = None
   var localized_severity: (String | None) = None
   var code: (String | None) = None
@@ -79,13 +79,37 @@ class _ErrorResponseMessageBuilder
   new create() =>
     None
 
-  fun ref build(): ErrorResponseMessage ? =>
+  fun ref build_error(): ErrorResponseMessage ? =>
     // Three fields are required to build. All others are optional.
     let s = severity as String
     let c = code as String
     let m = message as String
 
     ErrorResponseMessage(s,
+      localized_severity,
+      c,
+      m,
+      detail,
+      hint,
+      position,
+      internal_position,
+      internal_query,
+      error_where,
+      schema_name,
+      table_name,
+      column_name,
+      data_type_name,
+      constraint_name,
+      file,
+      line,
+      routine)
+
+  fun ref build_notice(): NoticeResponseMessage ? =>
+    let s = severity as String
+    let c = code as String
+    let m = message as String
+
+    NoticeResponseMessage(s,
       localized_severity,
       c,
       m,

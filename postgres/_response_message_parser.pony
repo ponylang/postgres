@@ -55,11 +55,12 @@ primitive _ResponseMessageParser
           s.state.on_backend_key_data(s, msg)
         | let msg: _NotificationResponseMessage =>
           s.state.on_notification(s, msg)
+        | let msg: NoticeResponseMessage =>
+          s.state.on_notice(s, msg)
         | let msg: _CopyInResponseMessage =>
           s.state.on_copy_in_response(s, msg)
         | _SkippedMessage =>
-          // Known async message (ParameterStatus, NoticeResponse) —
-          // intentionally not routed.
+          // Known async message (ParameterStatus) — intentionally not routed.
           None
         | let msg: _EmptyQueryResponseMessage =>
           s.state.on_empty_query_response(s)

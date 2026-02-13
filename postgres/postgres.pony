@@ -50,6 +50,8 @@ Implement the ones you need:
 * `pg_transaction_status` — fires on every `ReadyForQuery` with
   `TransactionIdle`, `TransactionInBlock`, or `TransactionFailed`
 * `pg_notification` — LISTEN/NOTIFY notifications
+* `pg_notice` — non-fatal server notices (e.g., `DROP IF EXISTS` on
+  a nonexistent table, `RAISE NOTICE` from PL/pgSQL)
 * `pg_session_shutdown` — session has shut down
 
 ## SSL/TLS
@@ -201,6 +203,7 @@ supported.
 * MD5 and SCRAM-SHA-256 authentication
 * Transaction status tracking (`TransactionStatus`)
 * LISTEN/NOTIFY notifications
+* NoticeResponse delivery (non-fatal server messages)
 * COPY FROM STDIN (bulk data loading)
 * Query cancellation
 """

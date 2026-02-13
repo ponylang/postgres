@@ -102,6 +102,7 @@ actor \nodoc\ _CancelTestServer
   let _h: TestHelper
   let _is_cancel_connection: Bool
   var _authed: Bool = false
+  let _reader: _MockMessageReader = _MockMessageReader
 
   new create(auth: lori.TCPServerAuth, fd: U32, h: TestHelper,
     is_cancel: Bool)
@@ -114,72 +115,79 @@ actor \nodoc\ _CancelTestServer
     _tcp_connection
 
   fun ref _on_received(data: Array[U8] iso) =>
+    _reader.append(consume data)
+    _process()
+
+  fun ref _process() =>
     if _is_cancel_connection then
-      // Verify CancelRequest: 16 bytes total
-      // Int32(16) Int32(80877102) Int32(pid=12345) Int32(key=67890)
-      if data.size() != 16 then
-        _h.fail("CancelRequest should be 16 bytes, got "
-          + data.size().string())
-        _h.complete(false)
-        return
-      end
-
-      try
-        // Verify length field: big-endian 16
-        if (data(0)? != 0) or (data(1)? != 0) or (data(2)? != 0)
-          or (data(3)? != 16) then
-          _h.fail("CancelRequest length field is incorrect")
+      match _reader.read_startup_message()
+      | let msg: Array[U8] val =>
+        // Verify CancelRequest: 16 bytes total
+        // Int32(16) Int32(80877102) Int32(pid=12345) Int32(key=67890)
+        if msg.size() != 16 then
+          _h.fail("CancelRequest should be 16 bytes, got "
+            + msg.size().string())
           _h.complete(false)
           return
         end
 
-        // Verify magic number: big-endian 80877102 = 0x04D2162E
-        if (data(4)? != 4) or (data(5)? != 210) or (data(6)? != 22)
-          or (data(7)? != 46) then
-          _h.fail("CancelRequest magic number is incorrect")
-          _h.complete(false)
-          return
-        end
+        try
+          if (msg(0)? != 0) or (msg(1)? != 0) or (msg(2)? != 0)
+            or (msg(3)? != 16) then
+            _h.fail("CancelRequest length field is incorrect")
+            _h.complete(false)
+            return
+          end
 
-        // Verify pid: big-endian 12345 = 0x00003039
-        if (data(8)? != 0) or (data(9)? != 0) or (data(10)? != 48)
-          or (data(11)? != 57) then
-          _h.fail("CancelRequest process_id is incorrect")
-          _h.complete(false)
-          return
-        end
+          if (msg(4)? != 4) or (msg(5)? != 210) or (msg(6)? != 22)
+            or (msg(7)? != 46) then
+            _h.fail("CancelRequest magic number is incorrect")
+            _h.complete(false)
+            return
+          end
 
-        // Verify key: big-endian 67890 = 0x00010932
-        if (data(12)? != 0) or (data(13)? != 1) or (data(14)? != 9)
-          or (data(15)? != 50) then
-          _h.fail("CancelRequest secret_key is incorrect")
-          _h.complete(false)
-          return
-        end
+          if (msg(8)? != 0) or (msg(9)? != 0) or (msg(10)? != 48)
+            or (msg(11)? != 57) then
+            _h.fail("CancelRequest process_id is incorrect")
+            _h.complete(false)
+            return
+          end
 
-        _h.complete(true)
-      else
-        _h.fail("Error reading CancelRequest bytes")
-        _h.complete(false)
+          if (msg(12)? != 0) or (msg(13)? != 1) or (msg(14)? != 9)
+            or (msg(15)? != 50) then
+            _h.fail("CancelRequest secret_key is incorrect")
+            _h.complete(false)
+            return
+          end
+
+          _h.complete(true)
+        else
+          _h.fail("Error reading CancelRequest bytes")
+          _h.complete(false)
+        end
       end
     else
       if not _authed then
-        _authed = true
-        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-        let bkd = _IncomingBackendKeyDataTestMessage(12345, 67890).bytes()
-        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-        // Send all auth messages in a single write so the Session processes
-        // them atomically. If sent separately, TCP may deliver them in
-        // different reads, causing ReadyForQuery to arrive after the client
-        // has already called cancel() (which would see _QueryNotReady).
-        let combined: Array[U8] val = recover val
-          let arr = Array[U8]
-          arr.append(auth_ok)
-          arr.append(bkd)
-          arr.append(ready)
-          arr
+        match _reader.read_startup_message()
+        | let _: Array[U8] val =>
+          _authed = true
+          let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
+          let bkd = _IncomingBackendKeyDataTestMessage(12345, 67890).bytes()
+          let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+          // Send all auth messages in a single write so the Session
+          // processes them atomically. If sent separately, TCP may deliver
+          // them in different reads, causing ReadyForQuery to arrive after
+          // the client has already called cancel() (which would see
+          // _QueryNotReady).
+          let combined: Array[U8] val = recover val
+            let arr = Array[U8]
+            arr.append(auth_ok)
+            arr.append(bkd)
+            arr.append(ready)
+            arr
+          end
+          _tcp_connection.send(combined)
         end
-        _tcp_connection.send(combined)
       end
       // After auth, receive query data and hold (don't respond)
     end
@@ -285,6 +293,7 @@ actor \nodoc\ _SSLCancelTestServer
   let _is_cancel_connection: Bool
   var _ssl_started: Bool = false
   var _authed: Bool = false
+  let _reader: _MockMessageReader = _MockMessageReader
 
   new create(auth: lori.TCPServerAuth, sslctx: SSLContext val, fd: U32,
     h: TestHelper, is_cancel: Bool)
@@ -298,75 +307,88 @@ actor \nodoc\ _SSLCancelTestServer
     _tcp_connection
 
   fun ref _on_received(data: Array[U8] iso) =>
+    _reader.append(consume data)
+    _process()
+
+  fun ref _process() =>
     if not _ssl_started then
-      // SSLRequest — respond 'S' and upgrade to TLS
-      let response: Array[U8] val = ['S']
-      _tcp_connection.send(response)
-      match _tcp_connection.start_tls(_sslctx)
-      | None => _ssl_started = true
-      | let _: lori.StartTLSError =>
-        _tcp_connection.close()
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        // SSLRequest — respond 'S' and upgrade to TLS
+        let response: Array[U8] val = ['S']
+        _tcp_connection.send(response)
+        match _tcp_connection.start_tls(_sslctx)
+        | None => _ssl_started = true
+        | let _: lori.StartTLSError =>
+          _tcp_connection.close()
+        end
       end
     elseif _is_cancel_connection then
-      // Verify CancelRequest: 16 bytes total
-      // Int32(16) Int32(80877102) Int32(pid=12345) Int32(key=67890)
-      if data.size() != 16 then
-        _h.fail("CancelRequest should be 16 bytes, got "
-          + data.size().string())
-        _h.complete(false)
-        return
-      end
-
-      try
-        if (data(0)? != 0) or (data(1)? != 0) or (data(2)? != 0)
-          or (data(3)? != 16) then
-          _h.fail("CancelRequest length field is incorrect")
+      match _reader.read_startup_message()
+      | let msg: Array[U8] val =>
+        // Verify CancelRequest: 16 bytes total
+        // Int32(16) Int32(80877102) Int32(pid=12345) Int32(key=67890)
+        if msg.size() != 16 then
+          _h.fail("CancelRequest should be 16 bytes, got "
+            + msg.size().string())
           _h.complete(false)
           return
         end
 
-        if (data(4)? != 4) or (data(5)? != 210) or (data(6)? != 22)
-          or (data(7)? != 46) then
-          _h.fail("CancelRequest magic number is incorrect")
-          _h.complete(false)
-          return
-        end
+        try
+          if (msg(0)? != 0) or (msg(1)? != 0) or (msg(2)? != 0)
+            or (msg(3)? != 16) then
+            _h.fail("CancelRequest length field is incorrect")
+            _h.complete(false)
+            return
+          end
 
-        if (data(8)? != 0) or (data(9)? != 0) or (data(10)? != 48)
-          or (data(11)? != 57) then
-          _h.fail("CancelRequest process_id is incorrect")
-          _h.complete(false)
-          return
-        end
+          if (msg(4)? != 4) or (msg(5)? != 210) or (msg(6)? != 22)
+            or (msg(7)? != 46) then
+            _h.fail("CancelRequest magic number is incorrect")
+            _h.complete(false)
+            return
+          end
 
-        if (data(12)? != 0) or (data(13)? != 1) or (data(14)? != 9)
-          or (data(15)? != 50) then
-          _h.fail("CancelRequest secret_key is incorrect")
-          _h.complete(false)
-          return
-        end
+          if (msg(8)? != 0) or (msg(9)? != 0) or (msg(10)? != 48)
+            or (msg(11)? != 57) then
+            _h.fail("CancelRequest process_id is incorrect")
+            _h.complete(false)
+            return
+          end
 
-        _h.complete(true)
-      else
-        _h.fail("Error reading CancelRequest bytes")
-        _h.complete(false)
+          if (msg(12)? != 0) or (msg(13)? != 1) or (msg(14)? != 9)
+            or (msg(15)? != 50) then
+            _h.fail("CancelRequest secret_key is incorrect")
+            _h.complete(false)
+            return
+          end
+
+          _h.complete(true)
+        else
+          _h.fail("Error reading CancelRequest bytes")
+          _h.complete(false)
+        end
       end
     else
       if not _authed then
-        _authed = true
-        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-        let bkd = _IncomingBackendKeyDataTestMessage(12345, 67890).bytes()
-        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-        // Send all auth messages in a single write so the Session processes
-        // them atomically (same reason as _CancelTestServer).
-        let combined: Array[U8] val = recover val
-          let arr = Array[U8]
-          arr.append(auth_ok)
-          arr.append(bkd)
-          arr.append(ready)
-          arr
+        match _reader.read_startup_message()
+        | let _: Array[U8] val =>
+          _authed = true
+          let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
+          let bkd = _IncomingBackendKeyDataTestMessage(12345, 67890).bytes()
+          let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+          // Send all auth messages in a single write so the Session
+          // processes them atomically (same reason as _CancelTestServer).
+          let combined: Array[U8] val = recover val
+            let arr = Array[U8]
+            arr.append(auth_ok)
+            arr.append(bkd)
+            arr.append(ready)
+            arr
+          end
+          _tcp_connection.send(combined)
         end
-        _tcp_connection.send(combined)
       end
       // After auth, receive query data and hold (don't respond)
     end

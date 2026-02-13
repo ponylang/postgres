@@ -366,8 +366,9 @@ actor \nodoc\ _ZeroRowSelectTestServer
   RowDescription + CommandComplete("SELECT 0") — simulating a SELECT that
   returns zero rows.
   """
-  var _received_count: USize = 0
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _authed: Bool = false
+  let _reader: _MockMessageReader = _MockMessageReader
 
   new create(auth: lori.TCPServerAuth, fd: U32) =>
     _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
@@ -376,27 +377,35 @@ actor \nodoc\ _ZeroRowSelectTestServer
     _tcp_connection
 
   fun ref _on_received(data: Array[U8] iso) =>
-    _received_count = _received_count + 1
+    _reader.append(consume data)
+    _process()
 
-    if _received_count == 1 then
-      // Startup: send AuthOk + ReadyForQuery(idle)
-      let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-      let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-      _tcp_connection.send(auth_ok)
-      _tcp_connection.send(ready)
-    elseif _received_count == 2 then
-      // Query: send RowDescription (one text column) + CommandComplete +
-      // ReadyForQuery
-      try
-        let columns: Array[(String, String)] val = recover val
-          [("col", "text")]
-        end
-        let row_desc = _IncomingRowDescriptionTestMessage(columns)?.bytes()
-        let cmd_complete = _IncomingCommandCompleteTestMessage("SELECT 0").bytes()
+  fun ref _process() =>
+    if not _authed then
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        _authed = true
+        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
         let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-        _tcp_connection.send(row_desc)
-        _tcp_connection.send(cmd_complete)
+        _tcp_connection.send(auth_ok)
         _tcp_connection.send(ready)
+        _process()
+      end
+    else
+      match _reader.read_message()
+      | let _: Array[U8] val =>
+        try
+          let columns: Array[(String, String)] val = recover val
+            [("col", "text")]
+          end
+          let row_desc = _IncomingRowDescriptionTestMessage(columns)?.bytes()
+          let cmd_complete =
+            _IncomingCommandCompleteTestMessage("SELECT 0").bytes()
+          let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+          _tcp_connection.send(row_desc)
+          _tcp_connection.send(cmd_complete)
+          _tcp_connection.send(ready)
+        end
       end
     end
 
@@ -585,6 +594,7 @@ actor \nodoc\ _TerminateSentTestServer
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
   var _authed: Bool = false
   let _h: TestHelper
+  let _reader: _MockMessageReader = _MockMessageReader
 
   new create(auth: lori.TCPServerAuth, fd: U32, h: TestHelper) =>
     _h = h
@@ -594,16 +604,27 @@ actor \nodoc\ _TerminateSentTestServer
     _tcp_connection
 
   fun ref _on_received(data: Array[U8] iso) =>
+    _reader.append(consume data)
+    _process()
+
+  fun ref _process() =>
     if not _authed then
-      _authed = true
-      let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-      let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-      _tcp_connection.send(auth_ok)
-      _tcp_connection.send(ready)
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        _authed = true
+        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
+        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        _tcp_connection.send(auth_ok)
+        _tcp_connection.send(ready)
+        _process()
+      end
     else
-      try
-        if data(0)? == 'X' then
-          _h.complete(true)
+      match _reader.read_message()
+      | let msg: Array[U8] val =>
+        try
+          if msg(0)? == 'X' then
+            _h.complete(true)
+          end
         end
       end
     end

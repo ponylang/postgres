@@ -1,4 +1,3 @@
-use "buffered"
 use lori = "lori"
 use "pony_test"
 
@@ -237,6 +236,7 @@ actor \nodoc\ _NotificationTestServer
   """
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
   var _authed: Bool = false
+  let _reader: _MockMessageReader = _MockMessageReader
 
   new create(auth: lori.TCPServerAuth, fd: U32) =>
     _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
@@ -245,20 +245,31 @@ actor \nodoc\ _NotificationTestServer
     _tcp_connection
 
   fun ref _on_received(data: Array[U8] iso) =>
+    _reader.append(consume data)
+    _process()
+
+  fun ref _process() =>
     if not _authed then
-      _authed = true
-      let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-      let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-      _tcp_connection.send(auth_ok)
-      _tcp_connection.send(ready)
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        _authed = true
+        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
+        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        _tcp_connection.send(auth_ok)
+        _tcp_connection.send(ready)
+        _process()
+      end
     else
-      let cmd = _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
-      let notif = _IncomingNotificationResponseTestMessage(
-        42, "test_ch", "hello").bytes()
-      let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-      _tcp_connection.send(cmd)
-      _tcp_connection.send(notif)
-      _tcp_connection.send(ready)
+      match _reader.read_message()
+      | let _: Array[U8] val =>
+        let cmd = _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
+        let notif = _IncomingNotificationResponseTestMessage(
+          42, "test_ch", "hello").bytes()
+        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        _tcp_connection.send(cmd)
+        _tcp_connection.send(notif)
+        _tcp_connection.send(ready)
+      end
     end
 
 actor \nodoc\ _NotificationMidQueryTestListener is lori.TCPListenerActor
@@ -310,6 +321,7 @@ actor \nodoc\ _NotificationMidQueryTestServer
   """
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
   var _authed: Bool = false
+  let _reader: _MockMessageReader = _MockMessageReader
 
   new create(auth: lori.TCPServerAuth, fd: U32) =>
     _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
@@ -318,38 +330,46 @@ actor \nodoc\ _NotificationMidQueryTestServer
     _tcp_connection
 
   fun ref _on_received(data: Array[U8] iso) =>
+    _reader.append(consume data)
+    _process()
+
+  fun ref _process() =>
     if not _authed then
-      _authed = true
-      let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-      let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-      _tcp_connection.send(auth_ok)
-      _tcp_connection.send(ready)
-    else
-      try
-        // Build RowDescription with one text column
-        let columns: Array[(String, String)] val = [("col", "text")]
-        let row_desc = _IncomingRowDescriptionTestMessage(columns)?.bytes()
-
-        // Build two DataRow messages
-        let row1_cols: Array[(String | None)] val = ["row1"]
-        let data_row_1 = _IncomingDataRowTestMessage(row1_cols).bytes()
-        let row2_cols: Array[(String | None)] val = ["row2"]
-        let data_row_2 = _IncomingDataRowTestMessage(row2_cols).bytes()
-
-        // Build NotificationResponse
-        let notif = _IncomingNotificationResponseTestMessage(
-          1, "ch", "mid-query").bytes()
-
-        // Build CommandComplete and ReadyForQuery
-        let cmd = _IncomingCommandCompleteTestMessage("SELECT 2").bytes()
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        _authed = true
+        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
         let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-
-        _tcp_connection.send(row_desc)
-        _tcp_connection.send(data_row_1)
-        _tcp_connection.send(notif)
-        _tcp_connection.send(data_row_2)
-        _tcp_connection.send(cmd)
+        _tcp_connection.send(auth_ok)
         _tcp_connection.send(ready)
+        _process()
+      end
+    else
+      match _reader.read_message()
+      | let _: Array[U8] val =>
+        try
+          let columns: Array[(String, String)] val = [("col", "text")]
+          let row_desc =
+            _IncomingRowDescriptionTestMessage(columns)?.bytes()
+
+          let row1_cols: Array[(String | None)] val = ["row1"]
+          let data_row_1 = _IncomingDataRowTestMessage(row1_cols).bytes()
+          let row2_cols: Array[(String | None)] val = ["row2"]
+          let data_row_2 = _IncomingDataRowTestMessage(row2_cols).bytes()
+
+          let notif = _IncomingNotificationResponseTestMessage(
+            1, "ch", "mid-query").bytes()
+
+          let cmd = _IncomingCommandCompleteTestMessage("SELECT 2").bytes()
+          let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+
+          _tcp_connection.send(row_desc)
+          _tcp_connection.send(data_row_1)
+          _tcp_connection.send(notif)
+          _tcp_connection.send(data_row_2)
+          _tcp_connection.send(cmd)
+          _tcp_connection.send(ready)
+        end
       end
     end
 

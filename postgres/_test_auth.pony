@@ -280,8 +280,9 @@ actor \nodoc\ _SCRAMTestServer
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
   let _h: TestHelper
   let _send_wrong_signature: Bool
-  var _received_count: USize = 0
+  var _state: U8 = 0
   var _server_signature: (Array[U8] val | None) = None
+  let _reader: _MockMessageReader = _MockMessageReader
 
   new create(auth: lori.TCPServerAuth, fd: U32, h: TestHelper,
     send_wrong_signature: Bool)
@@ -294,96 +295,113 @@ actor \nodoc\ _SCRAMTestServer
     _tcp_connection
 
   fun ref _on_received(data: Array[U8] iso) =>
-    let data_val: Array[U8] val = consume data
-    _received_count = _received_count + 1
+    _reader.append(consume data)
+    _process()
 
-    if _received_count == 1 then
-      // Startup message: send AuthSASL with ["SCRAM-SHA-256"]
-      let mechanisms: Array[String] val = recover val ["SCRAM-SHA-256"] end
-      let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
-      _tcp_connection.send(sasl)
-    elseif _received_count == 2 then
-      // SASLInitialResponse: parse client nonce, compute SCRAM values,
-      // send SASLContinue.
-      //
-      // Wire format: 'p' I32(len) "SCRAM-SHA-256\0" I32(resp_len) response
-      //   response starts at offset 23 (1 type + 4 len + 14 mech\0 + 4 resp_len)
-      //   response = "n,,n=,r=<nonce>"
-      //   client_first_bare starts at offset 26 (23 + 3, skip "n,,")
-      //   client_nonce starts at offset 31 (23 + 8, skip "n,,n=,r=")
-      try
-        let client_nonce = recover val
-          let s = String(data_val.size() - 31)
-          var i: USize = 31
-          while i < data_val.size() do
-            s.push(data_val(i)?)
-            i = i + 1
-          end
-          s
-        end
-
-        let client_first_bare = recover val
-          let s = String(data_val.size() - 26)
-          var i: USize = 26
-          while i < data_val.size() do
-            s.push(data_val(i)?)
-            i = i + 1
-          end
-          s
-        end
-
-        let server_nonce = "servernonce123456"
-        let combined_nonce: String val = client_nonce + server_nonce
-        let salt: Array[U8] val =
-          [0x73; 0x61; 0x6C; 0x74; 0x30; 0x31; 0x32; 0x33]
-        let salt_b64_iso = Base64.encode(salt)
-        let salt_b64: String val = consume salt_b64_iso
-        let iterations: U32 = 4096
-
-        let server_first: String val =
-          "r=" + combined_nonce + ",s=" + salt_b64 + ",i=4096"
-
-        (let client_proof, let sig) =
-          _ScramSha256.compute_proof("postgres", salt, iterations,
-            client_first_bare, server_first, combined_nonce)?
-
-        // client_proof is unused — we don't verify the client's proof in this
-        // mock server; the test validates the client's behavior, not ours.
-        client_proof.size()
-
-        _server_signature = sig
-
-        let sasl_continue = _IncomingAuthenticationSASLContinueTestMessage(
-          server_first.array()).bytes()
-        _tcp_connection.send(sasl_continue)
-      else
-        _h.fail("SCRAM server computation failed")
-        _h.complete(false)
+  fun ref _process() =>
+    if _state == 0 then
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        // Startup message: send AuthSASL with ["SCRAM-SHA-256"]
+        let mechanisms: Array[String] val =
+          recover val ["SCRAM-SHA-256"] end
+        let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+        _tcp_connection.send(sasl)
+        _state = 1
+        _process()
       end
-    elseif _received_count == 3 then
-      // SASLResponse: send SASLFinal + AuthOk + ReadyForQuery
-      match _server_signature
-      | let sig: Array[U8] val =>
-        let final_sig = if _send_wrong_signature then
-          recover val Array[U8].init(0, 32) end
+    elseif _state == 1 then
+      match _reader.read_message()
+      | let data_val: Array[U8] val =>
+        // SASLInitialResponse: parse client nonce, compute SCRAM values,
+        // send SASLContinue.
+        //
+        // Wire format: 'p' I32(len) "SCRAM-SHA-256\0" I32(resp_len) response
+        //   response starts at offset 23 (1 type + 4 len + 14 mech\0 + 4 resp_len)
+        //   response = "n,,n=,r=<nonce>"
+        //   client_first_bare starts at offset 26 (23 + 3, skip "n,,")
+        //   client_nonce starts at offset 31 (23 + 8, skip "n,,n=,r=")
+        try
+          let client_nonce = recover val
+            let s = String(data_val.size() - 31)
+            var i: USize = 31
+            while i < data_val.size() do
+              s.push(data_val(i)?)
+              i = i + 1
+            end
+            s
+          end
+
+          let client_first_bare = recover val
+            let s = String(data_val.size() - 26)
+            var i: USize = 26
+            while i < data_val.size() do
+              s.push(data_val(i)?)
+              i = i + 1
+            end
+            s
+          end
+
+          let server_nonce = "servernonce123456"
+          let combined_nonce: String val = client_nonce + server_nonce
+          let salt: Array[U8] val =
+            [0x73; 0x61; 0x6C; 0x74; 0x30; 0x31; 0x32; 0x33]
+          let salt_b64_iso = Base64.encode(salt)
+          let salt_b64: String val = consume salt_b64_iso
+          let iterations: U32 = 4096
+
+          let server_first: String val =
+            "r=" + combined_nonce + ",s=" + salt_b64 + ",i=4096"
+
+          (let client_proof, let sig) =
+            _ScramSha256.compute_proof("postgres", salt, iterations,
+              client_first_bare, server_first, combined_nonce)?
+
+          // client_proof is unused — we don't verify the client's proof in
+          // this mock server; the test validates the client's behavior,
+          // not ours.
+          client_proof.size()
+
+          _server_signature = sig
+
+          let sasl_continue =
+            _IncomingAuthenticationSASLContinueTestMessage(
+              server_first.array()).bytes()
+          _tcp_connection.send(sasl_continue)
+          _state = 2
+          _process()
         else
-          sig
+          _h.fail("SCRAM server computation failed")
+          _h.complete(false)
         end
-        let sig_b64_iso = Base64.encode(final_sig)
-        let sig_b64: String val = consume sig_b64_iso
-        let server_final: String val = "v=" + sig_b64
-        let sasl_final = _IncomingAuthenticationSASLFinalTestMessage(
-          server_final.array()).bytes()
-        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-        let combined = recover val
-          let arr = Array[U8]
-          arr.append(sasl_final)
-          arr.append(auth_ok)
-          arr.append(ready)
-          arr
+      end
+    elseif _state == 2 then
+      match _reader.read_message()
+      | let _: Array[U8] val =>
+        // SASLResponse: send SASLFinal + AuthOk + ReadyForQuery
+        match _server_signature
+        | let sig: Array[U8] val =>
+          let final_sig = if _send_wrong_signature then
+            recover val Array[U8].init(0, 32) end
+          else
+            sig
+          end
+          let sig_b64_iso = Base64.encode(final_sig)
+          let sig_b64: String val = consume sig_b64_iso
+          let server_final: String val = "v=" + sig_b64
+          let sasl_final = _IncomingAuthenticationSASLFinalTestMessage(
+            server_final.array()).bytes()
+          let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
+          let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+          let combined = recover val
+            let arr = Array[U8]
+            arr.append(sasl_final)
+            arr.append(auth_ok)
+            arr.append(ready)
+            arr
+          end
+          _tcp_connection.send(combined)
         end
-        _tcp_connection.send(combined)
       end
     end
 
@@ -485,7 +503,8 @@ actor \nodoc\ _SCRAMErrorTestServer
   with code 28P01 (invalid password) after receiving SASLInitialResponse.
   """
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
-  var _received_count: USize = 0
+  var _authed: Bool = false
+  let _reader: _MockMessageReader = _MockMessageReader
 
   new create(auth: lori.TCPServerAuth, fd: U32) =>
     _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
@@ -494,17 +513,25 @@ actor \nodoc\ _SCRAMErrorTestServer
     _tcp_connection
 
   fun ref _on_received(data: Array[U8] iso) =>
-    _received_count = _received_count + 1
+    _reader.append(consume data)
+    _process()
 
-    if _received_count == 1 then
-      // Startup: send AuthSASL with ["SCRAM-SHA-256"]
-      let mechanisms: Array[String] val =
-        recover val ["SCRAM-SHA-256"] end
-      let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
-      _tcp_connection.send(sasl)
-    elseif _received_count == 2 then
-      // SASLInitialResponse: send ErrorResponse 28P01
-      let err = _IncomingErrorResponseTestMessage("FATAL", "28P01",
-        "password authentication failed").bytes()
-      _tcp_connection.send(err)
+  fun ref _process() =>
+    if not _authed then
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        _authed = true
+        let mechanisms: Array[String] val =
+          recover val ["SCRAM-SHA-256"] end
+        let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+        _tcp_connection.send(sasl)
+        _process()
+      end
+    else
+      match _reader.read_message()
+      | let _: Array[U8] val =>
+        let err = _IncomingErrorResponseTestMessage("FATAL", "28P01",
+          "password authentication failed").bytes()
+        _tcp_connection.send(err)
+      end
     end

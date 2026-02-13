@@ -321,6 +321,7 @@ actor \nodoc\ _SSLSuccessTestServer
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
   let _sslctx: SSLContext val
   var _ssl_started: Bool = false
+  let _reader: _MockMessageReader = _MockMessageReader
 
   new create(auth: lori.TCPServerAuth, sslctx: SSLContext val, fd: U32) =>
     _sslctx = sslctx
@@ -330,21 +331,31 @@ actor \nodoc\ _SSLSuccessTestServer
     _tcp_connection
 
   fun ref _on_received(data: Array[U8] iso) =>
+    _reader.append(consume data)
+    _process()
+
+  fun ref _process() =>
     if not _ssl_started then
-      // Client sent SSLRequest — respond 'S' and upgrade to TLS
-      let response: Array[U8] val = ['S']
-      _tcp_connection.send(response)
-      match _tcp_connection.start_tls(_sslctx)
-      | None => _ssl_started = true
-      | let _: lori.StartTLSError =>
-        _tcp_connection.close()
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        // Client sent SSLRequest — respond 'S' and upgrade to TLS
+        let response: Array[U8] val = ['S']
+        _tcp_connection.send(response)
+        match _tcp_connection.start_tls(_sslctx)
+        | None => _ssl_started = true
+        | let _: lori.StartTLSError =>
+          _tcp_connection.close()
+        end
       end
     else
-      // StartupMessage received over TLS — send AuthOk + ReadyForQuery
-      let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-      let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-      _tcp_connection.send(auth_ok)
-      _tcp_connection.send(ready)
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        // StartupMessage received over TLS — send AuthOk + ReadyForQuery
+        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
+        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        _tcp_connection.send(auth_ok)
+        _tcp_connection.send(ready)
+      end
     end
 
 // SSL integration tests

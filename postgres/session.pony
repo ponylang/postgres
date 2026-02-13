@@ -636,6 +636,10 @@ class _SessionLoggedIn is _AuthenticatedState
     // Clearing the readbuf is required for _ResponseMessageParser's
     // synchronous loop to exit — the next parse returns None.
     _readbuf.clear()
+    // The in-flight item (if any) may have already notified its receiver
+    // via on_error_response. Let the query state handle it to avoid
+    // double-notification, then drain the remaining queued items.
+    query_state.drain_in_flight(s, this)
     for queue_item in query_queue.values() do
       match queue_item
       | let qry: _QueuedQuery =>
@@ -679,6 +683,7 @@ interface _QueryState
   fun ref on_copy_in_response(s: Session ref, li: _SessionLoggedIn ref,
     msg: _CopyInResponseMessage)
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref)
+  fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref)
 
 trait _QueryNoQueryInFlight is _QueryState
   """
@@ -699,6 +704,7 @@ trait _QueryNoQueryInFlight is _QueryState
   fun ref on_copy_in_response(s: Session ref, li: _SessionLoggedIn ref,
     msg: _CopyInResponseMessage) => li.shutdown(s)
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
+  fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) => None
 
 class _QueryNotReady is _QueryNoQueryInFlight
   """
@@ -817,6 +823,7 @@ class _SimpleQueryInFlight is _QueryState
   """
   var _data_rows: Array[Array[(String|None)] val] iso
   var _row_description: (Array[(String, U32)] val | None)
+  var _error: Bool = false
 
   new create() =>
     _data_rows = recover iso Array[Array[(String|None)] val] end
@@ -903,6 +910,7 @@ class _SimpleQueryInFlight is _QueryState
   fun ref on_error_response(s: Session ref, li: _SessionLoggedIn ref,
     msg: ErrorResponseMessage)
   =>
+    _error = true
     try
       match li.query_queue(0)?
       | let qry: _QueuedQuery =>
@@ -920,6 +928,25 @@ class _SimpleQueryInFlight is _QueryState
     msg: _CopyInResponseMessage)
   =>
     li.shutdown(s)
+
+  fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        match li.query_queue(0)?
+        | let qry: _QueuedQuery =>
+          qry.receiver.pg_query_failed(s, qry.query, SessionClosed)
+        else
+          _Unreachable()
+        end
+      else
+        _Unreachable()
+      end
+    end
+    try
+      li.query_queue.shift()?
+    else
+      _Unreachable()
+    end
 
 class _ExtendedQueryInFlight is _QueryState
   """
@@ -934,6 +961,7 @@ class _ExtendedQueryInFlight is _QueryState
   """
   var _data_rows: Array[Array[(String|None)] val] iso
   var _row_description: (Array[(String, U32)] val | None)
+  var _error: Bool = false
 
   new create() =>
     _data_rows = recover iso Array[Array[(String|None)] val] end
@@ -1020,6 +1048,7 @@ class _ExtendedQueryInFlight is _QueryState
   fun ref on_error_response(s: Session ref, li: _SessionLoggedIn ref,
     msg: ErrorResponseMessage)
   =>
+    _error = true
     try
       match li.query_queue(0)?
       | let qry: _QueuedQuery =>
@@ -1037,6 +1066,25 @@ class _ExtendedQueryInFlight is _QueryState
     msg: _CopyInResponseMessage)
   =>
     li.shutdown(s)
+
+  fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        match li.query_queue(0)?
+        | let qry: _QueuedQuery =>
+          qry.receiver.pg_query_failed(s, qry.query, SessionClosed)
+        else
+          _Unreachable()
+        end
+      else
+        _Unreachable()
+      end
+    end
+    try
+      li.query_queue.shift()?
+    else
+      _Unreachable()
+    end
 
 class _PrepareInFlight is _QueryState
   """
@@ -1110,6 +1158,25 @@ class _PrepareInFlight is _QueryState
   =>
     li.shutdown(s)
 
+  fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        match li.query_queue(0)?
+        | let prep: _QueuedPrepare =>
+          prep.receiver.pg_prepare_failed(s, prep.name, SessionClosed)
+        else
+          _Unreachable()
+        end
+      else
+        _Unreachable()
+      end
+    end
+    try
+      li.query_queue.shift()?
+    else
+      _Unreachable()
+    end
+
 class _CloseStatementInFlight is _QueryState
   """
   Close (named statement) protocol in progress. Expects CloseComplete then
@@ -1156,6 +1223,13 @@ class _CloseStatementInFlight is _QueryState
     msg: _CopyInResponseMessage)
   =>
     li.shutdown(s)
+
+  fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
+    try
+      li.query_queue.shift()?
+    else
+      _Unreachable()
+    end
 
 class _CopyInInFlight is _QueryState
   """
@@ -1240,6 +1314,21 @@ class _CopyInInFlight is _QueryState
     li.shutdown(s)
 
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
+
+  fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        (li.query_queue(0)? as _QueuedCopyIn).receiver.pg_copy_failed(s,
+          SessionClosed)
+      else
+        _Unreachable()
+      end
+    end
+    try
+      li.query_queue.shift()?
+    else
+      _Unreachable()
+    end
 
 interface _SessionState
   fun on_connected(s: Session ref)

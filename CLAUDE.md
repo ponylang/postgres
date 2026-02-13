@@ -350,7 +350,8 @@ Can arrive between any other messages (must always handle):
 ## File Layout
 
 ```
-postgres/                         # Main package (46 files)
+postgres/                         # Main package (47 files)
+  postgres.pony                   # Package-level docstring (user-facing API overview)
   notification.pony                # Notification val class (channel, payload, pid)
   session.pony                    # Session actor + state machine traits + query sub-state machine
   database_connect_info.pony       # DatabaseConnectInfo val class (user, password, database)

@@ -1,3 +1,9 @@
+"""
+Querying binary data using `bytea` columns. Executes a SELECT that returns a
+bytea value, matches on `Array[U8] val` in the result, and prints the decoded
+bytes. Shows how the driver automatically decodes PostgreSQL's hex-format
+bytea representation into raw byte arrays.
+"""
 use "cli"
 use "collections"
 use lori = "lori"
@@ -12,10 +18,9 @@ actor Main
 
     let client = Client(auth, server_info, env.out)
 
-actor Client is (SessionStatusNotify & ResultReceiver & PrepareReceiver)
+actor Client is (SessionStatusNotify & ResultReceiver)
   let _session: Session
   let _out: OutStream
-  var _executions_remaining: U32 = 2
 
   new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
@@ -29,10 +34,10 @@ actor Client is (SessionStatusNotify & ResultReceiver & PrepareReceiver)
 
   be pg_session_authenticated(session: Session) =>
     _out.print("Authenticated.")
-    _out.print("Preparing statement 'greet'...")
-    // Prepare a named statement once; execute it multiple times later.
-    session.prepare("greet",
-      "SELECT $1::text AS greeting, $2::text AS name", this)
+    _out.print("Sending bytea query....")
+    // The hex string \x48656c6c6f represents the ASCII bytes for "Hello".
+    let q = SimpleQuery("SELECT '\\x48656c6c6f'::bytea AS data")
+    session.execute(q, this)
 
   be pg_session_authentication_failed(
     s: Session,
@@ -40,32 +45,20 @@ actor Client is (SessionStatusNotify & ResultReceiver & PrepareReceiver)
   =>
     _out.print("Failed to authenticate.")
 
-  be pg_statement_prepared(session: Session, name: String) =>
-    _out.print("Statement '" + name + "' prepared.")
-    // Execute the same prepared statement with different parameters.
-    _session.execute(
-      NamedPreparedQuery("greet",
-        recover val [as (String | None): "Hello"; "Pony"] end),
-      this)
-    _session.execute(
-      NamedPreparedQuery("greet",
-        recover val [as (String | None): "Hi"; "World"] end),
-      this)
-
-  be pg_prepare_failed(session: Session, name: String,
-    failure: (ErrorResponseMessage | ClientQueryError))
-  =>
-    _out.print("Failed to prepare statement '" + name + "'.")
-    close()
-
   be pg_query_result(session: Session, result: Result) =>
     match result
     | let r: ResultSet =>
       _out.print("ResultSet (" + r.rows().size().string() + " rows):")
       for row in r.rows().values() do
         for field in row.fields.values() do
-          _out.write("  " + field.name + "=")
+          _out.write(field.name + "=")
           match field.value
+          | let v: Array[U8] val =>
+            _out.print(v.size().string() + " bytes")
+            // Print each byte's decimal value
+            for b in v.values() do
+              _out.print("  byte: " + b.string())
+            end
           | let v: String => _out.print(v)
           | let v: I16 => _out.print(v.string())
           | let v: I32 => _out.print(v.string())
@@ -73,8 +66,6 @@ actor Client is (SessionStatusNotify & ResultReceiver & PrepareReceiver)
           | let v: F32 => _out.print(v.string())
           | let v: F64 => _out.print(v.string())
           | let v: Bool => _out.print(v.string())
-          | let v: Array[U8] val =>
-            _out.print(v.size().string() + " bytes")
           | None => _out.print("NULL")
           end
         end
@@ -84,12 +75,7 @@ actor Client is (SessionStatusNotify & ResultReceiver & PrepareReceiver)
     | let r: SimpleResult =>
       _out.print("Query executed.")
     end
-    _executions_remaining = _executions_remaining - 1
-    if _executions_remaining == 0 then
-      _out.print("All executions complete. Closing statement...")
-      _session.close_statement("greet")
-      close()
-    end
+    close()
 
   be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))

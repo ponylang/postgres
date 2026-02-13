@@ -98,7 +98,7 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 - `NamedPreparedQuery` — val class wrapping a statement name + `Array[(String | None)] val` params (executes a previously prepared named statement)
 - `Result` trait — `ResultSet` (rows), `SimpleResult` (no rows), `RowModifying` (INSERT/UPDATE/DELETE with count)
 - `Rows` / `Row` / `Field` — result data. `Field.value` is `FieldDataTypes` union
-- `FieldDataTypes` = `(Bool | F32 | F64 | I16 | I32 | I64 | None | String)`
+- `FieldDataTypes` = `(Array[U8] val | Bool | F32 | F64 | I16 | I32 | I64 | None | String)`
 - `TransactionStatus` — union type `(TransactionIdle | TransactionInBlock | TransactionFailed)`. Reported via `pg_transaction_status` callback on every `ReadyForQuery`.
 - `Notification` — val class wrapping channel name, payload string, and notifying backend's process ID. Delivered via `pg_notification` callback.
 - `NoticeResponseMessage` — non-fatal PostgreSQL notice with all standard fields (same structure as `ErrorResponseMessage`). Delivered via `pg_notice` callback.
@@ -117,6 +117,7 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 
 In `_RowsBuilder._field_to_type()`:
 - 16 (bool) → `Bool` (checks for "t")
+- 17 (bytea) → `Array[U8] val` (hex-format decode: strips `\x` prefix, parses hex pairs)
 - 20 (int8) → `I64`
 - 21 (int2) → `I16`
 - 23 (int4) → `I32`
@@ -145,6 +146,8 @@ Tests live in the main `postgres/` package (private test classes), organized acr
 - `_TestPrepareShutdownDrainsPrepareQueue` — uses a local TCP listener that auto-auths but never becomes ready; verifies pending prepare operations get `SessionClosed` failures on shutdown
 - `_TestTerminateSentOnClose` — mock server fully authenticates and becomes ready; verifies that closing the session sends a Terminate message ('X') to the server
 - `_TestZeroRowSelectReturnsResultSet` — mock server sends RowDescription + CommandComplete("SELECT 0") with no DataRows; verifies ResultSet (not RowModifying) with zero rows
+- `_TestByteaResultDecoding` — mock server sends RowDescription (bytea column, OID 17) + DataRow with hex-encoded value + CommandComplete; verifies field value is `Array[U8] val` with correct decoded bytes
+- `_TestEmptyByteaResultDecoding` — mock server sends DataRow with empty bytea (`\x`); verifies empty `Array[U8] val`
 
 **`_test_ssl.pony`** — SSL negotiation unit tests (mock servers) and SSL integration tests:
 - `_TestSSLNegotiationRefused` — mock server responds 'N' to SSLRequest; verifies `pg_session_connection_failed` fires
@@ -167,7 +170,7 @@ Tests live in the main `postgres/` package (private test classes), organized acr
 **`_test_md5.pony`** — MD5 integration tests: MD5/Authenticate, MD5/AuthenticateFailure, MD5/QueryResults
 
 **`_test_query.pony`** — Query integration tests:
-- Simple query: Query/Results, Query/AfterAuthenticationFailure, Query/AfterConnectionFailure, Query/AfterSessionHasBeenClosed, Query/OfNonExistentTable, Query/CreateAndDropTable, Query/InsertAndDelete, Query/EmptyQuery, ZeroRowSelect, MultiStatementMixedResults
+- Simple query: Query/Results, Query/ByteaResults, Query/AfterAuthenticationFailure, Query/AfterConnectionFailure, Query/AfterSessionHasBeenClosed, Query/OfNonExistentTable, Query/CreateAndDropTable, Query/InsertAndDelete, Query/EmptyQuery, ZeroRowSelect, MultiStatementMixedResults
 - Prepared query: PreparedQuery/Results, PreparedQuery/NullParam, PreparedQuery/OfNonExistentTable, PreparedQuery/InsertAndDelete, PreparedQuery/MixedWithSimple
 - Named prepared statements: PreparedStatement/Prepare, PreparedStatement/PrepareAndExecute, PreparedStatement/PrepareAndExecuteMultiple, PreparedStatement/PrepareAndClose, PreparedStatement/PrepareFails, PreparedStatement/PrepareAfterClose, PreparedStatement/CloseNonexistent, PreparedStatement/PrepareDuplicateName, PreparedStatement/MixedWithSimpleAndPrepared
 - COPY IN: CopyIn/Insert, CopyIn/AbortRollback
@@ -410,6 +413,7 @@ postgres/                         # Main package (49 files)
 assets/test-cert.pem              # Self-signed test certificate for SSL unit tests
 assets/test-key.pem               # Private key for SSL unit tests
 examples/README.md                # Examples overview
+examples/bytea/bytea-example.pony # Binary data with bytea columns
 examples/query/query-example.pony # Simple query with result inspection
 examples/ssl-query/ssl-query-example.pony # SSL-encrypted query with SSLRequired
 examples/prepared-query/prepared-query-example.pony # PreparedQuery with params and NULL

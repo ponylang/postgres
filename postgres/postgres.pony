@@ -123,6 +123,8 @@ be pg_query_result(session: Session, result: Result) =>
         | let s: String => _env.out.print(field.name + ": " + s)
         | let i: I32 => _env.out.print(field.name + ": " + i.string())
         | let b: Bool => _env.out.print(field.name + ": " + b.string())
+        | let v: Array[U8] val =>
+          _env.out.print(field.name + ": " + v.size().string() + " bytes")
         | None => _env.out.print(field.name + ": NULL")
         // Also: I16, I64, F32, F64
         end
@@ -134,9 +136,9 @@ be pg_query_result(session: Session, result: Result) =>
 ```
 
 Field values are typed based on the PostgreSQL column OID:
-bool → `Bool`, int2 → `I16`, int4 → `I32`, int8 → `I64`,
-float4 → `F32`, float8 → `F64`, NULL → `None`, everything
-else → `String`.
+bytea → `Array[U8] val`, bool → `Bool`, int2 → `I16`, int4 → `I32`,
+int8 → `I64`, float4 → `F32`, float8 → `F64`, NULL → `None`,
+everything else → `String`.
 
 ## Named Prepared Statements
 

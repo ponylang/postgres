@@ -104,6 +104,8 @@ actor Client is (SessionStatusNotify & ResultReceiver)
             | let v: F32 => _out.write(v.string())
             | let v: F64 => _out.write(v.string())
             | let v: Bool => _out.write(v.string())
+            | let v: Array[U8] val =>
+              _out.write(v.size().string() + " bytes")
             | None => _out.write("NULL")
             end
           end

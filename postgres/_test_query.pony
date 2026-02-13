@@ -2057,3 +2057,78 @@ actor \nodoc\ _CopyInAbortRollbackClient is
 
   be dispose() =>
     _session.close()
+
+class \nodoc\ iso _TestQueryByteaResults is UnitTest
+  """
+  Verifies that a bytea column is decoded from hex format into Array[U8] val
+  when queried from a real PostgreSQL server.
+  """
+  fun name(): String =>
+    "integration/Query/ByteaResults"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _ByteaQueryReceiver(h)
+
+    let session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      client)
+
+    h.dispose_when_done(session)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _ByteaQueryReceiver is
+  ( SessionStatusNotify
+  & ResultReceiver )
+  let _h: TestHelper
+  let _query: SimpleQuery
+
+  new create(h: TestHelper) =>
+    _h = h
+    _query = SimpleQuery("SELECT '\\x48656c6c6f'::bytea")
+
+  be pg_session_authenticated(session: Session) =>
+    session.execute(_query, this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate.")
+    _h.complete(false)
+
+  be pg_query_result(session: Session, result: Result) =>
+    match result
+    | let r: ResultSet =>
+      try
+        let field = r.rows()(0)?.fields(0)?
+        match field.value
+        | let actual: Array[U8] val =>
+          let expected: Array[U8] val =
+            recover val [as U8: 72; 101; 108; 108; 111] end
+          _h.assert_array_eq[U8](expected, actual)
+        else
+          _h.fail("Expected Array[U8] val but got a different type.")
+          _h.complete(false)
+          return
+        end
+      else
+        _h.fail("Expected at least one row with one field.")
+        _h.complete(false)
+        return
+      end
+    else
+      _h.fail("Expected ResultSet.")
+      _h.complete(false)
+      return
+    end
+
+    _h.complete(true)
+
+  be pg_query_failed(session: Session, query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure.")
+    _h.complete(false)

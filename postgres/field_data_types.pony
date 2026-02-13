@@ -1,5 +1,6 @@
 type FieldDataTypes is
-  ( Bool
+  ( Array[U8] val
+  | Bool
   | F32
   | F64
   | I16

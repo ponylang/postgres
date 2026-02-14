@@ -25,28 +25,17 @@ type _ResponseParserResult is
   | _NotificationResponseMessage
   | _CopyInResponseMessage
   | _PortalSuspendedMessage
-  | _SkippedMessage
+  | _ParameterStatusMessage
   | _UnsupportedMessage
   | ErrorResponseMessage
   | NoticeResponseMessage
   | None )
 
-primitive _SkippedMessage
-  """
-  Returned by the parser for known PostgreSQL asynchronous message types that
-  the driver recognizes but intentionally does not process: ParameterStatus.
-  These can arrive between any other messages and are safely ignored.
-
-  Distinct from `_UnsupportedMessage`, which represents truly unknown message
-  types that the parser does not recognize at all.
-  """
-
 primitive _UnsupportedMessage
   """
-  Returned by the parser for message types that are not recognized. This
-  represents truly unknown messages — not messages the driver intentionally
-  skips (those return `_SkippedMessage`). A future PostgreSQL version could
-  introduce new message types that would hit this path.
+  Returned by the parser for message types that are not recognized. A future
+  PostgreSQL version could introduce new message types that would hit this
+  path.
   """
 
 primitive _ResponseParser
@@ -206,9 +195,11 @@ primitive _ResponseParser
       let secret_key = buffer.i32_be()?
       return _BackendKeyDataMessage(process_id, secret_key)
     | _MessageType.parameter_status() =>
-      // Known async message — skip payload without parsing
-      buffer.skip(message_size)?
-      return _SkippedMessage
+      // Slide past the header...
+      buffer.skip(5)?
+      // and parse the parameter status payload in an isolated reader
+      let ps_payload = buffer.block(payload_size)?
+      return _parameter_status(consume ps_payload)?
     | _MessageType.notice_response() =>
       // Slide past the header...
       buffer.skip(5)?
@@ -390,6 +381,20 @@ primitive _ResponseParser
     else
       _CommandCompleteMessage(id, 0)
     end
+
+  fun _parameter_status(payload: Array[U8] val)
+    : _ParameterStatusMessage ?
+  =>
+    """
+    Parse a ParameterStatus message. Payload is two null-terminated strings:
+    parameter name followed by parameter value.
+    """
+    let reader: Reader = Reader.>append(payload)
+    let name_bytes = reader.read_until(0)?
+    let name = String.from_array(consume name_bytes)
+    let value_bytes = reader.read_until(0)?
+    let value = String.from_array(consume value_bytes)
+    _ParameterStatusMessage(name, value)
 
   fun _notification_response(payload: Array[U8] val)
     : _NotificationResponseMessage ?

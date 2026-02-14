@@ -59,9 +59,8 @@ primitive _ResponseMessageParser
           s.state.on_notice(s, msg)
         | let msg: _CopyInResponseMessage =>
           s.state.on_copy_in_response(s, msg)
-        | _SkippedMessage =>
-          // Known async message (ParameterStatus) — intentionally not routed.
-          None
+        | let msg: _ParameterStatusMessage =>
+          s.state.on_parameter_status(s, msg)
         | let msg: _EmptyQueryResponseMessage =>
           s.state.on_empty_query_response(s)
         | None =>

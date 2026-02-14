@@ -54,6 +54,18 @@ interface tag SessionStatusNotify
     """
     None
 
+  be pg_parameter_status(session: Session, status: ParameterStatus) =>
+    """
+    Called when the server reports a runtime parameter value. PostgreSQL sends
+    these during connection startup for all reporting parameters (server_version,
+    client_encoding, standard_conforming_strings, etc.) and again whenever a
+    SET command changes one.
+
+    The callback has a default no-op implementation, so existing code is
+    unaffected.
+    """
+    None
+
   be pg_session_shutdown(session: Session) =>
     """
     Called when a session ends.

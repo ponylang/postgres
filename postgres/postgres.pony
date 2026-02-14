@@ -52,6 +52,8 @@ Implement the ones you need:
 * `pg_notification` — LISTEN/NOTIFY notifications
 * `pg_notice` — non-fatal server notices (e.g., `DROP IF EXISTS` on
   a nonexistent table, `RAISE NOTICE` from PL/pgSQL)
+* `pg_parameter_status` — runtime parameter values (sent during startup
+  and after SET commands)
 * `pg_session_shutdown` — session has shut down
 
 ## SSL/TLS
@@ -208,4 +210,5 @@ supported.
 * NoticeResponse delivery (non-fatal server messages)
 * COPY FROM STDIN (bulk data loading)
 * Query cancellation
+* ParameterStatus tracking (server runtime parameters)
 """

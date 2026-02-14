@@ -1162,19 +1162,24 @@ class \nodoc\ iso _TestResponseParserCopyInResponseMessage is UnitTest
       h.fail("Wrong message type for binary format case.")
     end
 
-class \nodoc\ iso _TestResponseParserParameterStatusSkipped is UnitTest
+class \nodoc\ iso _TestResponseParserParameterStatusMessage is UnitTest
   """
-  Verify that ParameterStatus ('S') messages are parsed as _SkippedMessage.
+  Verify that ParameterStatus ('S') messages are parsed into
+  _ParameterStatusMessage with correct name and value fields.
   """
   fun name(): String =>
-    "ResponseParser/ParameterStatusSkipped"
+    "ResponseParser/ParameterStatusMessage"
 
   fun apply(h: TestHelper) ? =>
     let bytes = _IncomingParameterStatusTestMessage(
       "client_encoding", "UTF8").bytes()
     let r: Reader = Reader.>append(bytes)
 
-    if _ResponseParser(r)? isnt _SkippedMessage then
+    match _ResponseParser(r)?
+    | let msg: _ParameterStatusMessage =>
+      h.assert_eq[String]("client_encoding", msg.name)
+      h.assert_eq[String]("UTF8", msg.value)
+    else
       h.fail("Wrong message returned.")
     end
 
@@ -1239,9 +1244,9 @@ class \nodoc\ iso _TestResponseParserNotificationResponseMessage is UnitTest
 
 class \nodoc\ iso _TestResponseParserMultipleMessagesAsyncThenAuth is UnitTest
   """
-  Verify correct buffer advancement across async message types (one skipped,
-  one parsed notice, one parsed notification) followed by a known message
-  (AuthenticationOk).
+  Verify correct buffer advancement across async message types (one parsed
+  parameter status, one parsed notice, one parsed notification) followed by a
+  known message (AuthenticationOk).
   """
   fun name(): String =>
     "ResponseParser/MultipleMessages/AsyncThenAuth"
@@ -1256,7 +1261,11 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesAsyncThenAuth is UnitTest
       42, "ch", "msg").bytes())
     r.append(_IncomingAuthenticationOkTestMessage.bytes())
 
-    if _ResponseParser(r)? isnt _SkippedMessage then
+    match _ResponseParser(r)?
+    | let msg: _ParameterStatusMessage =>
+      h.assert_eq[String]("server_version", msg.name)
+      h.assert_eq[String]("14.5", msg.value)
+    else
       h.fail("Wrong message for ParameterStatus.")
     end
 

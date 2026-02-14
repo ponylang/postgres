@@ -66,7 +66,7 @@ class val _BackendKeyDataMessage
 
 class val _CommandCompleteMessage
   """
-  Messagr from the backend that indicates that a command has finished running.
+  Message from the backend that indicates that a command has finished running.
   The message contains information about final details of the command.
   """
   let id: String

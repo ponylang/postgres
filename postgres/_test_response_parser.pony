@@ -1,16 +1,8 @@
 use "buffered"
 use "collections"
+use "pony_check"
 use "pony_test"
 use "random"
-
-// TODO SEAN
-// we need tests that verify a chain of messages and that we get the expected
-// message type. we could validate the contents as well, but i think for a start
-// just validated that we got A, B, C, C, C, D would be good.
-// This would provide protection against not reading full messages correctly
-// which is currently not covered. For example not handling the null terminator
-// from command complete would pass tests herein but would cause the next
-// message to incorrectly parse. That isn't currently covered.
 class \nodoc\ iso _TestResponseParserEmptyBuffer is UnitTest
   """
   Verify that handling an empty buffer to the parser returns `None`
@@ -1512,6 +1504,619 @@ class \nodoc\ val _IncomingCopyDoneTestMessage
 
   fun bytes(): Array[U8] val =>
     _bytes
+
+primitive \nodoc\ _RandomMessageBytesGen
+  fun apply(rnd: Randomness, min_count: USize = 2,
+    max_count: USize = 8): Array[Array[U8] val] val
+  =>
+    let count = rnd.usize(min_count, max_count)
+    let messages = recover iso Array[Array[U8] val](count) end
+    for _ in Range(0, count) do
+      messages.push(_random_message(rnd))
+    end
+    consume messages
+
+  fun _random_message(rnd: Randomness): Array[U8] val =>
+    match rnd.usize(0, 25)
+    | 0 => _IncomingAuthenticationOkTestMessage.bytes()
+    | 1 =>
+      _IncomingAuthenticationMD5PasswordTestMessage(
+        _random_salt(rnd)).bytes()
+    | 2 =>
+      let mechanisms: Array[String] val = recover val
+        ["SCRAM-SHA-256"]
+      end
+      _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+    | 3 =>
+      _IncomingAuthenticationSASLContinueTestMessage(
+        _random_bytes(rnd)).bytes()
+    | 4 =>
+      _IncomingAuthenticationSASLFinalTestMessage(
+        _random_bytes(rnd)).bytes()
+    | 5 =>
+      _IncomingUnsupportedAuthenticationTestMessage(
+        _random_unsupported_auth_type(rnd)).bytes()
+    | 6 =>
+      _IncomingBackendKeyDataTestMessage(rnd.i32(), rnd.i32()).bytes()
+    | 7 =>
+      _IncomingCommandCompleteTestMessage(
+        _random_command_tag(rnd)).bytes()
+    | 8 =>
+      _IncomingCopyInResponseTestMessage(
+        _random_copy_format(rnd), _random_column_formats(rnd)).bytes()
+    | 9 =>
+      _IncomingCopyOutResponseTestMessage(
+        _random_copy_format(rnd), _random_column_formats(rnd)).bytes()
+    | 10 =>
+      _IncomingCopyDataTestMessage(_random_bytes(rnd)).bytes()
+    | 11 => _IncomingCopyDoneTestMessage.bytes()
+    | 12 =>
+      _IncomingDataRowTestMessage(
+        _random_data_row_columns(rnd)).bytes()
+    | 13 => _IncomingEmptyQueryResponseTestMessage.bytes()
+    | 14 =>
+      _IncomingErrorResponseTestMessage(
+        _safe_string(rnd), _safe_string(rnd), _safe_string(rnd)).bytes()
+    | 15 =>
+      _IncomingNoticeResponseTestMessage(
+        _safe_string(rnd), _safe_string(rnd), _safe_string(rnd)).bytes()
+    | 16 =>
+      _IncomingNotificationResponseTestMessage(
+        rnd.i32(), _safe_string(rnd), _safe_string(rnd)).bytes()
+    | 17 =>
+      _IncomingParameterStatusTestMessage(
+        _safe_string(rnd), _safe_string(rnd)).bytes()
+    | 18 =>
+      _IncomingReadyForQueryTestMessage(_random_rfq_status(rnd)).bytes()
+    | 19 =>
+      try
+        _IncomingRowDescriptionTestMessage(
+          _random_row_desc_columns(rnd))?.bytes()
+      else
+        _IncomingAuthenticationOkTestMessage.bytes()
+      end
+    | 20 => _IncomingParseCompleteTestMessage.bytes()
+    | 21 => _IncomingBindCompleteTestMessage.bytes()
+    | 22 => _IncomingNoDataTestMessage.bytes()
+    | 23 => _IncomingCloseCompleteTestMessage.bytes()
+    | 24 =>
+      _IncomingParameterDescriptionTestMessage(
+        _random_oids(rnd)).bytes()
+    | 25 => _IncomingPortalSuspendedTestMessage.bytes()
+    else
+      _IncomingAuthenticationOkTestMessage.bytes()
+    end
+
+  fun _safe_string(rnd: Randomness): String =>
+    let size = rnd.usize(1, 20)
+    recover val
+      let s = String(size)
+      for _ in Range(0, size) do
+        s.push(rnd.u8(32, 126))
+      end
+      s
+    end
+
+  fun _random_salt(rnd: Randomness): String =>
+    recover val
+      let s = String(4)
+      for _ in Range(0, 4) do
+        s.push(rnd.u8(32, 126))
+      end
+      s
+    end
+
+  fun _random_bytes(rnd: Randomness): Array[U8] val =>
+    let size = rnd.usize(1, 50)
+    recover val
+      let arr = Array[U8](size)
+      for _ in Range(0, size) do
+        arr.push(rnd.u8())
+      end
+      arr
+    end
+
+  fun _random_rfq_status(rnd: Randomness): U8 =>
+    match rnd.usize(0, 2)
+    | 0 => 'I'
+    | 1 => 'T'
+    else
+      'E'
+    end
+
+  fun _random_command_tag(rnd: Randomness): String =>
+    match rnd.usize(0, 6)
+    | 0 => "SELECT " + rnd.usize(0, 100).string()
+    | 1 => "INSERT 0 " + rnd.usize(0, 100).string()
+    | 2 => "DELETE " + rnd.usize(0, 100).string()
+    | 3 => "UPDATE " + rnd.usize(0, 100).string()
+    | 4 => "CREATE TABLE"
+    | 5 => "DROP TABLE"
+    else
+      "COPY " + rnd.usize(0, 100).string()
+    end
+
+  fun _random_unsupported_auth_type(rnd: Randomness): I32 =>
+    match rnd.usize(0, 3)
+    | 0 => 2
+    | 1 => 3
+    | 2 => 6
+    else
+      7
+    end
+
+  fun _random_oids(rnd: Randomness): Array[U32] val =>
+    let size = rnd.usize(0, 5)
+    recover val
+      let arr = Array[U32](size)
+      for _ in Range(0, size) do
+        arr.push(rnd.u32())
+      end
+      arr
+    end
+
+  fun _random_copy_format(rnd: Randomness): U8 =>
+    if rnd.bool() then 1 else 0 end
+
+  fun _random_column_formats(rnd: Randomness): Array[U8] val =>
+    let size = rnd.usize(0, 5)
+    recover val
+      let arr = Array[U8](size)
+      for _ in Range(0, size) do
+        arr.push(if rnd.bool() then 1 else 0 end)
+      end
+      arr
+    end
+
+  fun _random_data_row_columns(rnd: Randomness): Array[(String | None)] val =>
+    let size = rnd.usize(0, 4)
+    let arr = recover iso Array[(String | None)](size) end
+    for _ in Range(0, size) do
+      if rnd.bool() then
+        arr.push(None)
+      else
+        arr.push(_safe_string(rnd))
+      end
+    end
+    consume arr
+
+  fun _random_row_desc_columns(rnd: Randomness):
+    Array[(String, String)] val
+  =>
+    let known_types: Array[String] val = recover val
+      ["text"; "int4"; "int8"; "bool"; "int2"; "float4"; "float8"; "bytea"]
+    end
+    let size = rnd.usize(1, 5)
+    let arr = recover iso Array[(String, String)](size) end
+    for i in Range(0, size) do
+      try
+        let type_idx = rnd.usize(0, known_types.size() - 1)
+        arr.push(("col" + i.string(), known_types(type_idx)?))
+      end
+    end
+    consume arr
+
+class \nodoc\ iso _TestResponseParserMultipleMessagesChainProperty
+  is Property1[Array[Array[U8] val] val]
+  fun name(): String =>
+    "ResponseParser/MultipleMessages/Chain/Property"
+
+  fun gen(): Generator[Array[Array[U8] val] val] =>
+    Generator[Array[Array[U8] val] val](
+      object is GenObj[Array[Array[U8] val] val]
+        fun generate(rnd: Randomness): Array[Array[U8] val] val =>
+          _RandomMessageBytesGen(rnd)
+      end)
+
+  fun ref property(arg1: Array[Array[U8] val] val, h: PropertyHelper) ? =>
+    let r: Reader = Reader
+    for msg in arg1.values() do
+      r.append(msg)
+    end
+
+    for i in Range(0, arg1.size()) do
+      if _ResponseParser(r)? is None then
+        h.fail("Expected message at position " + i.string()
+          + " but got None")
+        return
+      end
+    end
+
+    if _ResponseParser(r)? isnt None then
+      h.fail("Expected None after all messages consumed")
+    end
+
+class \nodoc\ iso _TestResponseParserMultipleMessagesChainSimpleQueryResult
+  is UnitTest
+  """
+  Verify correct buffer advancement across a complete simple query response:
+  RowDescription + DataRow + DataRow + CommandComplete + ReadyForQuery.
+  """
+  fun name(): String =>
+    "ResponseParser/MultipleMessages/Chain/SimpleQueryResult"
+
+  fun apply(h: TestHelper) ? =>
+    let columns: Array[(String, String)] val = recover val
+      [("id", "int4"); ("name", "text")]
+    end
+    let r: Reader = Reader
+    r.append(_IncomingRowDescriptionTestMessage(columns)?.bytes())
+    r.append(_IncomingDataRowTestMessage(
+      recover val [as (String | None): "1"; "Alice"] end).bytes())
+    r.append(_IncomingDataRowTestMessage(
+      recover val [as (String | None): "2"; "Bob"] end).bytes())
+    r.append(_IncomingCommandCompleteTestMessage("SELECT 2").bytes())
+    r.append(_IncomingReadyForQueryTestMessage('I').bytes())
+
+    match _ResponseParser(r)?
+    | let m: _RowDescriptionMessage =>
+      h.assert_eq[USize](2, m.columns.size())
+      h.assert_eq[String]("id", m.columns(0)?._1)
+      h.assert_eq[U32](23, m.columns(0)?._2)
+      h.assert_eq[String]("name", m.columns(1)?._1)
+      h.assert_eq[U32](25, m.columns(1)?._2)
+    else
+      h.fail("Wrong message for RowDescription.")
+      return
+    end
+
+    match _ResponseParser(r)?
+    | let m: _DataRowMessage =>
+      h.assert_eq[USize](2, m.columns.size())
+      match m.columns(0)?
+      | "1" => None
+      else
+        h.fail("Row 1 col 0 not parsed correctly.")
+        return
+      end
+      match m.columns(1)?
+      | "Alice" => None
+      else
+        h.fail("Row 1 col 1 not parsed correctly.")
+        return
+      end
+    else
+      h.fail("Wrong message for first DataRow.")
+      return
+    end
+
+    match _ResponseParser(r)?
+    | let m: _DataRowMessage =>
+      h.assert_eq[USize](2, m.columns.size())
+      match m.columns(0)?
+      | "2" => None
+      else
+        h.fail("Row 2 col 0 not parsed correctly.")
+        return
+      end
+      match m.columns(1)?
+      | "Bob" => None
+      else
+        h.fail("Row 2 col 1 not parsed correctly.")
+        return
+      end
+    else
+      h.fail("Wrong message for second DataRow.")
+      return
+    end
+
+    match _ResponseParser(r)?
+    | let m: _CommandCompleteMessage =>
+      h.assert_eq[String]("SELECT", m.id)
+      h.assert_eq[USize](2, m.value)
+    else
+      h.fail("Wrong message for CommandComplete.")
+      return
+    end
+
+    match _ResponseParser(r)?
+    | let m: _ReadyForQueryMessage =>
+      h.assert_is[TransactionStatus](TransactionIdle,
+        m.transaction_status())
+    else
+      h.fail("Wrong message for ReadyForQuery.")
+      return
+    end
+
+    if _ResponseParser(r)? isnt None then
+      h.fail("Buffer not fully consumed.")
+    end
+
+class \nodoc\ iso _TestResponseParserMultipleMessagesChainCopyOutSequence
+  is UnitTest
+  """
+  Verify correct buffer advancement across a COPY TO STDOUT sequence:
+  CopyOutResponse + CopyData + CopyData + CopyDone + CommandComplete +
+  ReadyForQuery.
+  """
+  fun name(): String =>
+    "ResponseParser/MultipleMessages/Chain/CopyOutSequence"
+
+  fun apply(h: TestHelper) ? =>
+    let col_fmts: Array[U8] val = recover val [as U8: 0; 0] end
+    let data1: Array[U8] val = "row1\tval1\n".array()
+    let data2: Array[U8] val = "row2\tval2\n".array()
+    let r: Reader = Reader
+    r.append(_IncomingCopyOutResponseTestMessage(0, col_fmts).bytes())
+    r.append(_IncomingCopyDataTestMessage(data1).bytes())
+    r.append(_IncomingCopyDataTestMessage(data2).bytes())
+    r.append(_IncomingCopyDoneTestMessage.bytes())
+    r.append(_IncomingCommandCompleteTestMessage("COPY 2").bytes())
+    r.append(_IncomingReadyForQueryTestMessage('I').bytes())
+
+    match _ResponseParser(r)?
+    | let m: _CopyOutResponseMessage =>
+      h.assert_eq[U8](0, m.format)
+      h.assert_eq[USize](2, m.column_formats.size())
+    else
+      h.fail("Wrong message for CopyOutResponse.")
+      return
+    end
+
+    match _ResponseParser(r)?
+    | let m: _CopyDataMessage =>
+      h.assert_array_eq[U8](data1, m.data)
+    else
+      h.fail("Wrong message for first CopyData.")
+      return
+    end
+
+    match _ResponseParser(r)?
+    | let m: _CopyDataMessage =>
+      h.assert_array_eq[U8](data2, m.data)
+    else
+      h.fail("Wrong message for second CopyData.")
+      return
+    end
+
+    if _ResponseParser(r)? isnt _CopyDoneMessage then
+      h.fail("Wrong message for CopyDone.")
+      return
+    end
+
+    match _ResponseParser(r)?
+    | let m: _CommandCompleteMessage =>
+      h.assert_eq[String]("COPY", m.id)
+      h.assert_eq[USize](2, m.value)
+    else
+      h.fail("Wrong message for CommandComplete.")
+      return
+    end
+
+    match _ResponseParser(r)?
+    | let m: _ReadyForQueryMessage =>
+      h.assert_is[TransactionStatus](TransactionIdle,
+        m.transaction_status())
+    else
+      h.fail("Wrong message for ReadyForQuery.")
+      return
+    end
+
+    if _ResponseParser(r)? isnt None then
+      h.fail("Buffer not fully consumed.")
+    end
+
+class \nodoc\ iso _TestResponseParserMultipleMessagesChainEmptyQuerySequence
+  is UnitTest
+  """
+  Verify correct buffer advancement across repeated empty query responses,
+  testing ReadyForQuery as a non-final message in the chain.
+  """
+  fun name(): String =>
+    "ResponseParser/MultipleMessages/Chain/EmptyQuerySequence"
+
+  fun apply(h: TestHelper) ? =>
+    let r: Reader = Reader
+    r.append(_IncomingEmptyQueryResponseTestMessage.bytes())
+    r.append(_IncomingReadyForQueryTestMessage('I').bytes())
+    r.append(_IncomingEmptyQueryResponseTestMessage.bytes())
+    r.append(_IncomingReadyForQueryTestMessage('T').bytes())
+
+    if _ResponseParser(r)? isnt _EmptyQueryResponseMessage then
+      h.fail("Wrong message for first EmptyQueryResponse.")
+      return
+    end
+
+    match _ResponseParser(r)?
+    | let m: _ReadyForQueryMessage =>
+      h.assert_is[TransactionStatus](TransactionIdle,
+        m.transaction_status())
+    else
+      h.fail("Wrong message for first ReadyForQuery.")
+      return
+    end
+
+    if _ResponseParser(r)? isnt _EmptyQueryResponseMessage then
+      h.fail("Wrong message for second EmptyQueryResponse.")
+      return
+    end
+
+    match _ResponseParser(r)?
+    | let m: _ReadyForQueryMessage =>
+      h.assert_is[TransactionStatus](TransactionInBlock,
+        m.transaction_status())
+    else
+      h.fail("Wrong message for second ReadyForQuery.")
+      return
+    end
+
+    if _ResponseParser(r)? isnt None then
+      h.fail("Buffer not fully consumed.")
+    end
+
+class \nodoc\ iso _TestResponseParserMultipleMessagesChainPrepareSequence
+  is UnitTest
+  """
+  Verify correct buffer advancement across a PREPARE response:
+  ParseComplete + ParameterDescription + NoData + ReadyForQuery.
+  """
+  fun name(): String =>
+    "ResponseParser/MultipleMessages/Chain/PrepareSequence"
+
+  fun apply(h: TestHelper) ? =>
+    let oids: Array[U32] val = recover val [as U32: 23; 25] end
+    let r: Reader = Reader
+    r.append(_IncomingParseCompleteTestMessage.bytes())
+    r.append(_IncomingParameterDescriptionTestMessage(oids).bytes())
+    r.append(_IncomingNoDataTestMessage.bytes())
+    r.append(_IncomingReadyForQueryTestMessage('I').bytes())
+
+    if _ResponseParser(r)? isnt _ParseCompleteMessage then
+      h.fail("Wrong message for ParseComplete.")
+      return
+    end
+
+    match _ResponseParser(r)?
+    | let m: _ParameterDescriptionMessage =>
+      h.assert_eq[USize](2, m.param_oids.size())
+      h.assert_eq[U32](23, m.param_oids(0)?)
+      h.assert_eq[U32](25, m.param_oids(1)?)
+    else
+      h.fail("Wrong message for ParameterDescription.")
+      return
+    end
+
+    if _ResponseParser(r)? isnt _NoDataMessage then
+      h.fail("Wrong message for NoData.")
+      return
+    end
+
+    match _ResponseParser(r)?
+    | let m: _ReadyForQueryMessage =>
+      h.assert_is[TransactionStatus](TransactionIdle,
+        m.transaction_status())
+    else
+      h.fail("Wrong message for ReadyForQuery.")
+      return
+    end
+
+    if _ResponseParser(r)? isnt None then
+      h.fail("Buffer not fully consumed.")
+    end
+
+class \nodoc\ iso
+  _TestResponseParserMultipleMessagesChainCloseStatementSequence
+  is UnitTest
+  """
+  Verify correct buffer advancement across a close statement response:
+  CloseComplete + ReadyForQuery.
+  """
+  fun name(): String =>
+    "ResponseParser/MultipleMessages/Chain/CloseStatementSequence"
+
+  fun apply(h: TestHelper) ? =>
+    let r: Reader = Reader
+    r.append(_IncomingCloseCompleteTestMessage.bytes())
+    r.append(_IncomingReadyForQueryTestMessage('I').bytes())
+
+    if _ResponseParser(r)? isnt _CloseCompleteMessage then
+      h.fail("Wrong message for CloseComplete.")
+      return
+    end
+
+    match _ResponseParser(r)?
+    | let m: _ReadyForQueryMessage =>
+      h.assert_is[TransactionStatus](TransactionIdle,
+        m.transaction_status())
+    else
+      h.fail("Wrong message for ReadyForQuery.")
+      return
+    end
+
+    if _ResponseParser(r)? isnt None then
+      h.fail("Buffer not fully consumed.")
+    end
+
+class \nodoc\ iso _TestResponseParserMultipleMessagesChainSASLFullSequence
+  is UnitTest
+  """
+  Verify correct buffer advancement across a SASL authentication sequence:
+  AuthSASLContinue + AuthSASLFinal + AuthenticationOk.
+  """
+  fun name(): String =>
+    "ResponseParser/MultipleMessages/Chain/SASLFullSequence"
+
+  fun apply(h: TestHelper) ? =>
+    let continue_data: Array[U8] val = "r=abc123,s=c2FsdA==,i=4096".array()
+    let final_data: Array[U8] val = "v=dGVzdA==".array()
+    let r: Reader = Reader
+    r.append(
+      _IncomingAuthenticationSASLContinueTestMessage(continue_data).bytes())
+    r.append(
+      _IncomingAuthenticationSASLFinalTestMessage(final_data).bytes())
+    r.append(_IncomingAuthenticationOkTestMessage.bytes())
+
+    match _ResponseParser(r)?
+    | let m: _AuthenticationSASLContinueMessage =>
+      h.assert_array_eq[U8](continue_data, m.data)
+    else
+      h.fail("Wrong message for AuthSASLContinue.")
+      return
+    end
+
+    match _ResponseParser(r)?
+    | let m: _AuthenticationSASLFinalMessage =>
+      h.assert_array_eq[U8](final_data, m.data)
+    else
+      h.fail("Wrong message for AuthSASLFinal.")
+      return
+    end
+
+    if _ResponseParser(r)? isnt _AuthenticationOkMessage then
+      h.fail("Wrong message for AuthenticationOk.")
+      return
+    end
+
+    if _ResponseParser(r)? isnt None then
+      h.fail("Buffer not fully consumed.")
+    end
+
+class \nodoc\ iso _TestResponseParserMultipleMessagesChainRemainingTypes
+  is UnitTest
+  """
+  Verify correct buffer advancement across the remaining message types not
+  covered by other chain tests: CopyInResponse + UnsupportedAuth +
+  PortalSuspended + AuthenticationOk.
+  """
+  fun name(): String =>
+    "ResponseParser/MultipleMessages/Chain/RemainingTypes"
+
+  fun apply(h: TestHelper) ? =>
+    let col_fmts: Array[U8] val = recover val [as U8: 0] end
+    let r: Reader = Reader
+    r.append(_IncomingCopyInResponseTestMessage(0, col_fmts).bytes())
+    r.append(_IncomingUnsupportedAuthenticationTestMessage(3).bytes())
+    r.append(_IncomingPortalSuspendedTestMessage.bytes())
+    r.append(_IncomingAuthenticationOkTestMessage.bytes())
+
+    match _ResponseParser(r)?
+    | let m: _CopyInResponseMessage =>
+      h.assert_eq[U8](0, m.format)
+      h.assert_eq[USize](1, m.column_formats.size())
+      h.assert_eq[U8](0, m.column_formats(0)?)
+    else
+      h.fail("Wrong message for CopyInResponse.")
+      return
+    end
+
+    if _ResponseParser(r)? isnt _UnsupportedAuthenticationMessage then
+      h.fail("Wrong message for UnsupportedAuth.")
+      return
+    end
+
+    if _ResponseParser(r)? isnt _PortalSuspendedMessage then
+      h.fail("Wrong message for PortalSuspended.")
+      return
+    end
+
+    if _ResponseParser(r)? isnt _AuthenticationOkMessage then
+      h.fail("Wrong message for AuthenticationOk.")
+      return
+    end
+
+    if _ResponseParser(r)? isnt None then
+      h.fail("Buffer not fully consumed.")
+    end
 
 primitive WriterToByteArray
   fun apply(writer: Writer): Array[U8] val =>

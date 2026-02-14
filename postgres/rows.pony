@@ -1,4 +1,8 @@
 class val Rows is Equatable[Rows]
+  """
+  An ordered collection of `Row` values from a query result. Supports indexed
+  access via `apply()` and iteration via `values()`.
+  """
   let _rows: Array[Row] val
 
   new val create(rows': Array[Row] val) =>
@@ -41,6 +45,10 @@ class val Rows is Equatable[Rows]
     RowIterator._create(_rows)
 
 class RowIterator is Iterator[Row]
+  """
+  An iterator over the rows in a `Rows` collection. Supports rewinding to
+  iterate multiple times. Obtained via `Rows.values()`.
+  """
   let _array: Array[Row] val
   var _i: USize
 

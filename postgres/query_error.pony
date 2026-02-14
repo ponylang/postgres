@@ -1,4 +1,9 @@
 trait val ClientQueryError
+  """
+  A client-side error that prevented a query from being sent to the server.
+  Each subtype represents a specific pre-condition failure (session not open,
+  session closed, not authenticated, or malformed data).
+  """
 
 primitive SessionNeverOpened is ClientQueryError
   """

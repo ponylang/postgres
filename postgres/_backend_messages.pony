@@ -194,6 +194,34 @@ class val _CopyInResponseMessage
     format = format'
     column_formats = column_formats'
 
+class val _CopyOutResponseMessage
+  """
+  Message from the backend indicating it is ready to send COPY data.
+  Contains the overall format (0=text, 1=binary) and per-column format codes.
+  """
+  let format: U8
+  let column_formats: Array[U8] val
+
+  new val create(format': U8, column_formats': Array[U8] val) =>
+    format = format'
+    column_formats = column_formats'
+
+class val _CopyDataMessage
+  """
+  Message from the backend containing a chunk of COPY data during a
+  COPY TO STDOUT operation.
+  """
+  let data: Array[U8] val
+
+  new val create(data': Array[U8] val) =>
+    data = data'
+
+primitive _CopyDoneMessage
+  """
+  Message from the backend indicating the end of the COPY data stream
+  during a COPY TO STDOUT operation.
+  """
+
 primitive _PortalSuspendedMessage
   """
   Message from the backend indicating that an Execute command has been

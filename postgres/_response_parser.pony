@@ -24,6 +24,9 @@ type _ResponseParserResult is
   | _ParameterDescriptionMessage
   | _NotificationResponseMessage
   | _CopyInResponseMessage
+  | _CopyOutResponseMessage
+  | _CopyDataMessage
+  | _CopyDoneMessage
   | _PortalSuspendedMessage
   | _ParameterStatusMessage
   | _UnsupportedMessage
@@ -218,6 +221,21 @@ primitive _ResponseParser
       // and parse the CopyInResponse payload in an isolated reader
       let copy_payload = buffer.block(payload_size)?
       return _copy_in_response(consume copy_payload)?
+    | _MessageType.copy_out_response() =>
+      // Slide past the header...
+      buffer.skip(5)?
+      // and parse the CopyOutResponse payload in an isolated reader
+      let copy_out_payload = buffer.block(payload_size)?
+      return _copy_out_response(consume copy_out_payload)?
+    | _MessageType.copy_data() =>
+      // Slide past the header...
+      buffer.skip(5)?
+      // and extract the raw data payload
+      let copy_data_payload = buffer.block(payload_size)?
+      return _CopyDataMessage(consume copy_data_payload)
+    | _MessageType.copy_done() =>
+      buffer.skip(message_size)?
+      return _CopyDoneMessage
     else
       buffer.skip(message_size)?
       return _UnsupportedMessage
@@ -426,6 +444,23 @@ primitive _ResponseParser
     end
 
     _CopyInResponseMessage(format, consume col_fmts)
+
+  fun _copy_out_response(payload: Array[U8] val)
+    : _CopyOutResponseMessage ?
+  =>
+    """
+    Parse a CopyOutResponse message. Same wire format as CopyInResponse.
+    """
+    let reader: Reader = Reader.>append(payload)
+    let format = reader.u8()?
+    let num_cols = reader.u16_be()?.usize()
+    let col_fmts: Array[U8] iso = recover iso Array[U8](num_cols) end
+
+    for i in Range(0, num_cols) do
+      col_fmts.push(reader.u16_be()?.u8())
+    end
+
+    _CopyOutResponseMessage(format, consume col_fmts)
 
   fun _parameter_description(payload: Array[U8] val)
     : _ParameterDescriptionMessage ?

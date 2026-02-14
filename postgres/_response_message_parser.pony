@@ -59,6 +59,12 @@ primitive _ResponseMessageParser
           s.state.on_notice(s, msg)
         | let msg: _CopyInResponseMessage =>
           s.state.on_copy_in_response(s, msg)
+        | let msg: _CopyOutResponseMessage =>
+          s.state.on_copy_out_response(s, msg)
+        | let msg: _CopyDataMessage =>
+          s.state.on_copy_data(s, msg)
+        | _CopyDoneMessage =>
+          s.state.on_copy_done(s)
         | let msg: _ParameterStatusMessage =>
           s.state.on_parameter_status(s, msg)
         | let msg: _EmptyQueryResponseMessage =>

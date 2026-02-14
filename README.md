@@ -51,7 +51,6 @@ Some functionality that isn't yet supported is:
 * Supplying connection configuration to the server
 * Pipelining queries
 * Function calls
-* COPY operations
 
 Note the appearance of an item on the above list isn't a guarantee that it will be supported in the future.
 

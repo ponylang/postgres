@@ -158,6 +158,15 @@ actor \nodoc\ Main is TestList
     test(_TestCopyInAfterSessionClosed)
     test(_TestCopyInInsert)
     test(_TestCopyInAbortRollback)
+    test(_TestResponseParserCopyOutResponseMessage)
+    test(_TestResponseParserCopyDataMessage)
+    test(_TestResponseParserCopyDoneMessage)
+    test(_TestCopyOutSuccess)
+    test(_TestCopyOutEmpty)
+    test(_TestCopyOutServerError)
+    test(_TestCopyOutShutdownDrainsCopyQueue)
+    test(_TestCopyOutAfterSessionClosed)
+    test(_TestCopyOutExport)
 
 class \nodoc\ iso _TestAuthenticate is UnitTest
   """

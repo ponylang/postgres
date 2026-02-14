@@ -5,6 +5,19 @@ use "ssl/crypto"
 use "ssl/net"
 
 actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
+  """
+  The main entry point for interacting with a PostgreSQL server. Manages the
+  connection lifecycle — connecting, authenticating, executing queries, and
+  shutting down — as a state machine.
+
+  Create a session with `ServerConnectInfo` and `DatabaseConnectInfo`.
+  Connection and authentication events are delivered to a
+  `SessionStatusNotify` receiver.
+
+  Query execution is serialized: only one operation is in flight at a time.
+  Additional calls to `execute`, `prepare`, `copy_in`, or `copy_out` are
+  queued and dispatched in order.
+  """
   var state: _SessionState
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
   let _server_connect_info: ServerConnectInfo

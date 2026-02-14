@@ -1,4 +1,8 @@
 class val Row is Equatable[Row]
+  """
+  A single row from a query result. Contains an ordered array of `Field`
+  values corresponding to the columns in the `RowDescription`.
+  """
   let fields: Array[Field] val
 
   new val create(fields': Array[Field] val) =>

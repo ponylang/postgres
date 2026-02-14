@@ -1,4 +1,9 @@
 class val Field is Equatable[Field]
+  """
+  A single column value within a `Row`. Contains the column name and the
+  value converted to the appropriate Pony type based on the PostgreSQL type
+  OID (see `FieldDataTypes`). NULL values are represented as `None`.
+  """
   let name: String
   let value: FieldDataTypes
 

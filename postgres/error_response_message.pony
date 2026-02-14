@@ -1,4 +1,10 @@
 class val ErrorResponseMessage
+  """
+  A fatal error message from the PostgreSQL server. Contains all standard
+  error fields defined by the PostgreSQL protocol (severity, SQLSTATE code,
+  human-readable message, and optional detail fields). Delivered via
+  receiver failure callbacks when a server-side operation fails.
+  """
   let severity: String
   let localized_severity: (String | None)
   let code: String

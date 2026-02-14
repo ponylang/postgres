@@ -1,4 +1,10 @@
 interface tag SessionStatusNotify
+  """
+  Receives session lifecycle events: connection, authentication, transaction
+  status changes, asynchronous notifications, server notices, and parameter
+  status updates. All callbacks have default no-op implementations, so
+  consumers only need to override the events they care about.
+  """
   be pg_session_connected(session: Session) =>
     """
     Called when we have connected to the server but haven't yet tried to
@@ -60,9 +66,6 @@ interface tag SessionStatusNotify
     these during connection startup for all reporting parameters (server_version,
     client_encoding, standard_conforming_strings, etc.) and again whenever a
     SET command changes one.
-
-    The callback has a default no-op implementation, so existing code is
-    unaffected.
     """
     None
 

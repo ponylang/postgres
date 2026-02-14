@@ -91,6 +91,15 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     """
     state.abort_copy(this, reason)
 
+  be copy_out(sql: String, receiver: CopyOutReceiver) =>
+    """
+    Start a COPY ... TO STDOUT operation. The SQL string should be a COPY
+    command with TO STDOUT. Data arrives via the receiver's `pg_copy_data()`
+    callback. The operation completes with `pg_copy_complete()` or fails
+    with `pg_copy_failed()`.
+    """
+    state.copy_out(this, sql, receiver)
+
   be close() =>
     """
     Close the connection. Sends a Terminate message to the server before
@@ -158,6 +167,11 @@ class ref _SessionUnopened is _ConnectableState
   =>
     receiver.pg_copy_failed(s, SessionNeverOpened)
 
+  fun ref copy_out(s: Session ref, sql: String,
+    receiver: CopyOutReceiver)
+  =>
+    receiver.pg_copy_failed(s, SessionNeverOpened)
+
   fun ref close_statement(s: Session ref, name: String) =>
     None
 
@@ -184,6 +198,11 @@ class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
 
   fun ref copy_in(s: Session ref, sql: String,
     receiver: CopyInReceiver)
+  =>
+    receiver.pg_copy_failed(s, SessionClosed)
+
+  fun ref copy_out(s: Session ref, sql: String,
+    receiver: CopyOutReceiver)
   =>
     receiver.pg_copy_failed(s, SessionClosed)
 
@@ -273,6 +292,11 @@ class ref _SessionSSLNegotiating
   =>
     receiver.pg_copy_failed(s, SessionNotAuthenticated)
 
+  fun ref copy_out(s: Session ref, sql: String,
+    receiver: CopyOutReceiver)
+  =>
+    receiver.pg_copy_failed(s, SessionNotAuthenticated)
+
   fun ref close_statement(s: Session ref, name: String) =>
     None
 
@@ -337,6 +361,11 @@ class ref _SessionConnected is _AuthenticableState
 
   fun ref copy_in(s: Session ref, sql: String,
     receiver: CopyInReceiver)
+  =>
+    receiver.pg_copy_failed(s, SessionNotAuthenticated)
+
+  fun ref copy_out(s: Session ref, sql: String,
+    receiver: CopyOutReceiver)
   =>
     receiver.pg_copy_failed(s, SessionNotAuthenticated)
 
@@ -494,6 +523,11 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
   =>
     receiver.pg_copy_failed(s, SessionNotAuthenticated)
 
+  fun ref copy_out(s: Session ref, sql: String,
+    receiver: CopyOutReceiver)
+  =>
+    receiver.pg_copy_failed(s, SessionNotAuthenticated)
+
   fun ref close_statement(s: Session ref, name: String) =>
     None
 
@@ -538,11 +572,20 @@ class val _QueuedCopyIn
     sql = sql'
     receiver = receiver'
 
+class val _QueuedCopyOut
+  let sql: String
+  let receiver: CopyOutReceiver
+
+  new val create(sql': String, receiver': CopyOutReceiver) =>
+    sql = sql'
+    receiver = receiver'
+
 type _QueueItem is
   ( _QueuedQuery
   | _QueuedPrepare
   | _QueuedCloseStatement
-  | _QueuedCopyIn )
+  | _QueuedCopyIn
+  | _QueuedCopyOut )
 
 class _SessionLoggedIn is _AuthenticatedState
   """
@@ -622,6 +665,10 @@ class _SessionLoggedIn is _AuthenticatedState
     query_queue.push(_QueuedCopyIn(sql, receiver))
     query_state.try_run_query(s, this)
 
+  fun ref copy_out(s: Session ref, sql: String, receiver: CopyOutReceiver) =>
+    query_queue.push(_QueuedCopyOut(sql, receiver))
+    query_state.try_run_query(s, this)
+
   fun ref send_copy_data(s: Session ref, data: Array[U8] val) =>
     match query_state
     | let c: _CopyInInFlight => c.send_copy_data(s, this, data)
@@ -640,6 +687,17 @@ class _SessionLoggedIn is _AuthenticatedState
   fun ref on_copy_in_response(s: Session ref, msg: _CopyInResponseMessage) =>
     query_state.on_copy_in_response(s, this, msg)
 
+  fun ref on_copy_out_response(s: Session ref,
+    msg: _CopyOutResponseMessage)
+  =>
+    query_state.on_copy_out_response(s, this, msg)
+
+  fun ref on_copy_data(s: Session ref, msg: _CopyDataMessage) =>
+    query_state.on_copy_data(s, this, msg)
+
+  fun ref on_copy_done(s: Session ref) =>
+    query_state.on_copy_done(s, this)
+
   fun ref on_shutdown(s: Session ref) =>
     // Clearing the readbuf is required for _ResponseMessageParser's
     // synchronous loop to exit — the next parse returns None.
@@ -657,6 +715,8 @@ class _SessionLoggedIn is _AuthenticatedState
       | let _: _QueuedCloseStatement => None
       | let ci: _QueuedCopyIn =>
         ci.receiver.pg_copy_failed(s, SessionClosed)
+      | let co: _QueuedCopyOut =>
+        co.receiver.pg_copy_failed(s, SessionClosed)
       end
     end
     query_queue.clear()
@@ -690,6 +750,11 @@ interface _QueryState
     msg: ErrorResponseMessage)
   fun ref on_copy_in_response(s: Session ref, li: _SessionLoggedIn ref,
     msg: _CopyInResponseMessage)
+  fun ref on_copy_out_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyOutResponseMessage)
+  fun ref on_copy_data(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyDataMessage)
+  fun ref on_copy_done(s: Session ref, li: _SessionLoggedIn ref)
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref)
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref)
 
@@ -711,6 +776,12 @@ trait _QueryNoQueryInFlight is _QueryState
     msg: ErrorResponseMessage) => li.shutdown(s)
   fun ref on_copy_in_response(s: Session ref, li: _SessionLoggedIn ref,
     msg: _CopyInResponseMessage) => li.shutdown(s)
+  fun ref on_copy_out_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyOutResponseMessage) => li.shutdown(s)
+  fun ref on_copy_data(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyDataMessage) => li.shutdown(s)
+  fun ref on_copy_done(s: Session ref, li: _SessionLoggedIn ref) =>
+    li.shutdown(s)
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) => None
 
@@ -817,6 +888,9 @@ class _QueryReady is _QueryNoQueryInFlight
         | let ci: _QueuedCopyIn =>
           li.query_state = _CopyInInFlight
           s._connection().send(_FrontendMessage.query(ci.sql))
+        | let co: _QueuedCopyOut =>
+          li.query_state = _CopyOutInFlight
+          s._connection().send(_FrontendMessage.query(co.sql))
         end
       end
     else
@@ -935,6 +1009,19 @@ class _SimpleQueryInFlight is _QueryState
   fun ref on_copy_in_response(s: Session ref, li: _SessionLoggedIn ref,
     msg: _CopyInResponseMessage)
   =>
+    li.shutdown(s)
+
+  fun ref on_copy_out_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyOutResponseMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_copy_data(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyDataMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_copy_done(s: Session ref, li: _SessionLoggedIn ref) =>
     li.shutdown(s)
 
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
@@ -1075,6 +1162,19 @@ class _ExtendedQueryInFlight is _QueryState
   =>
     li.shutdown(s)
 
+  fun ref on_copy_out_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyOutResponseMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_copy_data(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyDataMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_copy_done(s: Session ref, li: _SessionLoggedIn ref) =>
+    li.shutdown(s)
+
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     if not _error then
       try
@@ -1166,6 +1266,19 @@ class _PrepareInFlight is _QueryState
   =>
     li.shutdown(s)
 
+  fun ref on_copy_out_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyOutResponseMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_copy_data(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyDataMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_copy_done(s: Session ref, li: _SessionLoggedIn ref) =>
+    li.shutdown(s)
+
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     if not _error then
       try
@@ -1230,6 +1343,19 @@ class _CloseStatementInFlight is _QueryState
   fun ref on_copy_in_response(s: Session ref, li: _SessionLoggedIn ref,
     msg: _CopyInResponseMessage)
   =>
+    li.shutdown(s)
+
+  fun ref on_copy_out_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyOutResponseMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_copy_data(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyDataMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_copy_done(s: Session ref, li: _SessionLoggedIn ref) =>
     li.shutdown(s)
 
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
@@ -1321,12 +1447,125 @@ class _CopyInInFlight is _QueryState
   =>
     li.shutdown(s)
 
+  fun ref on_copy_out_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyOutResponseMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_copy_data(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyDataMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_copy_done(s: Session ref, li: _SessionLoggedIn ref) =>
+    li.shutdown(s)
+
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
 
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     if not _error then
       try
         (li.query_queue(0)? as _QueuedCopyIn).receiver.pg_copy_failed(s,
+          SessionClosed)
+      else
+        _Unreachable()
+      end
+    end
+    try
+      li.query_queue.shift()?
+    else
+      _Unreachable()
+    end
+
+class _CopyOutInFlight is _QueryState
+  """
+  COPY ... TO STDOUT operation in progress. The server pushes data via
+  CopyData messages. Each chunk is delivered to the receiver's
+  `pg_copy_data` callback. The operation completes with CopyDone followed
+  by CommandComplete and ReadyForQuery.
+  """
+  var _complete_count: USize = 0
+  var _error: Bool = false
+
+  fun ref on_copy_out_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyOutResponseMessage)
+  =>
+    // Server is ready to send data. Nothing to do — data will arrive as
+    // CopyData messages.
+    None
+
+  fun ref on_copy_data(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyDataMessage)
+  =>
+    try
+      (li.query_queue(0)? as _QueuedCopyOut).receiver.pg_copy_data(s,
+        msg.data)
+    else
+      _Unreachable()
+    end
+
+  fun ref on_copy_done(s: Session ref, li: _SessionLoggedIn ref) =>
+    // Data stream complete. Wait for CommandComplete + ReadyForQuery.
+    None
+
+  fun ref on_error_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: ErrorResponseMessage)
+  =>
+    _error = true
+    try
+      (li.query_queue(0)? as _QueuedCopyOut).receiver.pg_copy_failed(s, msg)
+    else
+      _Unreachable()
+    end
+
+  fun ref on_command_complete(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CommandCompleteMessage)
+  =>
+    _complete_count = msg.value
+
+  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        (li.query_queue(0)? as _QueuedCopyOut).receiver.pg_copy_complete(s,
+          _complete_count)
+      else
+        _Unreachable()
+      end
+    end
+    try
+      li.query_queue.shift()?
+    else
+      _Unreachable()
+    end
+    li.query_state = _QueryReady
+    li.query_state.try_run_query(s, li)
+
+  fun ref on_data_row(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _DataRowMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_row_description(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _RowDescriptionMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_empty_query_response(s: Session ref,
+    li: _SessionLoggedIn ref)
+  =>
+    li.shutdown(s)
+
+  fun ref on_copy_in_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyInResponseMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
+
+  fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        (li.query_queue(0)? as _QueuedCopyOut).receiver.pg_copy_failed(s,
           SessionClosed)
       else
         _Unreachable()
@@ -1425,6 +1664,25 @@ interface _SessionState
     """
     Called when the server responds to a COPY FROM STDIN query with a
     CopyInResponse message, indicating it is ready to receive data.
+    """
+  fun ref copy_out(s: Session ref, sql: String, receiver: CopyOutReceiver)
+    """
+    Called when a client requests a COPY ... TO STDOUT operation.
+    """
+  fun ref on_copy_out_response(s: Session ref, msg: _CopyOutResponseMessage)
+    """
+    Called when the server responds to a COPY TO STDOUT query with a
+    CopyOutResponse message, indicating it is ready to send data.
+    """
+  fun ref on_copy_data(s: Session ref, msg: _CopyDataMessage)
+    """
+    Called when the server sends a CopyData message during a COPY TO STDOUT
+    operation, containing a chunk of the exported data.
+    """
+  fun ref on_copy_done(s: Session ref)
+    """
+    Called when the server sends a CopyDone message, indicating the end of
+    the COPY TO STDOUT data stream.
     """
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage)
     """
@@ -1808,4 +2066,15 @@ trait _NotAuthenticated
     _IllegalState()
 
   fun ref on_copy_in_response(s: Session ref, msg: _CopyInResponseMessage) =>
+    _IllegalState()
+
+  fun ref on_copy_out_response(s: Session ref,
+    msg: _CopyOutResponseMessage)
+  =>
+    _IllegalState()
+
+  fun ref on_copy_data(s: Session ref, msg: _CopyDataMessage) =>
+    _IllegalState()
+
+  fun ref on_copy_done(s: Session ref) =>
     _IllegalState()

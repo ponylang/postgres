@@ -1162,6 +1162,92 @@ class \nodoc\ iso _TestResponseParserCopyInResponseMessage is UnitTest
       h.fail("Wrong message type for binary format case.")
     end
 
+class \nodoc\ iso _TestResponseParserCopyOutResponseMessage is UnitTest
+  """
+  Verify that CopyOutResponse ('H') messages are parsed into
+  _CopyOutResponseMessage with correct fields.
+  """
+  fun name(): String =>
+    "ResponseParser/CopyOutResponseMessage"
+
+  fun apply(h: TestHelper) ? =>
+    // Text format (0) with 2 columns (each text format)
+    let col_fmts: Array[U8] val = recover val [as U8: 0; 0] end
+    let bytes = _IncomingCopyOutResponseTestMessage(0, col_fmts).bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    match _ResponseParser(r)?
+    | let msg: _CopyOutResponseMessage =>
+      h.assert_eq[U8](0, msg.format)
+      h.assert_eq[USize](2, msg.column_formats.size())
+      h.assert_eq[U8](0, msg.column_formats(0)?)
+      h.assert_eq[U8](0, msg.column_formats(1)?)
+    else
+      h.fail("Wrong message type returned.")
+    end
+
+    // Binary format (1) with 1 column (binary format)
+    let col_fmts2: Array[U8] val = recover val [as U8: 1] end
+    let bytes2 = _IncomingCopyOutResponseTestMessage(1, col_fmts2).bytes()
+    let r2: Reader = Reader.>append(bytes2)
+
+    match _ResponseParser(r2)?
+    | let msg: _CopyOutResponseMessage =>
+      h.assert_eq[U8](1, msg.format)
+      h.assert_eq[USize](1, msg.column_formats.size())
+      h.assert_eq[U8](1, msg.column_formats(0)?)
+    else
+      h.fail("Wrong message type for binary format case.")
+    end
+
+class \nodoc\ iso _TestResponseParserCopyDataMessage is UnitTest
+  """
+  Verify that CopyData ('d') messages from the backend are parsed into
+  _CopyDataMessage with correct data payload.
+  """
+  fun name(): String =>
+    "ResponseParser/CopyDataMessage"
+
+  fun apply(h: TestHelper) ? =>
+    let data: Array[U8] val = "row1\tvalue1\n".array()
+    let bytes = _IncomingCopyDataTestMessage(data).bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    match _ResponseParser(r)?
+    | let msg: _CopyDataMessage =>
+      h.assert_array_eq[U8](data, msg.data)
+    else
+      h.fail("Wrong message type returned.")
+    end
+
+    // Empty data payload
+    let empty: Array[U8] val = recover val Array[U8] end
+    let bytes2 = _IncomingCopyDataTestMessage(empty).bytes()
+    let r2: Reader = Reader.>append(bytes2)
+
+    match _ResponseParser(r2)?
+    | let msg: _CopyDataMessage =>
+      h.assert_eq[USize](0, msg.data.size())
+    else
+      h.fail("Wrong message type for empty data case.")
+    end
+
+class \nodoc\ iso _TestResponseParserCopyDoneMessage is UnitTest
+  """
+  Verify that CopyDone ('c') messages from the backend are parsed into
+  _CopyDoneMessage.
+  """
+  fun name(): String =>
+    "ResponseParser/CopyDoneMessage"
+
+  fun apply(h: TestHelper) ? =>
+    let bytes = _IncomingCopyDoneTestMessage.bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    if _ResponseParser(r)? isnt _CopyDoneMessage then
+      h.fail("Wrong message type returned.")
+    end
+
 class \nodoc\ iso _TestResponseParserParameterStatusMessage is UnitTest
   """
   Verify that ParameterStatus ('S') messages are parsed into
@@ -1373,6 +1459,54 @@ class \nodoc\ val _IncomingCopyInResponseTestMessage
     for fmt in column_formats.values() do
       wb.u16_be(fmt.u16())
     end
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingCopyOutResponseTestMessage
+  let _bytes: Array[U8] val
+
+  new val create(format: U8, column_formats: Array[U8] val) =>
+    let num_cols = column_formats.size()
+    let payload_size = 4 + 1 + 2 + (num_cols * 2)
+    let wb: Writer = Writer
+    wb.u8(_MessageType.copy_out_response())
+    wb.u32_be(payload_size.u32())
+    wb.u8(format)
+    wb.u16_be(num_cols.u16())
+    for fmt in column_formats.values() do
+      wb.u16_be(fmt.u16())
+    end
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingCopyDataTestMessage
+  let _bytes: Array[U8] val
+
+  new val create(data: Array[U8] val) =>
+    let payload_size = 4 + data.size()
+    let wb: Writer = Writer
+    wb.u8(_MessageType.copy_data())
+    wb.u32_be(payload_size.u32())
+    wb.write(data)
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
+class \nodoc\ val _IncomingCopyDoneTestMessage
+  let _bytes: Array[U8] val
+
+  new val create() =>
+    let wb: Writer = Writer
+    wb.u8(_MessageType.copy_done())
+    wb.u32_be(4)
 
     _bytes = WriterToByteArray(wb)
 

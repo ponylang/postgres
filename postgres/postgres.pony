@@ -184,6 +184,23 @@ be pg_copy_complete(session: Session, count: USize) =>
 Call `session.abort_copy(reason)` instead of `finish_copy()` to
 abort the operation.
 
+## Bulk Export with COPY OUT
+
+`session.copy_out()` exports data from the server via the COPY TO STDOUT
+protocol. The server drives the flow — data arrives via `pg_copy_data`
+callbacks on the `CopyOutReceiver`:
+
+```pony
+be pg_session_authenticated(session: Session) =>
+  session.copy_out("COPY my_table TO STDOUT", this)
+
+be pg_copy_data(session: Session, data: Array[U8] val) =>
+  _buffer.append(data)
+
+be pg_copy_complete(session: Session, count: USize) =>
+  _env.out.print("Exported " + count.string() + " rows")
+```
+
 ## Query Cancellation
 
 `session.cancel()` requests cancellation of the currently executing
@@ -209,6 +226,7 @@ supported.
 * LISTEN/NOTIFY notifications
 * NoticeResponse delivery (non-fatal server messages)
 * COPY FROM STDIN (bulk data loading)
+* COPY TO STDOUT (bulk data export)
 * Query cancellation
 * ParameterStatus tracking (server runtime parameters)
 """

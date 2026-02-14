@@ -288,6 +288,11 @@ class ref _SessionSSLNegotiating
   fun ref on_notice(s: Session ref, msg: NoticeResponseMessage) =>
     _IllegalState()
 
+  fun ref on_parameter_status(s: Session ref,
+    msg: _ParameterStatusMessage)
+  =>
+    _IllegalState()
+
   fun ref cancel(s: Session ref) =>
     None
 
@@ -1478,6 +1483,12 @@ interface _SessionState
     authentication.
     """
 
+  fun ref on_parameter_status(s: Session ref, msg: _ParameterStatusMessage)
+    """
+    Called when the server sends a ParameterStatus message reporting a runtime
+    parameter's current value. Can arrive during startup and after SET commands.
+    """
+
   fun ref on_notification(s: Session ref, msg: _NotificationResponseMessage)
     """
     Called when the server sends a LISTEN/NOTIFY notification.
@@ -1555,6 +1566,12 @@ trait _ConnectedState is _NotConnectableState
   fun ref on_notice(s: Session ref, msg: NoticeResponseMessage) =>
     notify().pg_notice(s, msg)
 
+  fun ref on_parameter_status(s: Session ref,
+    msg: _ParameterStatusMessage)
+  =>
+    notify().pg_parameter_status(s,
+      ParameterStatus(msg.name, msg.value))
+
   fun ref on_tls_ready(s: Session ref) =>
     _IllegalState()
 
@@ -1605,6 +1622,11 @@ trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
   and receiving an authentication event while unconnected is an error.
   """
   fun ref on_notice(s: Session ref, msg: NoticeResponseMessage) =>
+    _IllegalState()
+
+  fun ref on_parameter_status(s: Session ref,
+    msg: _ParameterStatusMessage)
+  =>
     _IllegalState()
 
   fun ref on_tls_ready(s: Session ref) =>

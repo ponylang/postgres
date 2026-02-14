@@ -154,6 +154,19 @@ class val _ParameterDescriptionMessage
   new val create(param_oids': Array[U32] val) =>
     param_oids = param_oids'
 
+class val _ParameterStatusMessage
+  """
+  Message from the backend reporting a runtime parameter name and its current
+  value. Sent during startup for all reporting parameters, and again whenever
+  a SET command changes one.
+  """
+  let name: String
+  let value: String
+
+  new val create(name': String, value': String) =>
+    name = name'
+    value = value'
+
 class val _NotificationResponseMessage
   """
   Message from the backend delivering a LISTEN/NOTIFY notification.

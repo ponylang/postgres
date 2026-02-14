@@ -284,11 +284,18 @@ actor \nodoc\ _NonExistentTableQueryReceiver is
   be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    // TODO enhance this by checking the failure
-    if query is _query then
+    if not (query is _query) then
+      _h.fail("Incorrect query parameter received.")
+      _h.complete(false)
+      return
+    end
+
+    match failure
+    | let e: ErrorResponseMessage =>
+      _h.assert_eq[String]("42P01", e.code)
       _h.complete(true)
-    else
-      _h.fail("Incorrect query paramter received.")
+    | let _: ClientQueryError =>
+      _h.fail("Expected ErrorResponseMessage but got ClientQueryError.")
       _h.complete(false)
     end
 

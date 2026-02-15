@@ -323,6 +323,21 @@ class \nodoc\ iso _TestFrontendMessageCopyFail is UnitTest
 
     h.assert_array_eq[U8](expected, _FrontendMessage.copy_fail("err"))
 
+class \nodoc\ iso _TestFrontendMessageFlush is UnitTest
+  fun name(): String =>
+    "FrontendMessage/Flush"
+
+  fun apply(h: TestHelper) =>
+    // Flush: Byte1('H') Int32(4) = 5 bytes
+    let expected: Array[U8] = ifdef bigendian then
+      [ 'H'; 4; 0; 0; 0 ]
+    else
+      [ 'H'; 0; 0; 0; 4 ]
+    end
+
+    h.assert_array_eq[U8](expected,
+      _FrontendMessage.flush())
+
 class \nodoc\ iso _TestFrontendMessageTerminate is UnitTest
   fun name(): String =>
     "FrontendMessage/Terminate"

@@ -66,6 +66,7 @@ actor \nodoc\ Main is TestList
     test(_TestFrontendMessageCloseStatement)
     test(_TestFrontendMessageSync)
     test(_TestFrontendMessageSSLRequest)
+    test(_TestFrontendMessageFlush)
     test(_TestFrontendMessageTerminate)
     test(_TestTerminateSentOnClose)
     test(_TestSSLNegotiationRefused)
@@ -129,6 +130,7 @@ actor \nodoc\ Main is TestList
     test(_TestResponseParserMultipleMessagesChainCloseStatementSequence)
     test(_TestResponseParserMultipleMessagesChainSASLFullSequence)
     test(_TestResponseParserMultipleMessagesChainRemainingTypes)
+    test(_TestResponseParserMultipleMessagesChainStreamingQuerySequence)
     test(_TestFrontendMessageSASLInitialResponse)
     test(_TestFrontendMessageSASLResponse)
     test(_TestScramSha256MessageBuilders)
@@ -176,6 +178,13 @@ actor \nodoc\ Main is TestList
     test(_TestCopyOutShutdownDrainsCopyQueue)
     test(_TestCopyOutAfterSessionClosed)
     test(_TestCopyOutExport)
+    test(_TestStreamingSuccess)
+    test(_TestStreamingEmpty)
+    test(_TestStreamingEarlyStop)
+    test(_TestStreamingServerError)
+    test(_TestStreamingShutdownDrainsQueue)
+    test(_TestStreamingQueryResults)
+    test(_TestStreamingAfterSessionClosed)
 
 class \nodoc\ iso _TestAuthenticate is UnitTest
   """

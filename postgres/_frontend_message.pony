@@ -537,6 +537,29 @@ primitive _FrontendMessage
       []
     end
 
+  fun flush(): Array[U8] val =>
+    """
+    Build a Flush message. Forces the server to deliver any pending output
+    without ending the current query cycle or producing ReadyForQuery.
+
+    Format: Byte1('H') Int32(4)
+    """
+    try
+      recover val
+        let msg: Array[U8] = Array[U8].init(0, 5)
+        msg.update_u8(0, 'H')?
+        ifdef bigendian then
+          msg.update_u32(1, U32(4))?
+        else
+          msg.update_u32(1, U32(4).bswap())?
+        end
+        msg
+      end
+    else
+      _Unreachable()
+      []
+    end
+
   fun terminate(): Array[U8] val =>
     """
     Build a Terminate message. Sent before closing the TCP connection to

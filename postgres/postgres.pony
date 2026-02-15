@@ -201,6 +201,35 @@ be pg_copy_complete(session: Session, count: USize) =>
   _env.out.print("Exported " + count.string() + " rows")
 ```
 
+## Row Streaming
+
+`session.stream()` delivers rows in windowed batches using the
+extended query protocol's portal suspension mechanism. Unlike
+`execute()` which buffers all rows before delivery, streaming enables
+pull-based paged result consumption with bounded memory:
+
+```pony
+be pg_session_authenticated(session: Session) =>
+  session.stream(
+    PreparedQuery("SELECT * FROM big_table",
+      recover val Array[(String | None)] end),
+    100, this)  // window_size = 100 rows per batch
+
+be pg_stream_batch(session: Session, rows: Rows) =>
+  // Process this batch of up to 100 rows
+  for row in rows.values() do
+    // ...
+  end
+  session.fetch_more()  // Pull the next batch
+
+be pg_stream_complete(session: Session) =>
+  _env.out.print("All rows processed")
+```
+
+Call `session.close_stream()` to end streaming early. Only
+`PreparedQuery` and `NamedPreparedQuery` are supported — streaming
+requires the extended query protocol.
+
 ## Query Cancellation
 
 `session.cancel()` requests cancellation of the currently executing
@@ -227,6 +256,7 @@ supported.
 * NoticeResponse delivery (non-fatal server messages)
 * COPY FROM STDIN (bulk data loading)
 * COPY TO STDOUT (bulk data export)
+* Row streaming (windowed batch delivery)
 * Query cancellation
 * ParameterStatus tracking (server runtime parameters)
 """

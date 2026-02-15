@@ -113,6 +113,39 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     """
     state.copy_out(this, sql, receiver)
 
+  be stream(query: (PreparedQuery | NamedPreparedQuery),
+    window_size: U32, receiver: StreamingResultReceiver)
+  =>
+    """
+    Start a streaming query that delivers rows in windowed batches via
+    `StreamingResultReceiver`. Each batch contains up to `window_size` rows.
+    Call `fetch_more()` from `pg_stream_batch` to pull the next batch, or
+    `close_stream()` to end early.
+
+    Only `PreparedQuery` and `NamedPreparedQuery` are supported — streaming
+    uses the extended query protocol's `Execute(max_rows)` + `PortalSuspended`
+    mechanism which requires a prepared statement.
+    """
+    state.stream(this, query, window_size, receiver)
+
+  be fetch_more() =>
+    """
+    Request the next batch of rows during a streaming query. The next
+    `pg_stream_batch` callback delivers the rows. Safe to call at any
+    time — no-op if no streaming query is active, if the stream has
+    already completed naturally, or if the stream has already failed.
+    """
+    state.fetch_more(this)
+
+  be close_stream() =>
+    """
+    End a streaming query early. The `pg_stream_complete` callback fires
+    when the server acknowledges the close. Safe to call at any time —
+    no-op if no streaming query is active, if the stream has already
+    completed naturally, or if the stream has already failed.
+    """
+    state.close_stream(this)
+
   be close() =>
     """
     Close the connection. Sends a Terminate message to the server before
@@ -185,6 +218,12 @@ class ref _SessionUnopened is _ConnectableState
   =>
     receiver.pg_copy_failed(s, SessionNeverOpened)
 
+  fun ref stream(s: Session ref,
+    query: (PreparedQuery | NamedPreparedQuery),
+    window_size: U32, receiver: StreamingResultReceiver)
+  =>
+    receiver.pg_stream_failed(s, query, SessionNeverOpened)
+
   fun ref close_statement(s: Session ref, name: String) =>
     None
 
@@ -218,6 +257,12 @@ class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
     receiver: CopyOutReceiver)
   =>
     receiver.pg_copy_failed(s, SessionClosed)
+
+  fun ref stream(s: Session ref,
+    query: (PreparedQuery | NamedPreparedQuery),
+    window_size: U32, receiver: StreamingResultReceiver)
+  =>
+    receiver.pg_stream_failed(s, query, SessionClosed)
 
   fun ref close_statement(s: Session ref, name: String) =>
     None
@@ -310,6 +355,12 @@ class ref _SessionSSLNegotiating
   =>
     receiver.pg_copy_failed(s, SessionNotAuthenticated)
 
+  fun ref stream(s: Session ref,
+    query: (PreparedQuery | NamedPreparedQuery),
+    window_size: U32, receiver: StreamingResultReceiver)
+  =>
+    receiver.pg_stream_failed(s, query, SessionNotAuthenticated)
+
   fun ref close_statement(s: Session ref, name: String) =>
     None
 
@@ -322,12 +373,21 @@ class ref _SessionSSLNegotiating
   fun ref abort_copy(s: Session ref, reason: String) =>
     None
 
+  fun ref fetch_more(s: Session ref) =>
+    None
+
+  fun ref close_stream(s: Session ref) =>
+    None
+
   fun ref on_notice(s: Session ref, msg: NoticeResponseMessage) =>
     _IllegalState()
 
   fun ref on_parameter_status(s: Session ref,
     msg: _ParameterStatusMessage)
   =>
+    _IllegalState()
+
+  fun ref on_portal_suspended(s: Session ref) =>
     _IllegalState()
 
   fun ref cancel(s: Session ref) =>
@@ -381,6 +441,12 @@ class ref _SessionConnected is _AuthenticableState
     receiver: CopyOutReceiver)
   =>
     receiver.pg_copy_failed(s, SessionNotAuthenticated)
+
+  fun ref stream(s: Session ref,
+    query: (PreparedQuery | NamedPreparedQuery),
+    window_size: U32, receiver: StreamingResultReceiver)
+  =>
+    receiver.pg_stream_failed(s, query, SessionNotAuthenticated)
 
   fun ref close_statement(s: Session ref, name: String) =>
     None
@@ -541,6 +607,12 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
   =>
     receiver.pg_copy_failed(s, SessionNotAuthenticated)
 
+  fun ref stream(s: Session ref,
+    query: (PreparedQuery | NamedPreparedQuery),
+    window_size: U32, receiver: StreamingResultReceiver)
+  =>
+    receiver.pg_stream_failed(s, query, SessionNotAuthenticated)
+
   fun ref close_statement(s: Session ref, name: String) =>
     None
 
@@ -593,12 +665,28 @@ class val _QueuedCopyOut
     sql = sql'
     receiver = receiver'
 
+class val _QueuedStreamingQuery
+  """
+  A queued streaming query operation waiting to be dispatched.
+  """
+  let query: (PreparedQuery | NamedPreparedQuery)
+  let window_size: U32
+  let receiver: StreamingResultReceiver
+
+  new val create(query': (PreparedQuery | NamedPreparedQuery),
+    window_size': U32, receiver': StreamingResultReceiver)
+  =>
+    query = query'
+    window_size = window_size'
+    receiver = receiver'
+
 type _QueueItem is
   ( _QueuedQuery
   | _QueuedPrepare
   | _QueuedCloseStatement
   | _QueuedCopyIn
-  | _QueuedCopyOut )
+  | _QueuedCopyOut
+  | _QueuedStreamingQuery )
 
 class _SessionLoggedIn is _AuthenticatedState
   """
@@ -648,6 +736,9 @@ class _SessionLoggedIn is _AuthenticatedState
   fun ref on_row_description(s: Session ref, msg: _RowDescriptionMessage) =>
     query_state.on_row_description(s, this, msg)
 
+  fun ref on_portal_suspended(s: Session ref) =>
+    query_state.on_portal_suspended(s, this)
+
   fun ref cancel(s: Session ref) =>
     match query_state
     | let _: _QueryReady => None
@@ -681,6 +772,23 @@ class _SessionLoggedIn is _AuthenticatedState
   fun ref copy_out(s: Session ref, sql: String, receiver: CopyOutReceiver) =>
     query_queue.push(_QueuedCopyOut(sql, receiver))
     query_state.try_run_query(s, this)
+
+  fun ref stream(s: Session ref,
+    query: (PreparedQuery | NamedPreparedQuery),
+    window_size: U32, receiver: StreamingResultReceiver)
+  =>
+    query_queue.push(_QueuedStreamingQuery(query, window_size, receiver))
+    query_state.try_run_query(s, this)
+
+  fun ref fetch_more(s: Session ref) =>
+    match query_state
+    | let sq: _StreamingQueryInFlight => sq.fetch_more(s, this)
+    end
+
+  fun ref close_stream(s: Session ref) =>
+    match query_state
+    | let sq: _StreamingQueryInFlight => sq.close_stream(s)
+    end
 
   fun ref send_copy_data(s: Session ref, data: Array[U8] val) =>
     match query_state
@@ -730,6 +838,8 @@ class _SessionLoggedIn is _AuthenticatedState
         ci.receiver.pg_copy_failed(s, SessionClosed)
       | let co: _QueuedCopyOut =>
         co.receiver.pg_copy_failed(s, SessionClosed)
+      | let sq: _QueuedStreamingQuery =>
+        sq.receiver.pg_stream_failed(s, sq.query, SessionClosed)
       end
     end
     query_queue.clear()
@@ -768,6 +878,10 @@ interface _QueryState
   fun ref on_copy_data(s: Session ref, li: _SessionLoggedIn ref,
     msg: _CopyDataMessage)
   fun ref on_copy_done(s: Session ref, li: _SessionLoggedIn ref)
+  fun ref on_portal_suspended(s: Session ref, li: _SessionLoggedIn ref)
+    """
+    Called when a portal is suspended during streaming (more rows available).
+    """
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref)
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref)
 
@@ -794,6 +908,8 @@ trait _QueryNoQueryInFlight is _QueryState
   fun ref on_copy_data(s: Session ref, li: _SessionLoggedIn ref,
     msg: _CopyDataMessage) => li.shutdown(s)
   fun ref on_copy_done(s: Session ref, li: _SessionLoggedIn ref) =>
+    li.shutdown(s)
+  fun ref on_portal_suspended(s: Session ref, li: _SessionLoggedIn ref) =>
     li.shutdown(s)
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) => None
@@ -904,6 +1020,52 @@ class _QueryReady is _QueryNoQueryInFlight
         | let co: _QueuedCopyOut =>
           li.query_state = _CopyOutInFlight
           s._connection().send(_FrontendMessage.query(co.sql))
+        | let sq: _QueuedStreamingQuery =>
+          li.query_state = _StreamingQueryInFlight.create()
+          match sq.query
+          | let pq: PreparedQuery =>
+            let parse = _FrontendMessage.parse("", pq.string,
+              recover val Array[U32] end)
+            let bind = _FrontendMessage.bind("", "", pq.params)
+            let describe = _FrontendMessage.describe_portal("")
+            let execute = _FrontendMessage.execute_msg("", sq.window_size)
+            let flush_msg = _FrontendMessage.flush()
+            let combined = recover val
+              let total = parse.size() + bind.size() + describe.size()
+                + execute.size() + flush_msg.size()
+              let buf = Array[U8](total)
+              buf.copy_from(parse, 0, 0, parse.size())
+              buf.copy_from(bind, 0, parse.size(), bind.size())
+              buf.copy_from(describe, 0,
+                parse.size() + bind.size(), describe.size())
+              buf.copy_from(execute, 0,
+                parse.size() + bind.size() + describe.size(), execute.size())
+              buf.copy_from(flush_msg, 0,
+                parse.size() + bind.size() + describe.size() + execute.size(),
+                flush_msg.size())
+              buf
+            end
+            s._connection().send(consume combined)
+          | let nq: NamedPreparedQuery =>
+            let bind = _FrontendMessage.bind("", nq.name, nq.params)
+            let describe = _FrontendMessage.describe_portal("")
+            let execute = _FrontendMessage.execute_msg("", sq.window_size)
+            let flush_msg = _FrontendMessage.flush()
+            let combined = recover val
+              let total = bind.size() + describe.size()
+                + execute.size() + flush_msg.size()
+              let buf = Array[U8](total)
+              buf.copy_from(bind, 0, 0, bind.size())
+              buf.copy_from(describe, 0, bind.size(), describe.size())
+              buf.copy_from(execute, 0,
+                bind.size() + describe.size(), execute.size())
+              buf.copy_from(flush_msg, 0,
+                bind.size() + describe.size() + execute.size(),
+                flush_msg.size())
+              buf
+            end
+            s._connection().send(consume combined)
+          end
         end
       end
     else
@@ -1036,6 +1198,10 @@ class _SimpleQueryInFlight is _QueryState
 
   fun ref on_copy_done(s: Session ref, li: _SessionLoggedIn ref) =>
     li.shutdown(s)
+
+  fun ref on_portal_suspended(s: Session ref, li: _SessionLoggedIn ref) =>
+    li.shutdown(s)
+
 
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     if not _error then
@@ -1188,6 +1354,10 @@ class _ExtendedQueryInFlight is _QueryState
   fun ref on_copy_done(s: Session ref, li: _SessionLoggedIn ref) =>
     li.shutdown(s)
 
+  fun ref on_portal_suspended(s: Session ref, li: _SessionLoggedIn ref) =>
+    li.shutdown(s)
+
+
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     if not _error then
       try
@@ -1292,6 +1462,10 @@ class _PrepareInFlight is _QueryState
   fun ref on_copy_done(s: Session ref, li: _SessionLoggedIn ref) =>
     li.shutdown(s)
 
+  fun ref on_portal_suspended(s: Session ref, li: _SessionLoggedIn ref) =>
+    li.shutdown(s)
+
+
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     if not _error then
       try
@@ -1370,6 +1544,10 @@ class _CloseStatementInFlight is _QueryState
 
   fun ref on_copy_done(s: Session ref, li: _SessionLoggedIn ref) =>
     li.shutdown(s)
+
+  fun ref on_portal_suspended(s: Session ref, li: _SessionLoggedIn ref) =>
+    li.shutdown(s)
+
 
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     try
@@ -1473,6 +1651,10 @@ class _CopyInInFlight is _QueryState
   fun ref on_copy_done(s: Session ref, li: _SessionLoggedIn ref) =>
     li.shutdown(s)
 
+  fun ref on_portal_suspended(s: Session ref, li: _SessionLoggedIn ref) =>
+    li.shutdown(s)
+
+
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
 
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
@@ -1573,6 +1755,10 @@ class _CopyOutInFlight is _QueryState
   =>
     li.shutdown(s)
 
+  fun ref on_portal_suspended(s: Session ref, li: _SessionLoggedIn ref) =>
+    li.shutdown(s)
+
+
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
 
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
@@ -1580,6 +1766,179 @@ class _CopyOutInFlight is _QueryState
       try
         (li.query_queue(0)? as _QueuedCopyOut).receiver.pg_copy_failed(s,
           SessionClosed)
+      else
+        _Unreachable()
+      end
+    end
+    try
+      li.query_queue.shift()?
+    else
+      _Unreachable()
+    end
+
+class _StreamingQueryInFlight is _QueryState
+  """
+  Streaming query in progress. Delivers rows in windowed batches via
+  `StreamingResultReceiver`. Uses Execute(max_rows > 0) + Flush to keep the
+  portal alive between batches, with Sync sent only on completion or error
+  to trigger ReadyForQuery. `_completing` guards against `fetch_more` and
+  `close_stream` sending messages after `on_command_complete` has already
+  sent Sync — the receiver may call `fetch_more()` in response to the
+  final `pg_stream_batch` before `ReadyForQuery` arrives.
+  """
+  var _data_rows: Array[Array[(String|None)] val] iso
+  var _row_description: (Array[(String, U32)] val | None)
+  var _error: Bool = false
+  var _completing: Bool = false
+
+  new create() =>
+    _data_rows = recover iso Array[Array[(String|None)] val] end
+    _row_description = None
+
+  fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
+
+  fun ref on_data_row(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _DataRowMessage)
+  =>
+    _data_rows.push(msg.columns)
+
+  fun ref on_row_description(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _RowDescriptionMessage)
+  =>
+    _row_description = msg.columns
+
+  fun ref on_portal_suspended(s: Session ref, li: _SessionLoggedIn ref) =>
+    try
+      let sq = li.query_queue(0)? as _QueuedStreamingQuery
+      let rows = _data_rows = recover iso
+        Array[Array[(String|None)] val].create()
+      end
+      match _row_description
+      | let desc: Array[(String, U32)] val =>
+        let rows_object = _RowsBuilder(consume rows, desc)?
+        sq.receiver.pg_stream_batch(s, rows_object)
+      else
+        _Unreachable()
+      end
+    else
+      _Unreachable()
+    end
+
+  fun ref fetch_more(s: Session ref, li: _SessionLoggedIn ref) =>
+    // After CommandComplete or ErrorResponse, the portal is destroyed by
+    // Sync. The receiver may still call fetch_more() in response to the
+    // final pg_stream_batch before ReadyForQuery arrives — silently ignore.
+    if _completing or _error then return end
+    try
+      let sq = li.query_queue(0)? as _QueuedStreamingQuery
+      let execute = _FrontendMessage.execute_msg("", sq.window_size)
+      let flush_msg = _FrontendMessage.flush()
+      let combined = recover val
+        let total = execute.size() + flush_msg.size()
+        let buf = Array[U8](total)
+        buf.copy_from(execute, 0, 0, execute.size())
+        buf.copy_from(flush_msg, 0, execute.size(), flush_msg.size())
+        buf
+      end
+      s._connection().send(consume combined)
+    else
+      _Unreachable()
+    end
+
+  fun ref close_stream(s: Session ref) =>
+    if (not _error) and (not _completing) then
+      s._connection().send(_FrontendMessage.sync())
+    end
+
+  fun ref on_command_complete(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CommandCompleteMessage)
+  =>
+    // Final batch — deliver any remaining accumulated rows.
+    try
+      let sq = li.query_queue(0)? as _QueuedStreamingQuery
+      let rows = _data_rows = recover iso
+        Array[Array[(String|None)] val].create()
+      end
+      if rows.size() > 0 then
+        match _row_description
+        | let desc: Array[(String, U32)] val =>
+          let rows_object = _RowsBuilder(consume rows, desc)?
+          sq.receiver.pg_stream_batch(s, rows_object)
+        else
+          _Unreachable()
+        end
+      end
+    else
+      _Unreachable()
+    end
+    // Send Sync to trigger ReadyForQuery and destroy the portal.
+    // _completing prevents close_stream() from sending a duplicate Sync if it
+    // arrives between this point and ReadyForQuery.
+    _completing = true
+    s._connection().send(_FrontendMessage.sync())
+
+  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        let sq = li.query_queue(0)? as _QueuedStreamingQuery
+        sq.receiver.pg_stream_complete(s)
+      else
+        _Unreachable()
+      end
+    end
+    try
+      li.query_queue.shift()?
+    else
+      _Unreachable()
+    end
+    li.query_state = _QueryReady
+    li.query_state.try_run_query(s, li)
+
+  fun ref on_error_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: ErrorResponseMessage)
+  =>
+    _error = true
+    try
+      let sq = li.query_queue(0)? as _QueuedStreamingQuery
+      _data_rows = recover iso Array[Array[(String|None)] val] end
+      _row_description = None
+      sq.receiver.pg_stream_failed(s, sq.query, msg)
+    else
+      _Unreachable()
+    end
+    // Sync is required because streaming uses Flush (not Sync) to keep the
+    // portal alive. Without a pending Sync, the server waits indefinitely
+    // after ErrorResponse, deadlocking the session.
+    s._connection().send(_FrontendMessage.sync())
+
+  fun ref on_empty_query_response(s: Session ref,
+    li: _SessionLoggedIn ref)
+  =>
+    li.shutdown(s)
+
+  fun ref on_copy_in_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyInResponseMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_copy_out_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyOutResponseMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_copy_data(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyDataMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_copy_done(s: Session ref, li: _SessionLoggedIn ref) =>
+    li.shutdown(s)
+
+  fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        let sq = li.query_queue(0)? as _QueuedStreamingQuery
+        sq.receiver.pg_stream_failed(s, sq.query, SessionClosed)
       else
         _Unreachable()
       end
@@ -1696,6 +2055,25 @@ interface _SessionState
     """
     Called when the server sends a CopyDone message, indicating the end of
     the COPY TO STDOUT data stream.
+    """
+  fun ref on_portal_suspended(s: Session ref)
+    """
+    Called when the server sends a PortalSuspended message during a streaming
+    query, indicating more rows are available for the current portal.
+    """
+  fun ref stream(s: Session ref,
+    query: (PreparedQuery | NamedPreparedQuery),
+    window_size: U32, receiver: StreamingResultReceiver)
+    """
+    Called when a client requests a streaming query execution.
+    """
+  fun ref fetch_more(s: Session ref)
+    """
+    Called when a client requests the next batch of streaming rows.
+    """
+  fun ref close_stream(s: Session ref)
+    """
+    Called when a client requests early termination of a streaming query.
     """
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage)
     """
@@ -1867,6 +2245,12 @@ trait _ConnectedState is _NotConnectableState
   fun ref abort_copy(s: Session ref, reason: String) =>
     None
 
+  fun ref fetch_more(s: Session ref) =>
+    None
+
+  fun ref close_stream(s: Session ref) =>
+    None
+
   fun ref close(s: Session ref) =>
     shutdown(s)
 
@@ -1926,6 +2310,12 @@ trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
     None
 
   fun ref abort_copy(s: Session ref, reason: String) =>
+    None
+
+  fun ref fetch_more(s: Session ref) =>
+    None
+
+  fun ref close_stream(s: Session ref) =>
     None
 
   fun ref close(s: Session ref) =>
@@ -2090,4 +2480,7 @@ trait _NotAuthenticated
     _IllegalState()
 
   fun ref on_copy_done(s: Session ref) =>
+    _IllegalState()
+
+  fun ref on_portal_suspended(s: Session ref) =>
     _IllegalState()

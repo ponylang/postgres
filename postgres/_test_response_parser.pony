@@ -2118,6 +2118,144 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainRemainingTypes
       h.fail("Buffer not fully consumed.")
     end
 
+class \nodoc\ iso _TestResponseParserMultipleMessagesChainStreamingQuerySequence
+  is UnitTest
+  """
+  Verify correct buffer advancement across a streaming query response:
+  RowDescription + DataRow + PortalSuspended + DataRow + DataRow +
+  PortalSuspended + DataRow + CommandComplete + ReadyForQuery.
+
+  Streaming uses Execute(max_rows) which produces PortalSuspended after each
+  batch until the final batch ends with CommandComplete.
+  """
+  fun name(): String =>
+    "ResponseParser/MultipleMessages/Chain/StreamingQuerySequence"
+
+  fun apply(h: TestHelper) ? =>
+    let columns: Array[(String, String)] val = recover val
+      [("id", "int4"); ("name", "text")]
+    end
+    let r: Reader = Reader
+    r.append(_IncomingRowDescriptionTestMessage(columns)?.bytes())
+    // First batch: 1 row + PortalSuspended
+    r.append(_IncomingDataRowTestMessage(
+      recover val [as (String | None): "1"; "Alice"] end).bytes())
+    r.append(_IncomingPortalSuspendedTestMessage.bytes())
+    // Second batch: 2 rows + PortalSuspended
+    r.append(_IncomingDataRowTestMessage(
+      recover val [as (String | None): "2"; "Bob"] end).bytes())
+    r.append(_IncomingDataRowTestMessage(
+      recover val [as (String | None): "3"; "Carol"] end).bytes())
+    r.append(_IncomingPortalSuspendedTestMessage.bytes())
+    // Final batch: 1 row + CommandComplete (no more rows)
+    r.append(_IncomingDataRowTestMessage(
+      recover val [as (String | None): "4"; "Dave"] end).bytes())
+    r.append(_IncomingCommandCompleteTestMessage("SELECT 4").bytes())
+    r.append(_IncomingReadyForQueryTestMessage('I').bytes())
+
+    match _ResponseParser(r)?
+    | let m: _RowDescriptionMessage =>
+      h.assert_eq[USize](2, m.columns.size())
+      h.assert_eq[String]("id", m.columns(0)?._1)
+      h.assert_eq[U32](23, m.columns(0)?._2)
+      h.assert_eq[String]("name", m.columns(1)?._1)
+      h.assert_eq[U32](25, m.columns(1)?._2)
+    else
+      h.fail("Wrong message for RowDescription.")
+      return
+    end
+
+    // First batch
+    match _ResponseParser(r)?
+    | let m: _DataRowMessage =>
+      h.assert_eq[USize](2, m.columns.size())
+      match m.columns(0)?
+      | "1" => None
+      else
+        h.fail("Batch 1 row col 0 not parsed correctly.")
+        return
+      end
+    else
+      h.fail("Wrong message for first DataRow.")
+      return
+    end
+
+    if _ResponseParser(r)? isnt _PortalSuspendedMessage then
+      h.fail("Wrong message for first PortalSuspended.")
+      return
+    end
+
+    // Second batch
+    match _ResponseParser(r)?
+    | let m: _DataRowMessage =>
+      h.assert_eq[USize](2, m.columns.size())
+      match m.columns(0)?
+      | "2" => None
+      else
+        h.fail("Batch 2 row 1 col 0 not parsed correctly.")
+        return
+      end
+    else
+      h.fail("Wrong message for second DataRow.")
+      return
+    end
+
+    match _ResponseParser(r)?
+    | let m: _DataRowMessage =>
+      h.assert_eq[USize](2, m.columns.size())
+      match m.columns(0)?
+      | "3" => None
+      else
+        h.fail("Batch 2 row 2 col 0 not parsed correctly.")
+        return
+      end
+    else
+      h.fail("Wrong message for third DataRow.")
+      return
+    end
+
+    if _ResponseParser(r)? isnt _PortalSuspendedMessage then
+      h.fail("Wrong message for second PortalSuspended.")
+      return
+    end
+
+    // Final batch
+    match _ResponseParser(r)?
+    | let m: _DataRowMessage =>
+      h.assert_eq[USize](2, m.columns.size())
+      match m.columns(0)?
+      | "4" => None
+      else
+        h.fail("Batch 3 row col 0 not parsed correctly.")
+        return
+      end
+    else
+      h.fail("Wrong message for fourth DataRow.")
+      return
+    end
+
+    match _ResponseParser(r)?
+    | let m: _CommandCompleteMessage =>
+      h.assert_eq[String]("SELECT", m.id)
+      h.assert_eq[USize](4, m.value)
+    else
+      h.fail("Wrong message for CommandComplete.")
+      return
+    end
+
+    match _ResponseParser(r)?
+    | let m: _ReadyForQueryMessage =>
+      h.assert_is[TransactionStatus](TransactionIdle,
+        m.transaction_status())
+    else
+      h.fail("Wrong message for ReadyForQuery.")
+      return
+    end
+
+    if _ResponseParser(r)? isnt None then
+      h.fail("Buffer not fully consumed.")
+    end
+
 primitive WriterToByteArray
   fun apply(writer: Writer): Array[U8] val =>
     recover val

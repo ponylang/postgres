@@ -42,6 +42,10 @@ Bulk data loading using `COPY ... FROM STDIN`. Creates a table, loads three rows
 
 Bulk data export using `COPY ... TO STDOUT`. Creates a table, inserts three rows, exports them via `Session.copy_out()`, and prints the received data. Demonstrates the push-based `CopyOutReceiver` interface: the server drives the flow, calling `pg_copy_data` for each chunk, then `pg_copy_complete` when finished.
 
+## streaming
+
+Row streaming using `Session.stream()` with windowed batch delivery. Creates a table with 7 rows, streams them with `window_size=3` (producing batches of 3, 3, and 1), then drops the table. Demonstrates the pull-based `StreamingResultReceiver` interface: `pg_stream_batch` delivers each batch, `fetch_more()` requests the next, and `pg_stream_complete` signals completion.
+
 ## notice
 
 Server notice handling using `pg_notice`. Executes `DROP TABLE IF EXISTS` on a nonexistent table, which triggers a PostgreSQL `NoticeResponse`, and prints the notice fields (severity, code, message). Shows how `SessionStatusNotify.pg_notice` delivers non-fatal informational messages from the server.

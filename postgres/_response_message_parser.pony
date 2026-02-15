@@ -69,6 +69,8 @@ primitive _ResponseMessageParser
           s.state.on_parameter_status(s, msg)
         | let msg: _EmptyQueryResponseMessage =>
           s.state.on_empty_query_response(s)
+        | _PortalSuspendedMessage =>
+          s.state.on_portal_suspended(s)
         | None =>
           // No complete message was found. Stop parsing for now.
           return

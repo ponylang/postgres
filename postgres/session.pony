@@ -1995,95 +1995,116 @@ interface _SessionState
     at any point. If received when "illegal", it should be silently ignored. If
     received when "legal", then `shutdown` should be called.
     """
+  
   fun ref shutdown(s: Session ref)
     """
     Called when we are shutting down the session.
     """
+  
   fun ref on_received(s: Session ref, data: Array[U8] iso)
     """
     Called when we receive data from the server.
     """
+  
   fun ref execute(s: Session ref, query: Query, receiver: ResultReceiver)
     """
     Called when a client requests a query execution.
-    """
+    """"
+
   fun ref prepare(s: Session ref, name: String, sql: String,
     receiver: PrepareReceiver)
     """
     Called when a client requests a named statement preparation.
     """
+
   fun ref close_statement(s: Session ref, name: String)
     """
     Called when a client requests closing a named prepared statement.
     """
+
   fun ref copy_in(s: Session ref, sql: String, receiver: CopyInReceiver)
     """
     Called when a client requests a COPY ... FROM STDIN operation.
     """
+
   fun ref send_copy_data(s: Session ref, data: Array[U8] val)
     """
     Called when a client sends a chunk of COPY data.
     """
+
   fun ref finish_copy(s: Session ref)
     """
     Called when a client signals completion of the COPY data stream.
     """
+
   fun ref abort_copy(s: Session ref, reason: String)
     """
     Called when a client aborts the COPY operation.
     """
+
   fun ref on_copy_in_response(s: Session ref, msg: _CopyInResponseMessage)
     """
     Called when the server responds to a COPY FROM STDIN query with a
     CopyInResponse message, indicating it is ready to receive data.
     """
+
   fun ref copy_out(s: Session ref, sql: String, receiver: CopyOutReceiver)
     """
     Called when a client requests a COPY ... TO STDOUT operation.
     """
+
   fun ref on_copy_out_response(s: Session ref, msg: _CopyOutResponseMessage)
     """
     Called when the server responds to a COPY TO STDOUT query with a
     CopyOutResponse message, indicating it is ready to send data.
     """
+
   fun ref on_copy_data(s: Session ref, msg: _CopyDataMessage)
     """
     Called when the server sends a CopyData message during a COPY TO STDOUT
     operation, containing a chunk of the exported data.
     """
+
   fun ref on_copy_done(s: Session ref)
     """
     Called when the server sends a CopyDone message, indicating the end of
     the COPY TO STDOUT data stream.
     """
+
   fun ref on_portal_suspended(s: Session ref)
     """
     Called when the server sends a PortalSuspended message during a streaming
     query, indicating more rows are available for the current portal.
     """
+
   fun ref stream(s: Session ref,
     query: (PreparedQuery | NamedPreparedQuery),
     window_size: U32, receiver: StreamingResultReceiver)
     """
     Called when a client requests a streaming query execution.
     """
+
   fun ref fetch_more(s: Session ref)
     """
     Called when a client requests the next batch of streaming rows.
     """
+
   fun ref close_stream(s: Session ref)
     """
     Called when a client requests early termination of a streaming query.
     """
+
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage)
     """
     Called when the server sends a "ready for query" message
     """
+
   fun ref process_responses(s: Session ref)
     """
     Called to process responses we've received from the server after the data
     has been parsed into messages.
     """
+
   fun ref on_command_complete(s: Session ref, msg: _CommandCompleteMessage)
     """
     Called when the server has completed running an individual command. If a
@@ -2095,12 +2116,14 @@ interface _SessionState
 
     Queries that resulted in a error will not have "command complete" sent.
     """
+
   fun ref on_empty_query_response(s: Session ref)
     """
     Called when the server has completed running an individual command that was
     an empty query. This is effectively "command complete" but for the special
     case of "empty query".
     """
+
   fun ref on_error_response(s: Session ref, msg: ErrorResponseMessage)
     """
     Called when the server has encountered an error. Not all errors are called
@@ -2149,11 +2172,13 @@ interface _SessionState
     Called when the server requests SASL authentication, providing a list of
     supported mechanisms.
     """
+
   fun ref on_authentication_sasl_continue(s: Session ref,
     msg: _AuthenticationSASLContinueMessage)
     """
     Called when the server sends a SASL challenge (server-first-message).
     """
+
   fun ref on_authentication_sasl_final(s: Session ref,
     msg: _AuthenticationSASLFinalMessage)
     """

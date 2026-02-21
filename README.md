@@ -4,11 +4,7 @@ Pure Pony Postgres driver
 
 ## Status
 
-Postgres is an alpha-level package.
-
-We welcome users who are willing to experience errors and possible application shutdowns. Your feedback on API usage and in reporting bugs is greatly appreciated.
-
-Please note that if this library encounters a state that the programmers thought was impossible to hit, it will exit the program immediately with informational messages. Normal errors are handled in standard Pony fashion.
+postgres is beta quality software that will change frequently. Expect breaking changes. That said, you should feel comfortable using it in your projects.
 
 ## Installation
 

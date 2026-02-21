@@ -274,22 +274,31 @@ class ref _SessionSSLNegotiating
   or for the TLS handshake to complete. This state handles raw bytes — the
   server's response to SSLRequest is not a standard PostgreSQL protocol
   message, so _ResponseParser is not used.
+
+  `_fallback_on_refusal` controls behavior when the server responds 'N': if
+  true (`SSLPreferred`), the session falls back to plaintext; if false
+  (`SSLRequired`), the session fires `pg_session_connection_failed`. TLS
+  handshake failures always fire `pg_session_connection_failed` regardless
+  of this flag.
   """
   let _notify: SessionStatusNotify
   let _database_connect_info: DatabaseConnectInfo
   let _ssl_ctx: SSLContext val
   let _host: String
+  let _fallback_on_refusal: Bool
   var _handshake_started: Bool = false
 
   new ref create(notify': SessionStatusNotify,
     database_connect_info': DatabaseConnectInfo,
     ssl_ctx': SSLContext val,
-    host': String)
+    host': String,
+    fallback_on_refusal': Bool)
   =>
     _notify = notify'
     _database_connect_info = database_connect_info'
     _ssl_ctx = ssl_ctx'
     _host = host'
+    _fallback_on_refusal = fallback_on_refusal'
 
   fun ref send_ssl_request(s: Session ref) =>
     let msg = _FrontendMessage.ssl_request()
@@ -313,7 +322,11 @@ class ref _SessionSSLNegotiating
           _connection_failed(s)
         end
       elseif response == 'N' then
-        _connection_failed(s)
+        if _fallback_on_refusal then
+          _proceed_to_connected(s)
+        else
+          _connection_failed(s)
+        end
       else
         _shutdown(s)
       end
@@ -322,6 +335,9 @@ class ref _SessionSSLNegotiating
     end
 
   fun ref on_tls_ready(s: Session ref) =>
+    _proceed_to_connected(s)
+
+  fun ref _proceed_to_connected(s: Session ref) =>
     // Reset expect from 1 (set during SSLRequest) to 0 (deliver all available
     // bytes). Critical: lori preserves the expect(1) value across start_tls()
     // via _ssl_expect. Without this reset, decrypted data would be delivered
@@ -2195,17 +2211,25 @@ trait _ConnectableState is _UnconnectedState
       s.state = _SessionConnected(notify(), database_connect_info())
       notify().pg_session_connected(s)
       _send_startup_message(s)
+    | let pref: SSLPreferred =>
+      _start_ssl_negotiation(s, pref.ctx, true)
     | let req: SSLRequired =>
-      // Set expect(1) BEFORE sending SSLRequest so lori delivers exactly
-      // one byte per _on_received call. Any MITM-injected bytes stay in
-      // lori's internal buffer, causing start_tls() to return
-      // StartTLSNotReady (CVE-2021-23222 mitigation).
-      try s._connection().expect(1)? end
-      let st = _SessionSSLNegotiating(
-        notify(), database_connect_info(), req.ctx, host())
-      s.state = st
-      st.send_ssl_request(s)
+      _start_ssl_negotiation(s, req.ctx, false)
     end
+
+  fun _start_ssl_negotiation(s: Session ref, ctx: SSLContext val,
+    fallback_on_refusal: Bool)
+  =>
+    // Set expect(1) BEFORE sending SSLRequest so lori delivers exactly
+    // one byte per _on_received call. Any MITM-injected bytes stay in
+    // lori's internal buffer, causing start_tls() to return
+    // StartTLSNotReady (CVE-2021-23222 mitigation).
+    try s._connection().expect(1)? end
+    let st = _SessionSSLNegotiating(
+      notify(), database_connect_info(), ctx, host(),
+      fallback_on_refusal)
+    s.state = st
+    st.send_ssl_request(s)
 
   fun on_failure(s: Session ref) =>
     s.state = _SessionClosed

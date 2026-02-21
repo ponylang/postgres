@@ -9,10 +9,12 @@ actor _CancelSender is (lori.TCPConnectionActor & lori.ClientLifecycleEventRecei
   connection — the result (if any) arrives as an ErrorResponse on the
   original session connection.
 
-  When `SSLRequired` is active, performs SSL negotiation before sending the
-  CancelRequest — mirroring what the main Session connection does. If the
-  server refuses SSL or the TLS handshake fails, the cancel is silently
-  abandoned (fire-and-forget semantics).
+  When `SSLRequired` or `SSLPreferred` is active, performs SSL negotiation
+  before sending the CancelRequest — mirroring what the main Session
+  connection does. For `SSLRequired`, if the server refuses SSL or the TLS
+  handshake fails, the cancel is silently abandoned. For `SSLPreferred`, if
+  the server refuses SSL ('N'), the cancel proceeds over plaintext; TLS
+  handshake failure still silently abandons.
   """
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
   let _process_id: I32
@@ -33,7 +35,7 @@ actor _CancelSender is (lori.TCPConnectionActor & lori.ClientLifecycleEventRecei
     match _info.ssl_mode
     | SSLDisabled =>
       _send_cancel_and_close()
-    | let _: SSLRequired =>
+    | let _: (SSLRequired | SSLPreferred) =>
       // CVE-2021-23222 mitigation: expect exactly 1 byte for SSL response.
       try _tcp_connection.expect(1)? end
       _tcp_connection.send(_FrontendMessage.ssl_request())
@@ -43,16 +45,29 @@ actor _CancelSender is (lori.TCPConnectionActor & lori.ClientLifecycleEventRecei
     // Only called during SSL negotiation — server responds 'S' or 'N'.
     try
       if data(0)? == 'S' then
+        let ctx = match _info.ssl_mode
+        | let req: SSLRequired => req.ctx
+        | let pref: SSLPreferred => pref.ctx
+        else
+          _tcp_connection.close()
+          return
+        end
+        match _tcp_connection.start_tls(ctx, _info.host)
+        | None => None  // Handshake started, wait for _on_tls_ready
+        | let _: lori.StartTLSError =>
+          _tcp_connection.close()
+        end
+      elseif data(0)? == 'N' then
         match _info.ssl_mode
-        | let req: SSLRequired =>
-          match _tcp_connection.start_tls(req.ctx, _info.host)
-          | None => None  // Handshake started, wait for _on_tls_ready
-          | let _: lori.StartTLSError =>
-            _tcp_connection.close()
-          end
+        | let _: SSLPreferred =>
+          // SSLPreferred: fall back to plaintext cancel
+          try _tcp_connection.expect(0)? end
+          _send_cancel_and_close()
+        else
+          // SSLRequired or unexpected: silently give up
+          _tcp_connection.close()
         end
       else
-        // 'N' or junk — server refused SSL, silently give up
         _tcp_connection.close()
       end
     else

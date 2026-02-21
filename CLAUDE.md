@@ -34,17 +34,19 @@ Managed via `corral`.
 `Session` actor is the main entry point. Constructor takes `ServerConnectInfo` (auth, host, service, ssl_mode) and `DatabaseConnectInfo` (user, password, database). Implements `lori.TCPConnectionActor` and `lori.ClientLifecycleEventReceiver`. The stored `ServerConnectInfo` is accessible via `server_connect_info()` for use by `_CancelSender`. State transitions via `_SessionState` interface with concrete states:
 
 ```
-_SessionUnopened  --connect (no SSL)-->  _SessionConnected
-_SessionUnopened  --connect (SSL)-->     _SessionSSLNegotiating
-_SessionUnopened  --fail-->              _SessionClosed
-_SessionSSLNegotiating --'S'+TLS ok-->   _SessionConnected
-_SessionSSLNegotiating --'N'/fail-->     _SessionClosed
-_SessionConnected --MD5 auth ok-->       _SessionLoggedIn
-_SessionConnected --MD5 auth fail-->     _SessionClosed
-_SessionConnected --SASL challenge-->    _SessionSCRAMAuthenticating
-_SessionSCRAMAuthenticating --auth ok--> _SessionLoggedIn
-_SessionSCRAMAuthenticating --auth fail--> _SessionClosed
-_SessionLoggedIn  --close-->             _SessionClosed
+_SessionUnopened  --connect (no SSL)-->              _SessionConnected
+_SessionUnopened  --connect (SSLRequired/Preferred)--> _SessionSSLNegotiating
+_SessionUnopened  --fail-->                            _SessionClosed
+_SessionSSLNegotiating --'S'+TLS ok-->                 _SessionConnected
+_SessionSSLNegotiating --'N' (SSLRequired)-->          _SessionClosed
+_SessionSSLNegotiating --'N' (SSLPreferred)-->         _SessionConnected  (plaintext fallback)
+_SessionSSLNegotiating --TLS fail-->                   _SessionClosed
+_SessionConnected --MD5 auth ok-->                     _SessionLoggedIn
+_SessionConnected --MD5 auth fail-->                   _SessionClosed
+_SessionConnected --SASL challenge-->                  _SessionSCRAMAuthenticating
+_SessionSCRAMAuthenticating --auth ok-->               _SessionLoggedIn
+_SessionSCRAMAuthenticating --auth fail-->             _SessionClosed
+_SessionLoggedIn  --close-->                           _SessionClosed
 ```
 
 State behavior is composed via a trait hierarchy that mixes in capabilities and defaults:
@@ -53,7 +55,7 @@ State behavior is composed via a trait hierarchy that mixes in capabilities and 
 - `_AuthenticableState` / `_NotAuthenticableState` — can/can't authenticate
 - `_AuthenticatedState` / `_NotAuthenticated` — has/hasn't authenticated
 
-`_SessionSSLNegotiating` is a standalone class (not using `_ConnectedState`) because it handles raw bytes — the server's SSL response is not a PostgreSQL protocol message, so `_ResponseParser` is not used. It mixes in `_NotConnectableState`, `_NotAuthenticableState`, and `_NotAuthenticated`.
+`_SessionSSLNegotiating` is a standalone class (not using `_ConnectedState`) because it handles raw bytes — the server's SSL response is not a PostgreSQL protocol message, so `_ResponseParser` is not used. It mixes in `_NotConnectableState`, `_NotAuthenticableState`, and `_NotAuthenticated`. A `_fallback_on_refusal` field controls behavior when the server responds 'N': `true` for `SSLPreferred` (fall back to plaintext), `false` for `SSLRequired` (fire `pg_session_connection_failed`). TLS handshake failures always fire `pg_session_connection_failed` regardless of this flag.
 
 `_SessionSCRAMAuthenticating` handles the multi-step SCRAM-SHA-256 exchange after `_SessionConnected` receives an AuthSASL challenge. It mixes in `_ConnectedState` (for `on_received`/TCP write) and `_NotAuthenticated`. Fields store the client nonce, client-first-bare, password, and expected server signature across the exchange steps.
 
@@ -114,7 +116,7 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 - `ClientQueryError` trait — `SessionNeverOpened`, `SessionClosed`, `SessionNotAuthenticated`, `DataError`
 - `DatabaseConnectInfo` — val class grouping database authentication parameters (user, password, database). Passed to `Session.create()` alongside `ServerConnectInfo`.
 - `ServerConnectInfo` — val class grouping connection parameters (auth, host, service, ssl_mode). Passed to `Session.create()` as the first parameter. Also used by `_CancelSender`.
-- `SSLMode` — union type `(SSLDisabled | SSLRequired)`. `SSLDisabled` is the default (plaintext). `SSLRequired` wraps an `SSLContext val` for TLS negotiation.
+- `SSLMode` — union type `(SSLDisabled | SSLPreferred | SSLRequired)`. `SSLDisabled` is the default (plaintext). `SSLPreferred` wraps an `SSLContext val` and attempts SSL with plaintext fallback on server refusal (`sslmode=prefer`). `SSLRequired` wraps an `SSLContext val` and aborts on server refusal.
 - `ErrorResponseMessage` — full PostgreSQL error with all standard fields
 - `AuthenticationFailureReason` = `(InvalidAuthenticationSpecification | InvalidPassword | ServerVerificationFailed | UnsupportedAuthenticationMethod)`
 
@@ -133,7 +135,7 @@ In `_RowsBuilder._field_to_type()`:
 
 ### Query Cancellation
 
-`_CancelSender` actor — fire-and-forget actor that sends a `CancelRequest` on a separate TCP connection. PostgreSQL requires cancel requests on a different connection from the one executing the query. No response is expected on the cancel connection — the result (if any) arrives as an `ErrorResponse` on the original session connection. When the session uses `SSLRequired`, the cancel connection performs SSL negotiation before sending the CancelRequest — mirroring the main session's connection setup. If the server refuses SSL or the TLS handshake fails, the cancel is silently abandoned. Created by `_SessionLoggedIn.cancel()` using the session's `ServerConnectInfo`, `backend_pid`, and `backend_secret_key`. Design: [discussion #88](https://github.com/ponylang/postgres/discussions/88).
+`_CancelSender` actor — fire-and-forget actor that sends a `CancelRequest` on a separate TCP connection. PostgreSQL requires cancel requests on a different connection from the one executing the query. No response is expected on the cancel connection — the result (if any) arrives as an `ErrorResponse` on the original session connection. When the session uses `SSLRequired` or `SSLPreferred`, the cancel connection performs SSL negotiation before sending the CancelRequest — mirroring the main session's connection setup. For `SSLRequired`, if the server refuses SSL or the TLS handshake fails, the cancel is silently abandoned. For `SSLPreferred`, server refusal falls back to a plaintext cancel; TLS handshake failure still silently abandons. Created by `_SessionLoggedIn.cancel()` using the session's `ServerConnectInfo`, `backend_pid`, and `backend_secret_key`. Design: [discussion #88](https://github.com/ponylang/postgres/discussions/88).
 
 ### Mort Primitives
 
@@ -145,11 +147,11 @@ Tests live in the main `postgres/` package (private test classes), organized acr
 
 **Conventions**: `_test.pony` contains shared helpers (`_ConnectionTestConfiguration` for env vars, `_ConnectTestNotify`/`_AuthenticateTestNotify` reused by other files). `_test_response_parser.pony` contains `_Incoming*TestMessage` builder classes that construct raw protocol bytes for mock servers across all test files. `_test_mock_message_reader.pony` contains `_MockMessageReader` for extracting complete PostgreSQL frontend messages from TCP data in mock servers.
 
-**Ports**: Mock server tests use ports in the 7669–7706 range and 9667–9668. **Port 7680 is reserved by Windows** (Update Delivery Optimization) and will fail to bind on WSL2 — do not use it.
+**Ports**: Mock server tests use ports in the 7669–7710 range and 9667–9668. **Port 7680 is reserved by Windows** (Update Delivery Optimization) and will fail to bind on WSL2 — do not use it.
 
 ## Supported PostgreSQL Features
 
-**SSL/TLS:** Optional SSL negotiation via `SSLRequired`. CVE-2021-23222 mitigated via `expect(1)` before SSLRequest. Design: [discussion #76](https://github.com/ponylang/postgres/discussions/76).
+**SSL/TLS:** Optional SSL negotiation via `SSLRequired` (mandatory) or `SSLPreferred` (fallback to plaintext on server refusal). CVE-2021-23222 mitigated via `expect(1)` before SSLRequest. Design: [discussion #76](https://github.com/ponylang/postgres/discussions/76).
 
 **Authentication:** MD5 password and SCRAM-SHA-256. No SCRAM-SHA-256-PLUS (channel binding), Kerberos, GSS, or certificate auth. Design: [discussion #83](https://github.com/ponylang/postgres/discussions/83).
 

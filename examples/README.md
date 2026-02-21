@@ -18,6 +18,10 @@ Parameterized queries using `PreparedQuery`. Sends a query with typed parameters
 
 Named prepared statements using `Session.prepare()` and `NamedPreparedQuery`. Prepares a statement once, executes it twice with different parameters, then cleans up with `Session.close_statement()`. Shows how to implement `PrepareReceiver` for prepare lifecycle callbacks.
 
+## ssl-preferred-query
+
+SSL-preferred query using `SSLPreferred`. Same workflow as `query` but with SSL negotiation that falls back to plaintext if the server refuses — equivalent to PostgreSQL's `sslmode=prefer`. Demonstrates the difference between `SSLPreferred` (best-effort encryption) and `SSLRequired` (mandatory encryption). Works with both SSL-enabled and non-SSL PostgreSQL servers.
+
 ## ssl-query
 
 SSL-encrypted query using `SSLRequired`. Same workflow as `query` but with TLS negotiation enabled. Demonstrates how to create an `SSLContext`, wrap it in `SSLRequired`, and pass it to `Session`. Requires a PostgreSQL server configured to accept SSL connections.

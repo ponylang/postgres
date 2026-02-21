@@ -58,7 +58,14 @@ Implement the ones you need:
 
 ## SSL/TLS
 
-Pass `SSLRequired` to enable SSL negotiation:
+Two SSL modes are available:
+
+* **`SSLRequired`** — aborts if the server refuses SSL. Use when
+  encryption is mandatory.
+* **`SSLPreferred`** — attempts SSL, falls back to plaintext if the
+  server refuses. Equivalent to PostgreSQL's `sslmode=prefer`. A TLS
+  handshake failure (server accepts but handshake fails) is NOT retried
+  as plaintext — `pg_session_connection_failed` fires.
 
 ```pony
 use "ssl/net"
@@ -69,15 +76,22 @@ let sslctx = recover val
     .> set_authority(FilePath(FileAuth(env.root), "/path/to/ca.pem"))?
 end
 
+// Require SSL — fail if server refuses
 let session = Session(
   ServerConnectInfo(
     lori.TCPConnectAuth(env.root), "localhost", "5432",
     SSLRequired(sslctx)),
   DatabaseConnectInfo("myuser", "mypassword", "mydb"),
   MyNotify(env))
-```
 
-If the server refuses SSL, `pg_session_connection_failed` fires.
+// Prefer SSL — fall back to plaintext if server refuses
+let session2 = Session(
+  ServerConnectInfo(
+    lori.TCPConnectAuth(env.root), "localhost", "5432",
+    SSLPreferred(sslctx)),
+  DatabaseConnectInfo("myuser", "mypassword", "mydb"),
+  MyNotify(env))
+```
 
 ## Executing Queries
 
@@ -249,7 +263,7 @@ supported.
 
 * Simple and extended query protocols
 * Parameterized queries (unnamed and named prepared statements)
-* SSL/TLS via `SSLRequired`
+* SSL/TLS via `SSLRequired` and `SSLPreferred`
 * MD5 and SCRAM-SHA-256 authentication
 * Transaction status tracking (`TransactionStatus`)
 * LISTEN/NOTIFY notifications

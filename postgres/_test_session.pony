@@ -703,7 +703,7 @@ actor \nodoc\ _ByteaTestClient is (SessionStatusNotify & ResultReceiver)
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
-    match result
+    match \exhaustive\ result
     | let r: ResultSet =>
       try
         let field = r.rows()(0)?.fields(0)?

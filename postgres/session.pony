@@ -315,7 +315,7 @@ class ref _SessionSSLNegotiating
     try
       let response = data(0)?
       if response == 'S' then
-        match s._connection().start_tls(_ssl_ctx, _host)
+        match \exhaustive\ s._connection().start_tls(_ssl_ctx, _host)
         | None =>
           _handshake_started = true
         | let _: lori.StartTLSError =>
@@ -588,7 +588,7 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
         let sig_b64_iso = server_final.substring(2)
         let sig_b64: String val = consume sig_b64_iso
         let received_sig = Base64.decode[Array[U8] iso](sig_b64)?
-        match _expected_server_signature
+        match \exhaustive\ _expected_server_signature
         | let expected: Array[U8] val =>
           if not ConstantTimeCompare(expected, consume received_sig) then
             on_authentication_failed(s, ServerVerificationFailed)
@@ -844,7 +844,7 @@ class _SessionLoggedIn is _AuthenticatedState
     // double-notification, then drain the remaining queued items.
     query_state.drain_in_flight(s, this)
     for queue_item in query_queue.values() do
-      match queue_item
+      match \exhaustive\ queue_item
       | let qry: _QueuedQuery =>
         qry.receiver.pg_query_failed(s, qry.query, SessionClosed)
       | let prep: _QueuedPrepare =>
@@ -953,9 +953,9 @@ class _QueryReady is _QueryNoQueryInFlight
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) =>
     try
       if li.query_queue.size() > 0 then
-        match li.query_queue(0)?
+        match \exhaustive\ li.query_queue(0)?
         | let qry: _QueuedQuery =>
-          match qry.query
+          match \exhaustive\ qry.query
           | let sq: SimpleQuery =>
             li.query_state = _SimpleQueryInFlight.create()
             s._connection().send(_FrontendMessage.query(sq.string))
@@ -1038,7 +1038,7 @@ class _QueryReady is _QueryNoQueryInFlight
           s._connection().send(_FrontendMessage.query(co.sql))
         | let sq: _QueuedStreamingQuery =>
           li.query_state = _StreamingQueryInFlight.create()
-          match sq.query
+          match \exhaustive\ sq.query
           | let pq: PreparedQuery =>
             let parse = _FrontendMessage.parse("", pq.string,
               recover val Array[U32] end)
@@ -1134,7 +1134,7 @@ class _SimpleQueryInFlight is _QueryState
         end
         let rd = _row_description = None
 
-        match rd
+        match \exhaustive\ rd
         | let desc: Array[(String, U32)] val =>
           try
             let rows_object = _RowsBuilder(consume rows, desc)?
@@ -1289,7 +1289,7 @@ class _ExtendedQueryInFlight is _QueryState
         end
         let rd = _row_description = None
 
-        match rd
+        match \exhaustive\ rd
         | let desc: Array[(String, U32)] val =>
           try
             let rows_object = _RowsBuilder(consume rows, desc)?
@@ -2206,7 +2206,7 @@ trait _ConnectableState is _UnconnectedState
   An unopened session that can be connected to a server.
   """
   fun on_connected(s: Session ref) =>
-    match ssl_mode()
+    match \exhaustive\ ssl_mode()
     | SSLDisabled =>
       s.state = _SessionConnected(notify(), database_connect_info())
       notify().pg_session_connected(s)

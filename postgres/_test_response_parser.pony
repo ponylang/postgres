@@ -956,7 +956,7 @@ class \nodoc\ val _IncomingDataRowTestMessage
     wb.u32_be(0)
     wb.u16_be(number_of_columns.u16())
     for column in columns.values() do
-      match column
+      match \exhaustive\ column
       | None =>
         wb.u32_be(-1)
         payload_size = payload_size + 4

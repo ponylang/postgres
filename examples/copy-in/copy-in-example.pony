@@ -73,7 +73,7 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyInReceiver)
   be pg_copy_failed(session: Session,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print("COPY failed: [" + e.severity + "] " + e.code + ": "
         + e.message)
@@ -85,7 +85,7 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyInReceiver)
   be pg_query_result(session: Session, result: Result) =>
     _phase = _phase + 1
 
-    match _phase
+    match \exhaustive\ _phase
     | 1 =>
       // Table dropped (or didn't exist). Create it.
       _out.print("Creating table...")
@@ -105,14 +105,14 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyInReceiver)
         "COPY copy_in_example (name, value) FROM STDIN", this)
     | 3 =>
       // SELECT done. Print results and drop table.
-      match result
+      match \exhaustive\ result
       | let r: ResultSet =>
         _out.print("ResultSet (" + r.rows().size().string() + " rows):")
         for row in r.rows().values() do
           _out.write(" ")
           for field in row.fields.values() do
             _out.write(" " + field.name + "=")
-            match field.value
+            match \exhaustive\ field.value
             | let v: String => _out.write(v)
             | let v: I32 => _out.write(v.string())
             | None => _out.write("NULL")
@@ -133,7 +133,7 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyInReceiver)
   be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print("Query failed: [" + e.severity + "] " + e.code + ": "
         + e.message)

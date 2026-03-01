@@ -86,7 +86,7 @@ actor Client is
   be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print("Query failed: [" + e.severity + "] " + e.code + ": "
         + e.message)
@@ -101,7 +101,7 @@ actor Client is
       _out.write("   ")
       for field in row.fields.values() do
         _out.write(" " + field.name + "=")
-        match field.value
+        match \exhaustive\ field.value
         | let v: String => _out.write(v)
         | let v: I32 => _out.write(v.string())
         | None => _out.write("NULL")
@@ -122,7 +122,7 @@ actor Client is
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print("Stream failed: [" + e.severity + "] " + e.code + ": "
         + e.message)

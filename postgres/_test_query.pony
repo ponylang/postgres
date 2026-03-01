@@ -290,7 +290,7 @@ actor \nodoc\ _NonExistentTableQueryReceiver is
       return
     end
 
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _h.assert_eq[String]("42P01", e.code)
       _h.complete(true)
@@ -415,7 +415,7 @@ actor \nodoc\ _AllSuccessQueryRunningClient is
   be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    let query_str = match query
+    let query_str = match \exhaustive\ query
     | let sq: SimpleQuery => sq.string
     | let pq: PreparedQuery => pq.string
     | let nq: NamedPreparedQuery => nq.name
@@ -598,7 +598,7 @@ actor \nodoc\ _MultiStatementMixedClient is
   be pg_query_result(session: Session, result: Result) =>
     _phase = _phase + 1
 
-    match _phase
+    match \exhaustive\ _phase
     | 1 =>
       // Table created, now send multi-statement query
       _session.execute(
@@ -799,7 +799,7 @@ actor \nodoc\ _PreparedQueryNullParamReceiver is
       return
     end
 
-    match result
+    match \exhaustive\ result
     | let r: ResultSet =>
       if r.rows().size() != 1 then
         _h.fail("Wrong number of result rows.")
@@ -944,7 +944,7 @@ actor \nodoc\ _PreparedQueryInsertAndDeleteClient is
   be pg_query_result(session: Session, result: Result) =>
     _phase = _phase + 1
 
-    match _phase
+    match \exhaustive\ _phase
     | 1 =>
       // Table created, insert with PreparedQuery
       _session.execute(
@@ -1882,7 +1882,7 @@ actor \nodoc\ _CopyInInsertClient is
   be pg_query_result(session: Session, result: Result) =>
     _phase = _phase + 1
 
-    match _phase
+    match \exhaustive\ _phase
     | 1 =>
       // Table created, start COPY
       _session.copy_in(
@@ -2000,7 +2000,7 @@ actor \nodoc\ _CopyInAbortRollbackClient is
   be pg_query_result(session: Session, result: Result) =>
     _phase = _phase + 1
 
-    match _phase
+    match \exhaustive\ _phase
     | 1 =>
       // Table created, start COPY
       _session.copy_in(
@@ -2107,7 +2107,7 @@ actor \nodoc\ _ByteaQueryReceiver is
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
-    match result
+    match \exhaustive\ result
     | let r: ResultSet =>
       try
         let field = r.rows()(0)?.fields(0)?

@@ -422,7 +422,7 @@ actor \nodoc\ _TransactionCommitClient is
   be pg_query_result(session: Session, result: Result) =>
     _phase = _phase + 1
 
-    match _phase
+    match \exhaustive\ _phase
     | 1 =>
       // Table created, BEGIN
       _session.execute(SimpleQuery("BEGIN"), this)

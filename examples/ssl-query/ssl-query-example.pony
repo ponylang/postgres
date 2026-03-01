@@ -63,13 +63,13 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     _out.print("Failed to authenticate.")
 
   be pg_query_result(session: Session, result: Result) =>
-    match result
+    match \exhaustive\ result
     | let r: ResultSet =>
       _out.print("ResultSet (" + r.rows().size().string() + " rows):")
       for row in r.rows().values() do
         for field in row.fields.values() do
           _out.write(field.name + "=")
-          match field.value
+          match \exhaustive\ field.value
           | let v: String => _out.print(v)
           | let v: I16 => _out.print(v.string())
           | let v: I32 => _out.print(v.string())

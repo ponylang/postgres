@@ -182,7 +182,7 @@ primitive _FrontendMessage
         end
         offset = offset + 2
         for p in params.values() do
-          match p
+          match \exhaustive\ p
           | let s: String =>
             ifdef bigendian then
               msg.update_u32(offset, s.size().u32())?

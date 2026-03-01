@@ -131,11 +131,11 @@ Results arrive via `ResultReceiver`:
 
 ```pony
 be pg_query_result(session: Session, result: Result) =>
-  match \exhaustive\ result
+  match result
   | let rs: ResultSet =>
     for row in rs.rows().values() do
       for field in row.fields.values() do
-        match \exhaustive\ field.value
+        match field.value
         | let s: String => _env.out.print(field.name + ": " + s)
         | let i: I32 => _env.out.print(field.name + ": " + i.string())
         | let b: Bool => _env.out.print(field.name + ": " + b.string())

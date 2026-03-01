@@ -5,7 +5,7 @@ use "pony_test"
 class \nodoc\ iso _TestFieldEqualityReflexive is UnitTest
   """
   Every FieldDataTypes variant produces a Field that is equal to itself.
-  Covers all 9 variants of the FieldDataTypes union to verify each match \exhaustive\
+  Covers all 9 variants of the FieldDataTypes union to verify each match
   branch in Field.eq.
   """
   fun name(): String => "Field/Equality/Reflexive"

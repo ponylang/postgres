@@ -317,7 +317,7 @@ actor \nodoc\ _SSLCancelTestServer
         // SSLRequest — respond 'S' and upgrade to TLS
         let response: Array[U8] val = ['S']
         _tcp_connection.send(response)
-        match _tcp_connection.start_tls(_sslctx)
+        match \exhaustive\ _tcp_connection.start_tls(_sslctx)
         | None => _ssl_started = true
         | let _: lori.StartTLSError =>
           _tcp_connection.close()
@@ -450,7 +450,7 @@ actor \nodoc\ _CancelPgSleepClient is
       return
     end
 
-    match failure
+    match \exhaustive\ failure
     | let err: ErrorResponseMessage =>
       if err.code == "57014" then
         _h.complete(true)

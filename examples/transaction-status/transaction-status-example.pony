@@ -41,7 +41,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     _out.print("Failed to authenticate.")
 
   be pg_transaction_status(session: Session, status: TransactionStatus) =>
-    match status
+    match \exhaustive\ status
     | TransactionIdle => _out.print("Transaction status: idle")
     | TransactionInBlock => _out.print("Transaction status: in transaction")
     | TransactionFailed => _out.print("Transaction status: failed")
@@ -50,7 +50,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
   be pg_query_result(session: Session, result: Result) =>
     _phase = _phase + 1
 
-    match _phase
+    match \exhaustive\ _phase
     | 1 =>
       // BEGIN done. Commit to return to idle.
       _session.execute(SimpleQuery("COMMIT"), this)
@@ -63,7 +63,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
   be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print("Query failed: [" + e.severity + "] " + e.code + ": "
         + e.message)

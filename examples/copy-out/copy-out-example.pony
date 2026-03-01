@@ -64,7 +64,7 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyOutReceiver)
   be pg_copy_failed(session: Session,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print("COPY failed: [" + e.severity + "] " + e.code + ": "
         + e.message)
@@ -76,7 +76,7 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyOutReceiver)
   be pg_query_result(session: Session, result: Result) =>
     _phase = _phase + 1
 
-    match _phase
+    match \exhaustive\ _phase
     | 1 =>
       // Table dropped (or didn't exist). Create it.
       _out.print("Creating table...")
@@ -111,7 +111,7 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyOutReceiver)
   be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print("Query failed: [" + e.severity + "] " + e.code + ": "
         + e.message)

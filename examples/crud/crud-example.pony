@@ -48,7 +48,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
   be pg_query_result(session: Session, result: Result) =>
     _phase = _phase + 1
 
-    match _phase
+    match \exhaustive\ _phase
     | 1 =>
       // Table dropped (or didn't exist). Create it.
       _out.print("Creating table...")
@@ -89,14 +89,14 @@ actor Client is (SessionStatusNotify & ResultReceiver)
         this)
     | 5 =>
       // Select done. Print results and delete all rows.
-      match result
+      match \exhaustive\ result
       | let r: ResultSet =>
         _out.print("ResultSet (" + r.rows().size().string() + " rows):")
         for row in r.rows().values() do
           _out.write(" ")
           for field in row.fields.values() do
             _out.write(" " + field.name + "=")
-            match field.value
+            match \exhaustive\ field.value
             | let v: String => _out.write(v)
             | let v: I16 => _out.write(v.string())
             | let v: I32 => _out.write(v.string())
@@ -128,7 +128,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     end
 
   fun _print_row_modifying(result: Result) =>
-    match result
+    match \exhaustive\ result
     | let r: RowModifying =>
       _out.print(r.command() + " " + r.impacted().string() + " rows")
     end
@@ -136,7 +136,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
   be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print("Query failed: [" + e.severity + "] " + e.code + ": "
         + e.message)

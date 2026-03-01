@@ -86,7 +86,7 @@ primitive _RowsBuilder
     Rows(consume rows)
 
   fun _field_to_type(field: (String | None), type_id: U32): FieldDataTypes ? =>
-    match field
+    match \exhaustive\ field
     | let f: String =>
       match type_id
       | 16 => f.at("t")

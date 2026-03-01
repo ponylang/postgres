@@ -30,6 +30,6 @@ primitive DataError is ClientQueryError
   """
   Error returned when the data that came back from a query is in a format that
   this library doesn't expect. This might indicate something like, the number
-  of columns across rows returned doesn't match or other "this should never
+  of columns across rows returned doesn't match \exhaustive\ or other "this should never
   happen" type of errors.
   """

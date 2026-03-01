@@ -32,7 +32,7 @@ actor _CancelSender is (lori.TCPConnectionActor & lori.ClientLifecycleEventRecei
     _tcp_connection
 
   fun ref _on_connected() =>
-    match _info.ssl_mode
+    match \exhaustive\ _info.ssl_mode
     | SSLDisabled =>
       _send_cancel_and_close()
     | let _: (SSLRequired | SSLPreferred) =>
@@ -52,7 +52,7 @@ actor _CancelSender is (lori.TCPConnectionActor & lori.ClientLifecycleEventRecei
           _tcp_connection.close()
           return
         end
-        match _tcp_connection.start_tls(ctx, _info.host)
+        match \exhaustive\ _tcp_connection.start_tls(ctx, _info.host)
         | None => None  // Handshake started, wait for _on_tls_ready
         | let _: lori.StartTLSError =>
           _tcp_connection.close()

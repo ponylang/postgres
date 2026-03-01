@@ -341,7 +341,7 @@ actor \nodoc\ _SSLSuccessTestServer
         // Client sent SSLRequest — respond 'S' and upgrade to TLS
         let response: Array[U8] val = ['S']
         _tcp_connection.send(response)
-        match _tcp_connection.start_tls(_sslctx)
+        match \exhaustive\ _tcp_connection.start_tls(_sslctx)
         | None => _ssl_started = true
         | let _: lori.StartTLSError =>
           _tcp_connection.close()
@@ -1007,7 +1007,7 @@ actor \nodoc\ _SSLPreferredCancelTestServer
           // SSLRequest — respond 'S' and upgrade to TLS
           let response: Array[U8] val = ['S']
           _tcp_connection.send(response)
-          match _tcp_connection.start_tls(_sslctx)
+          match \exhaustive\ _tcp_connection.start_tls(_sslctx)
           | None => _ssl_started = true
           | let _: lori.StartTLSError =>
             _tcp_connection.close()

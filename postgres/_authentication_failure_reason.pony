@@ -18,7 +18,7 @@ primitive InvalidPassword
 
 primitive ServerVerificationFailed
   """
-  The server's SCRAM signature did not match \exhaustive\ the expected value. This may
+  The server's SCRAM signature did not match the expected value. This may
   indicate a man-in-the-middle attack or a misconfigured server.
   """
 

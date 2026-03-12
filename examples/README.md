@@ -12,7 +12,7 @@ Minimal example using `SimpleQuery`. Connects, authenticates, executes `SELECT 5
 
 ## prepared-query
 
-Parameterized queries using `PreparedQuery`. Sends a query with typed parameters (`text`, `int4`) and a NULL parameter, then inspects the `ResultSet`. Shows how to construct the `Array[(String | None)] val` parameter array.
+Parameterized queries using `PreparedQuery`. Sends a query with typed parameters (`text`, `int4`) and a NULL parameter, then inspects the `ResultSet`. Shows how to construct the `Array[FieldDataTypes] val` parameter array with typed values and NULL.
 
 ## named-prepared-query
 

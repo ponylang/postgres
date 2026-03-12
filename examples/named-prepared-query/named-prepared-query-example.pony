@@ -45,11 +45,11 @@ actor Client is (SessionStatusNotify & ResultReceiver & PrepareReceiver)
     // Execute the same prepared statement with different parameters.
     _session.execute(
       NamedPreparedQuery("greet",
-        recover val [as (String | None): "Hello"; "Pony"] end),
+        recover val [as FieldDataTypes: "Hello"; "Pony"] end),
       this)
     _session.execute(
       NamedPreparedQuery("greet",
-        recover val [as (String | None): "Hi"; "World"] end),
+        recover val [as FieldDataTypes: "Hi"; "World"] end),
       this)
 
   be pg_prepare_failed(session: Session, name: String,

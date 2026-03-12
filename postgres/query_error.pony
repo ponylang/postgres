@@ -28,8 +28,8 @@ primitive SessionNotAuthenticated is ClientQueryError
 
 primitive DataError is ClientQueryError
   """
-  Error returned when the data that came back from a query is in a format that
-  this library doesn't expect. This might indicate something like, the number
-  of columns across rows returned doesn't match or other "this should never
-  happen" type of errors.
+  Error returned when result data from the server is in an unexpected format
+  (e.g., column count mismatch across rows) or when a parameter value cannot
+  be encoded for the wire protocol (e.g., a custom codec rejects a value).
+  In either direction, the query is not delivered to the receiver as a result.
   """

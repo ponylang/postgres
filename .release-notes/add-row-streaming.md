@@ -8,7 +8,7 @@ A new `StreamingResultReceiver` interface provides three callbacks: `pg_stream_b
 // Start streaming with a window size of 100 rows per batch
 session.stream(
   PreparedQuery("SELECT * FROM big_table",
-    recover val Array[(String | None)] end),
+    recover val Array[FieldDataTypes] end),
   100, my_receiver)
 
 // In the receiver:

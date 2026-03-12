@@ -68,7 +68,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       _session.execute(
         PreparedQuery(
           "INSERT INTO crud_example (name, age) VALUES ($1, $2)",
-          recover val [as (String | None): "Alice"; "30"] end),
+          recover val [as FieldDataTypes: "Alice"; I32(30)] end),
         this)
     | 3 =>
       // First insert done. Show impacted count and insert second row.
@@ -76,7 +76,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       _session.execute(
         PreparedQuery(
           "INSERT INTO crud_example (name, age) VALUES ($1, $2)",
-          recover val [as (String | None): "Bob"; "25"] end),
+          recover val [as FieldDataTypes: "Bob"; I32(25)] end),
         this)
     | 4 =>
       // Second insert done. Select all rows.
@@ -85,7 +85,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       _session.execute(
         PreparedQuery(
           "SELECT name, age FROM crud_example WHERE age >= $1 ORDER BY name",
-          recover val [as (String | None): "0"] end),
+          recover val [as FieldDataTypes: I32(0)] end),
         this)
     | 5 =>
       // Select done. Print results and delete all rows.

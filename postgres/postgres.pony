@@ -244,6 +244,47 @@ Call `session.close_stream()` to end streaming early. Only
 `PreparedQuery` and `NamedPreparedQuery` are supported — streaming
 requires the extended query protocol.
 
+## Query Pipelining
+
+`session.pipeline()` sends multiple queries to the server in a single TCP
+write, reducing round-trip latency from N round trips to 1. Each query has
+its own `Sync` boundary for error isolation — if one query fails, subsequent
+queries continue executing.
+
+Only `PreparedQuery` and `NamedPreparedQuery` are supported. Results arrive
+via `PipelineReceiver`:
+
+* `pg_pipeline_result` — individual query succeeded, with its pipeline index
+* `pg_pipeline_failed` — individual query failed, with its pipeline index
+* `pg_pipeline_complete` — all queries processed (always fires last)
+
+```pony
+be pg_session_authenticated(session: Session) =>
+  let queries = recover val
+    [as (PreparedQuery | NamedPreparedQuery):
+      PreparedQuery("SELECT * FROM users WHERE id = $1",
+        recover val [as (String | None): "1"] end)
+      PreparedQuery("SELECT * FROM users WHERE id = $1",
+        recover val [as (String | None): "2"] end)
+      PreparedQuery("SELECT * FROM users WHERE id = $1",
+        recover val [as (String | None): "3"] end)
+    ]
+  end
+  session.pipeline(queries, this)
+
+be pg_pipeline_result(session: Session, index: USize, result: Result) =>
+  _env.out.print("Query " + index.string() + " succeeded")
+
+be pg_pipeline_failed(session: Session, index: USize,
+  query: (PreparedQuery | NamedPreparedQuery),
+  failure: (ErrorResponseMessage | ClientQueryError))
+=>
+  _env.out.print("Query " + index.string() + " failed")
+
+be pg_pipeline_complete(session: Session) =>
+  _env.out.print("All pipeline queries processed")
+```
+
 ## Query Cancellation
 
 `session.cancel()` requests cancellation of the currently executing
@@ -271,6 +312,7 @@ supported.
 * COPY FROM STDIN (bulk data loading)
 * COPY TO STDOUT (bulk data export)
 * Row streaming (windowed batch delivery)
+* Query pipelining (batched multi-query execution)
 * Query cancellation
 * ParameterStatus tracking (server runtime parameters)
 """

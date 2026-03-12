@@ -145,7 +145,7 @@ In `_RowsBuilder._field_to_type()`:
 - `CodecRegistry` (`codec_registry.pony`): maps OIDs to codecs. Default constructor populates all built-ins. `_with_codec` constructor (type-private, public in Phase 3) for custom codecs
 - `_ParamEncoder` (`_param_encoder.pony`): derives PostgreSQL OIDs from `FieldDataTypes` parameter values for Parse messages
 
-**Encode error handling:** `_FrontendMessage.bind()` is partial — it errors if parameter encoding fails. `_QueryReady.try_run_query()` uses a build-before-transition pattern: wire messages are constructed before transitioning to an in-flight state, so encode errors deliver `DataError` to the receiver without leaving the state machine inconsistent. Pipeline queries use pre-validation: all params are test-encoded outside the `recover val` block before building messages inside it.
+**Encode error handling:** `_FrontendMessage.bind()` is partial — it errors if parameter encoding fails. `_QueryReady.try_run_query()` uses a build-before-transition pattern: wire messages are constructed before transitioning to an in-flight state, so encode errors deliver `DataError` to the receiver without leaving the state machine inconsistent. Pipeline queries build message parts into an `iso` array in `ref` scope (where error handling has full access to the session and receiver), then consume the array into a `recover val` block for concatenation.
 
 ### Query Cancellation
 

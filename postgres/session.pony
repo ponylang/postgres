@@ -1215,82 +1215,66 @@ class _QueryReady is _QueryNoQueryInFlight
             try_run_query(s, li)
             return
           end
-          // Pre-validate all parameters before entering the recover val
-          // block. Inside recover val, mutable state from the enclosing
-          // scope is inaccessible, so we can't report which query failed.
-          // Pre-validation ensures bind() won't fail inside the block.
-          try
-            for (qi, query) in pl.queries.pairs() do
-              match \exhaustive\ query
-              | let pq: PreparedQuery =>
-                _FrontendMessage.bind("", "", pq.params)?
-              | let nq: NamedPreparedQuery =>
-                _FrontendMessage.bind("", nq.name, nq.params)?
-              end
-            end
-          else
-            // Find the first failing query for error attribution
-            var fail_idx: USize = 0
-            for (qi, query) in pl.queries.pairs() do
-              let params = match \exhaustive\ query
-              | let pq: PreparedQuery => pq.params
-              | let nq: NamedPreparedQuery => nq.params
-              end
+          let parts = recover iso Array[Array[U8] val] end
+          for (qi, query) in pl.queries.pairs() do
+            match \exhaustive\ query
+            | let pq: PreparedQuery =>
+              parts.push(_FrontendMessage.parse("", pq.string,
+                _ParamEncoder.oids_for(pq.params)))
               try
-                _FrontendMessage.bind("", "", params)?
+                parts.push(_FrontendMessage.bind("", "", pq.params)?)
               else
-                fail_idx = qi
-                break
+                var i: USize = qi
+                while i < pl.queries.size() do
+                  try
+                    pl.receiver.pg_pipeline_failed(s, i,
+                      pl.queries(i)?, DataError)
+                  else
+                    _Unreachable()
+                  end
+                  i = i + 1
+                end
+                pl.receiver.pg_pipeline_complete(s)
+                try li.query_queue.shift()? else _Unreachable() end
+                try_run_query(s, li)
+                return
               end
-            end
-            var i: USize = fail_idx
-            while i < pl.queries.size() do
+              parts.push(_FrontendMessage.describe_portal(""))
+              parts.push(_FrontendMessage.execute_msg("", 0))
+              parts.push(_FrontendMessage.sync())
+            | let nq: NamedPreparedQuery =>
               try
-                pl.receiver.pg_pipeline_failed(s, i,
-                  pl.queries(i)?, DataError)
+                parts.push(_FrontendMessage.bind("", nq.name, nq.params)?)
               else
-                _Unreachable()
+                var i: USize = qi
+                while i < pl.queries.size() do
+                  try
+                    pl.receiver.pg_pipeline_failed(s, i,
+                      pl.queries(i)?, DataError)
+                  else
+                    _Unreachable()
+                  end
+                  i = i + 1
+                end
+                pl.receiver.pg_pipeline_complete(s)
+                try li.query_queue.shift()? else _Unreachable() end
+                try_run_query(s, li)
+                return
               end
-              i = i + 1
+              parts.push(_FrontendMessage.describe_portal(""))
+              parts.push(_FrontendMessage.execute_msg("", 0))
+              parts.push(_FrontendMessage.sync())
             end
-            pl.receiver.pg_pipeline_complete(s)
-            try li.query_queue.shift()? else _Unreachable() end
-            try_run_query(s, li)
-            return
           end
           let combined = recover val
-            let parts = Array[Array[U8] val]
-            for query in pl.queries.values() do
-              match \exhaustive\ query
-              | let pq: PreparedQuery =>
-                parts.push(_FrontendMessage.parse("", pq.string,
-                  _ParamEncoder.oids_for(pq.params)))
-                try
-                  parts.push(_FrontendMessage.bind("", "", pq.params)?)
-                else
-                  _Unreachable()
-                end
-                parts.push(_FrontendMessage.describe_portal(""))
-                parts.push(_FrontendMessage.execute_msg("", 0))
-                parts.push(_FrontendMessage.sync())
-              | let nq: NamedPreparedQuery =>
-                try
-                  parts.push(_FrontendMessage.bind("", nq.name, nq.params)?)
-                else
-                  _Unreachable()
-                end
-                parts.push(_FrontendMessage.describe_portal(""))
-                parts.push(_FrontendMessage.execute_msg("", 0))
-                parts.push(_FrontendMessage.sync())
-              end
-            end
+            let p: Array[Array[U8] val] ref = consume parts
             var total: USize = 0
-            for part in parts.values() do
+            for part in p.values() do
               total = total + part.size()
             end
             let buf = Array[U8](total)
             var offset: USize = 0
-            for part in parts.values() do
+            for part in p.values() do
               buf.copy_from(part, 0, offset, part.size())
               offset = offset + part.size()
             end

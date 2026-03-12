@@ -50,6 +50,10 @@ Bulk data export using `COPY ... TO STDOUT`. Creates a table, inserts three rows
 
 Row streaming using `Session.stream()` with windowed batch delivery. Creates a table with 7 rows, streams them with `window_size=3` (producing batches of 3, 3, and 1), then drops the table. Demonstrates the pull-based `StreamingResultReceiver` interface: `pg_stream_batch` delivers each batch, `fetch_more()` requests the next, and `pg_stream_complete` signals completion.
 
+## pipeline
+
+Query pipelining using `Session.pipeline()` with reduced round-trip latency. Creates a table with 3 rows, pipelines 3 SELECTs with different WHERE clauses in a single call, and prints indexed results. Demonstrates the `PipelineReceiver` interface: `pg_pipeline_result` delivers individual query results with their index, `pg_pipeline_failed` delivers individual failures, and `pg_pipeline_complete` signals that all queries have been processed.
+
 ## notice
 
 Server notice handling using `pg_notice`. Executes `DROP TABLE IF EXISTS` on a nonexistent table, which triggers a PostgreSQL `NoticeResponse`, and prints the notice fields (severity, code, message). Shows how `SessionStatusNotify.pg_notice` delivers non-fatal informational messages from the server.

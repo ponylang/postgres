@@ -191,6 +191,17 @@ actor \nodoc\ Main is TestList
     test(_TestStreamingShutdownDrainsQueue)
     test(_TestStreamingQueryResults)
     test(_TestStreamingAfterSessionClosed)
+    test(_TestPipelineSuccess)
+    test(_TestPipelineWithFailure)
+    test(_TestPipelineEmpty)
+    test(_TestPipelineSingleQuery)
+    test(_TestPipelineShutdownDrainsQueue)
+    test(_TestPipelineShutdownInFlight)
+    test(_TestPipelineRowModifying)
+    test(_TestPipelineMixedQueryTypes)
+    test(_TestPipelineAllFail)
+    test(_TestPipelineIntegration)
+    test(_TestPipelineIntegrationWithFailure)
 
 class \nodoc\ iso _TestAuthenticate is UnitTest
   """

@@ -15,8 +15,10 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   `SessionStatusNotify` receiver.
 
   Query execution is serialized: only one operation is in flight at a time.
-  Additional calls to `execute`, `prepare`, `copy_in`, or `copy_out` are
-  queued and dispatched in order.
+  Additional calls to `execute`, `prepare`, `copy_in`, `copy_out`, `stream`,
+  or `pipeline` are queued and dispatched in order. Within a `pipeline` call,
+  multiple queries are sent to the server in a single write and processed
+  sequentially, reducing round-trip latency.
   """
   var state: _SessionState
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
@@ -146,6 +148,22 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     """
     state.close_stream(this)
 
+  be pipeline(queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
+    receiver: PipelineReceiver)
+  =>
+    """
+    Execute multiple queries in a single pipeline. All queries are sent to the
+    server in one TCP write and processed in order, reducing round-trip latency
+    from N round trips to 1. Each query has its own Sync boundary for error
+    isolation — if one query fails, subsequent queries continue executing.
+
+    Results are delivered via `PipelineReceiver` with an index corresponding to
+    each query's position in the array. `pg_pipeline_complete` always fires
+    last. Only `PreparedQuery` and `NamedPreparedQuery` are supported —
+    pipelining uses the extended query protocol.
+    """
+    state.pipeline(this, queries, receiver)
+
   be close() =>
     """
     Close the connection. Sends a Terminate message to the server before
@@ -224,6 +242,15 @@ class ref _SessionUnopened is _ConnectableState
   =>
     receiver.pg_stream_failed(s, query, SessionNeverOpened)
 
+  fun ref pipeline(s: Session ref,
+    queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
+    receiver: PipelineReceiver)
+  =>
+    for (i, q) in queries.pairs() do
+      receiver.pg_pipeline_failed(s, i, q, SessionNeverOpened)
+    end
+    receiver.pg_pipeline_complete(s)
+
   fun ref close_statement(s: Session ref, name: String) =>
     None
 
@@ -263,6 +290,15 @@ class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
     window_size: U32, receiver: StreamingResultReceiver)
   =>
     receiver.pg_stream_failed(s, query, SessionClosed)
+
+  fun ref pipeline(s: Session ref,
+    queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
+    receiver: PipelineReceiver)
+  =>
+    for (i, q) in queries.pairs() do
+      receiver.pg_pipeline_failed(s, i, q, SessionClosed)
+    end
+    receiver.pg_pipeline_complete(s)
 
   fun ref close_statement(s: Session ref, name: String) =>
     None
@@ -377,6 +413,15 @@ class ref _SessionSSLNegotiating
   =>
     receiver.pg_stream_failed(s, query, SessionNotAuthenticated)
 
+  fun ref pipeline(s: Session ref,
+    queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
+    receiver: PipelineReceiver)
+  =>
+    for (i, q) in queries.pairs() do
+      receiver.pg_pipeline_failed(s, i, q, SessionNotAuthenticated)
+    end
+    receiver.pg_pipeline_complete(s)
+
   fun ref close_statement(s: Session ref, name: String) =>
     None
 
@@ -463,6 +508,15 @@ class ref _SessionConnected is _AuthenticableState
     window_size: U32, receiver: StreamingResultReceiver)
   =>
     receiver.pg_stream_failed(s, query, SessionNotAuthenticated)
+
+  fun ref pipeline(s: Session ref,
+    queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
+    receiver: PipelineReceiver)
+  =>
+    for (i, q) in queries.pairs() do
+      receiver.pg_pipeline_failed(s, i, q, SessionNotAuthenticated)
+    end
+    receiver.pg_pipeline_complete(s)
 
   fun ref close_statement(s: Session ref, name: String) =>
     None
@@ -629,6 +683,15 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
   =>
     receiver.pg_stream_failed(s, query, SessionNotAuthenticated)
 
+  fun ref pipeline(s: Session ref,
+    queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
+    receiver: PipelineReceiver)
+  =>
+    for (i, q) in queries.pairs() do
+      receiver.pg_pipeline_failed(s, i, q, SessionNotAuthenticated)
+    end
+    receiver.pg_pipeline_complete(s)
+
   fun ref close_statement(s: Session ref, name: String) =>
     None
 
@@ -696,13 +759,27 @@ class val _QueuedStreamingQuery
     window_size = window_size'
     receiver = receiver'
 
+class val _QueuedPipeline
+  """
+  A queued pipeline operation waiting to be dispatched.
+  """
+  let queries: Array[(PreparedQuery | NamedPreparedQuery)] val
+  let receiver: PipelineReceiver
+
+  new val create(queries': Array[(PreparedQuery | NamedPreparedQuery)] val,
+    receiver': PipelineReceiver)
+  =>
+    queries = queries'
+    receiver = receiver'
+
 type _QueueItem is
   ( _QueuedQuery
   | _QueuedPrepare
   | _QueuedCloseStatement
   | _QueuedCopyIn
   | _QueuedCopyOut
-  | _QueuedStreamingQuery )
+  | _QueuedStreamingQuery
+  | _QueuedPipeline )
 
 class _SessionLoggedIn is _AuthenticatedState
   """
@@ -796,6 +873,13 @@ class _SessionLoggedIn is _AuthenticatedState
     query_queue.push(_QueuedStreamingQuery(query, window_size, receiver))
     query_state.try_run_query(s, this)
 
+  fun ref pipeline(s: Session ref,
+    queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
+    receiver: PipelineReceiver)
+  =>
+    query_queue.push(_QueuedPipeline(queries, receiver))
+    query_state.try_run_query(s, this)
+
   fun ref fetch_more(s: Session ref) =>
     match query_state
     | let sq: _StreamingQueryInFlight => sq.fetch_more(s, this)
@@ -856,6 +940,11 @@ class _SessionLoggedIn is _AuthenticatedState
         co.receiver.pg_copy_failed(s, SessionClosed)
       | let sq: _QueuedStreamingQuery =>
         sq.receiver.pg_stream_failed(s, sq.query, SessionClosed)
+      | let pl: _QueuedPipeline =>
+        for (i, q) in pl.queries.pairs() do
+          pl.receiver.pg_pipeline_failed(s, i, q, SessionClosed)
+        end
+        pl.receiver.pg_pipeline_complete(s)
       end
     end
     query_queue.clear()
@@ -1082,6 +1171,49 @@ class _QueryReady is _QueryNoQueryInFlight
             end
             s._connection().send(consume combined)
           end
+        | let pl: _QueuedPipeline =>
+          if pl.queries.size() == 0 then
+            pl.receiver.pg_pipeline_complete(s)
+            try
+              li.query_queue.shift()?
+            else
+              _Unreachable()
+            end
+            try_run_query(s, li)
+            return
+          end
+          li.query_state = _PipelineInFlight.create()
+          let combined = recover val
+            let parts = Array[Array[U8] val]
+            for query in pl.queries.values() do
+              match \exhaustive\ query
+              | let pq: PreparedQuery =>
+                parts.push(_FrontendMessage.parse("", pq.string,
+                  recover val Array[U32] end))
+                parts.push(_FrontendMessage.bind("", "", pq.params))
+                parts.push(_FrontendMessage.describe_portal(""))
+                parts.push(_FrontendMessage.execute_msg("", 0))
+                parts.push(_FrontendMessage.sync())
+              | let nq: NamedPreparedQuery =>
+                parts.push(_FrontendMessage.bind("", nq.name, nq.params))
+                parts.push(_FrontendMessage.describe_portal(""))
+                parts.push(_FrontendMessage.execute_msg("", 0))
+                parts.push(_FrontendMessage.sync())
+              end
+            end
+            var total: USize = 0
+            for part in parts.values() do
+              total = total + part.size()
+            end
+            let buf = Array[U8](total)
+            var offset: USize = 0
+            for part in parts.values() do
+              buf.copy_from(part, 0, offset, part.size())
+              offset = offset + part.size()
+            end
+            buf
+          end
+          s._connection().send(consume combined)
         end
       end
     else
@@ -1965,6 +2097,168 @@ class _StreamingQueryInFlight is _QueryState
       _Unreachable()
     end
 
+class _PipelineInFlight is _QueryState
+  """
+  Pipeline execution in progress. Processes N extended query cycles, one per
+  pipelined query. Each cycle ends with its own Sync/ReadyForQuery. Per-query
+  accumulation data is reset between cycles. `_current_index` tracks which
+  query in the pipeline is currently being processed.
+
+  Error isolation: each query has its own Sync boundary. If query 2 fails,
+  the server skips to Sync2 and continues with query 3. The `_error` flag
+  is per-query, reset on each ReadyForQuery.
+  """
+  var _data_rows: Array[Array[(String|None)] val] iso
+  var _row_description: (Array[(String, U32)] val | None)
+  var _error: Bool = false
+  var _current_index: USize = 0
+
+  new create() =>
+    _data_rows = recover iso Array[Array[(String|None)] val] end
+    _row_description = None
+
+  fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
+
+  fun ref on_data_row(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _DataRowMessage)
+  =>
+    _data_rows.push(msg.columns)
+
+  fun ref on_row_description(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _RowDescriptionMessage)
+  =>
+    _row_description = msg.columns
+
+  fun ref on_command_complete(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CommandCompleteMessage)
+  =>
+    try
+      let pl = li.query_queue(0)? as _QueuedPipeline
+      let rows = _data_rows = recover iso
+        Array[Array[(String|None)] val].create()
+      end
+      let rd = _row_description = None
+
+      match \exhaustive\ rd
+      | let desc: Array[(String, U32)] val =>
+        try
+          let rows_object = _RowsBuilder(consume rows, desc)?
+          pl.receiver.pg_pipeline_result(s, _current_index,
+            ResultSet(pl.queries(_current_index)?, rows_object, msg.id))
+        else
+          pl.receiver.pg_pipeline_failed(s, _current_index,
+            pl.queries(_current_index)?, DataError)
+        end
+      | None =>
+        if rows.size() > 0 then
+          pl.receiver.pg_pipeline_failed(s, _current_index,
+            pl.queries(_current_index)?, DataError)
+        else
+          pl.receiver.pg_pipeline_result(s, _current_index,
+            RowModifying(pl.queries(_current_index)?, msg.id, msg.value))
+        end
+      end
+    else
+      _Unreachable()
+    end
+
+  fun ref on_empty_query_response(s: Session ref,
+    li: _SessionLoggedIn ref)
+  =>
+    try
+      let pl = li.query_queue(0)? as _QueuedPipeline
+      let rows = _data_rows = recover iso
+        Array[Array[(String|None)] val] end
+      let rd = _row_description = None
+
+      if (rows.size() > 0) or (rd isnt None) then
+        pl.receiver.pg_pipeline_failed(s, _current_index,
+          pl.queries(_current_index)?, DataError)
+      else
+        pl.receiver.pg_pipeline_result(s, _current_index,
+          SimpleResult(pl.queries(_current_index)?))
+      end
+    else
+      _Unreachable()
+    end
+
+  fun ref on_error_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: ErrorResponseMessage)
+  =>
+    _error = true
+    try
+      let pl = li.query_queue(0)? as _QueuedPipeline
+      _data_rows = recover iso Array[Array[(String|None)] val] end
+      _row_description = None
+      pl.receiver.pg_pipeline_failed(s, _current_index,
+        pl.queries(_current_index)?, msg)
+    else
+      _Unreachable()
+    end
+
+  fun ref on_ready_for_query(s: Session ref, li: _SessionLoggedIn ref) =>
+    _current_index = _current_index + 1
+    _error = false
+    try
+      let pl = li.query_queue(0)? as _QueuedPipeline
+      if _current_index >= pl.queries.size() then
+        // All queries processed
+        pl.receiver.pg_pipeline_complete(s)
+        li.query_queue.shift()?
+        li.query_state = _QueryReady
+        li.query_state.try_run_query(s, li)
+      end
+      // Otherwise, continue processing the next query cycle
+    else
+      _Unreachable()
+    end
+
+  fun ref on_copy_in_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyInResponseMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_copy_out_response(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyOutResponseMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_copy_data(s: Session ref, li: _SessionLoggedIn ref,
+    msg: _CopyDataMessage)
+  =>
+    li.shutdown(s)
+
+  fun ref on_copy_done(s: Session ref, li: _SessionLoggedIn ref) =>
+    li.shutdown(s)
+
+  fun ref on_portal_suspended(s: Session ref, li: _SessionLoggedIn ref) =>
+    li.shutdown(s)
+
+  fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
+    try
+      let pl = li.query_queue(0)? as _QueuedPipeline
+      // Notify current query if not already error-notified
+      if not _error then
+        pl.receiver.pg_pipeline_failed(s, _current_index,
+          pl.queries(_current_index)?, SessionClosed)
+      end
+      // Notify remaining queries
+      var i = _current_index + 1
+      while i < pl.queries.size() do
+        pl.receiver.pg_pipeline_failed(s, i,
+          pl.queries(i)?, SessionClosed)
+        i = i + 1
+      end
+      pl.receiver.pg_pipeline_complete(s)
+    else
+      _Unreachable()
+    end
+    try
+      li.query_queue.shift()?
+    else
+      _Unreachable()
+    end
+
 interface _SessionState
   fun on_connected(s: Session ref)
     """
@@ -2108,6 +2402,13 @@ interface _SessionState
   fun ref close_stream(s: Session ref)
     """
     Called when a client requests early termination of a streaming query.
+    """
+
+  fun ref pipeline(s: Session ref,
+    queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
+    receiver: PipelineReceiver)
+    """
+    Called when a client requests a pipelined query execution.
     """
 
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage)

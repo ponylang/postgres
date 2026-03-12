@@ -33,6 +33,7 @@ All notable changes to this project will be documented in this file. This projec
 - Add ParameterStatus tracking ([PR #120](https://github.com/ponylang/postgres/pull/120))
 - Add COPY TO STDOUT support ([PR #122](https://github.com/ponylang/postgres/pull/122))
 - Add SSLPreferred mode ([PR #128](https://github.com/ponylang/postgres/pull/128))
+- Add query pipelining ([PR #138](https://github.com/ponylang/postgres/pull/138))
 
 ### Changed
 

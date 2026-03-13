@@ -59,6 +59,8 @@ jobs:
           POSTGRES_DATABASE: postgres
           POSTGRES_MD5_USERNAME: md5user
           POSTGRES_MD5_PASSWORD: md5pass
+      - name: Build examples
+        run: make examples config=debug ssl=libressl
       - name: Send alert on failure
         if: ${{ failure() }}
         uses: zulip/github-actions-zulip/send-message@e4c8f27c732ba9bd98ac6be0583096dea82feea5

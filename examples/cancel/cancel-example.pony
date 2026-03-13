@@ -48,7 +48,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
   be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match \exhaustive\ failure
+    match failure
     | let err: ErrorResponseMessage =>
       if err.code == "57014" then
         _out.print("Query was cancelled (SQLSTATE 57014).")

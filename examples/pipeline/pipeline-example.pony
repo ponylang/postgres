@@ -94,7 +94,7 @@ actor Client is
   be pg_query_failed(session: Session, query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match \exhaustive\ failure
+    match failure
     | let e: ErrorResponseMessage =>
       _out.print("Query failed: [" + e.severity + "] " + e.code + ": "
         + e.message)
@@ -130,7 +130,7 @@ actor Client is
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match \exhaustive\ failure
+    match failure
     | let e: ErrorResponseMessage =>
       _out.print("  Pipeline query " + index.string() + " failed: ["
         + e.severity + "] " + e.code + ": " + e.message)

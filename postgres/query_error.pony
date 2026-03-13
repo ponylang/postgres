@@ -1,17 +1,19 @@
-trait val ClientQueryError
-  """
-  A client-side error that prevented a query from being sent to the server.
-  Each subtype represents a specific pre-condition failure (session not open,
-  session closed, not authenticated, or malformed data).
-  """
+// A client-side error that prevented a query from being sent to the server.
+// Each member represents a specific pre-condition failure (session not open,
+// session closed, not authenticated, or malformed data).
+type ClientQueryError is
+  ( SessionNeverOpened
+  | SessionClosed
+  | SessionNotAuthenticated
+  | DataError )
 
-primitive SessionNeverOpened is ClientQueryError
+primitive SessionNeverOpened
   """
   Error returned when a query is attempted for a session that hasn't been opened
   yet or is in the process of being opened.
   """
 
-primitive SessionClosed is ClientQueryError
+primitive SessionClosed
   """
   Error returned when a query is attempted for a session that was closed or
   failed to open. Includes sessions that were closed by the user as well as
@@ -20,13 +22,13 @@ primitive SessionClosed is ClientQueryError
   errors.
   """
 
-primitive SessionNotAuthenticated is ClientQueryError
+primitive SessionNotAuthenticated
   """
   Error returned when a query is attempted for a session that is open but hasn't
   been authenticated yet.
   """
 
-primitive DataError is ClientQueryError
+primitive DataError
   """
   Error returned when result data from the server is in an unexpected format
   (e.g., column count mismatch across rows) or when a parameter value cannot

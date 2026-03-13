@@ -1,12 +1,9 @@
-trait val Result
-  """
-  The result of a successfully executed query. Subtypes distinguish between
-  queries that return rows (`ResultSet`), queries that modify rows
-  (`RowModifying`), and queries that do neither (`SimpleResult`).
-  """
-  fun query(): Query
+// The result of a successfully executed query. Members distinguish between
+// queries that return rows (`ResultSet`), queries that modify rows
+// (`RowModifying`), and queries that do neither (`SimpleResult`).
+type Result is (ResultSet | RowModifying | SimpleResult)
 
-class val ResultSet is Result
+class val ResultSet
   """
   A query result containing rows. Returned for SELECT and other row-returning
   statements. Provides access to the returned `Rows` and the command tag
@@ -33,7 +30,7 @@ class val ResultSet is Result
   fun command(): String =>
     _command
 
-class val SimpleResult is Result
+class val SimpleResult
   """
   A query result for statements that return no rows and report no row count.
   Returned for empty queries (the `EmptyQueryResponse` case).
@@ -46,7 +43,7 @@ class val SimpleResult is Result
   fun query(): Query =>
     _query
 
-class val RowModifying is Result
+class val RowModifying
   """
   A query result for statements that modify rows (INSERT, UPDATE, DELETE).
   Provides the command tag string and the number of rows affected.

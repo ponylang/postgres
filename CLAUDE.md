@@ -101,7 +101,7 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 - `SimpleQuery` — val class wrapping a query string (simple query protocol)
 - `PreparedQuery` — val class wrapping a query string + `Array[FieldDataTypes] val` params (extended query protocol, single statement only). Typed params (`I16`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Array[U8] val`) use binary wire format with explicit OIDs; `String` and `None` use text format with server-inferred types
 - `NamedPreparedQuery` — val class wrapping a statement name + `Array[FieldDataTypes] val` params (executes a previously prepared named statement). Same typed parameter semantics as `PreparedQuery`
-- `Result` trait — `ResultSet` (rows), `SimpleResult` (no rows), `RowModifying` (INSERT/UPDATE/DELETE with count)
+- `Result` — union type `(ResultSet | RowModifying | SimpleResult)`
 - `Rows` / `Row` / `Field` — result data. `Field.value` is `FieldDataTypes` union
 - `FieldDataTypes` = `(Array[U8] val | Bool | F32 | F64 | I16 | I32 | I64 | None | String)`
 - `TransactionStatus` — union type `(TransactionIdle | TransactionInBlock | TransactionFailed)`. Reported via `pg_transaction_status` callback on every `ReadyForQuery`.
@@ -117,7 +117,7 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 - `PipelineReceiver` interface (tag) — `pg_pipeline_result(Session, USize, Result)`, `pg_pipeline_failed(Session, USize, (PreparedQuery | NamedPreparedQuery), (ErrorResponseMessage | ClientQueryError))`, `pg_pipeline_complete(Session)`. Each query result/failure is delivered with its pipeline index. `pg_pipeline_complete` always fires last
 - `Codec` interface (val) — `format(): U16`, `encode(FieldDataTypes): Array[U8] val ?`, `decode(Array[U8] val): FieldDataTypes ?`. Wire format codec for a PostgreSQL type. Built-in codecs are primitives (zero-allocation singletons)
 - `CodecRegistry` class (val) — maps OIDs to text and binary `Codec` instances. Default constructor populates all built-in codecs. `decode(oid, format, data)` with fallbacks (unknown text→String, unknown binary→raw bytes). `has_binary_codec(oid)` for format selection
-- `ClientQueryError` trait — `SessionNeverOpened`, `SessionClosed`, `SessionNotAuthenticated`, `DataError`
+- `ClientQueryError` — union type `(SessionNeverOpened | SessionClosed | SessionNotAuthenticated | DataError)`
 - `DatabaseConnectInfo` — val class grouping database authentication parameters (user, password, database). Passed to `Session.create()` alongside `ServerConnectInfo`.
 - `ServerConnectInfo` — val class grouping connection parameters (auth, host, service, ssl_mode). Passed to `Session.create()` as the first parameter. Also used by `_CancelSender`.
 - `SSLMode` — union type `(SSLDisabled | SSLPreferred | SSLRequired)`. `SSLDisabled` is the default (plaintext). `SSLPreferred` wraps an `SSLContext val` and attempts SSL with plaintext fallback on server refusal (`sslmode=prefer`). `SSLRequired` wraps an `SSLContext val` and aborts on server refusal.

@@ -1224,7 +1224,7 @@ class _QueryReady is _QueryNoQueryInFlight
               try
                 parts.push(_FrontendMessage.bind("", "", pq.params)?)
               else
-                var i: USize = qi
+                var i: USize = 0
                 while i < pl.queries.size() do
                   try
                     pl.receiver.pg_pipeline_failed(s, i,
@@ -1246,7 +1246,7 @@ class _QueryReady is _QueryNoQueryInFlight
               try
                 parts.push(_FrontendMessage.bind("", nq.name, nq.params)?)
               else
-                var i: USize = qi
+                var i: USize = 0
                 while i < pl.queries.size() do
                   try
                     pl.receiver.pg_pipeline_failed(s, i,

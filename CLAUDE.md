@@ -99,8 +99,8 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 
 - `Query` — union type `(SimpleQuery | PreparedQuery | NamedPreparedQuery)`
 - `SimpleQuery` — val class wrapping a query string (simple query protocol)
-- `PreparedQuery` — val class wrapping a query string + `Array[(String | None)] val` params (extended query protocol, single statement only)
-- `NamedPreparedQuery` — val class wrapping a statement name + `Array[(String | None)] val` params (executes a previously prepared named statement)
+- `PreparedQuery` — val class wrapping a query string + `Array[FieldDataTypes] val` params (extended query protocol, single statement only). Typed params (`I16`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Array[U8] val`) use binary wire format with explicit OIDs; `String` and `None` use text format with server-inferred types
+- `NamedPreparedQuery` — val class wrapping a statement name + `Array[FieldDataTypes] val` params (executes a previously prepared named statement). Same typed parameter semantics as `PreparedQuery`
 - `Result` trait — `ResultSet` (rows), `SimpleResult` (no rows), `RowModifying` (INSERT/UPDATE/DELETE with count)
 - `Rows` / `Row` / `Field` — result data. `Field.value` is `FieldDataTypes` union
 - `FieldDataTypes` = `(Array[U8] val | Bool | F32 | F64 | I16 | I32 | I64 | None | String)`
@@ -115,6 +115,8 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 - `CopyOutReceiver` interface (tag) — `pg_copy_data(Session, Array[U8] val)`, `pg_copy_complete(Session, count)`, `pg_copy_failed(Session, (ErrorResponseMessage | ClientQueryError))`. Push-based: server drives the flow, delivering data chunks via `pg_copy_data` and signaling completion via `pg_copy_complete`
 - `StreamingResultReceiver` interface (tag) — `pg_stream_batch(Session, Rows)`, `pg_stream_complete(Session)`, `pg_stream_failed(Session, (PreparedQuery | NamedPreparedQuery), (ErrorResponseMessage | ClientQueryError))`. Pull-based: session delivers batches via `pg_stream_batch`; client calls `fetch_more()` for the next batch or `close_stream()` to end early
 - `PipelineReceiver` interface (tag) — `pg_pipeline_result(Session, USize, Result)`, `pg_pipeline_failed(Session, USize, (PreparedQuery | NamedPreparedQuery), (ErrorResponseMessage | ClientQueryError))`, `pg_pipeline_complete(Session)`. Each query result/failure is delivered with its pipeline index. `pg_pipeline_complete` always fires last
+- `Codec` interface (val) — `format(): U16`, `encode(FieldDataTypes): Array[U8] val ?`, `decode(Array[U8] val): FieldDataTypes ?`. Wire format codec for a PostgreSQL type. Built-in codecs are primitives (zero-allocation singletons)
+- `CodecRegistry` class (val) — maps OIDs to text and binary `Codec` instances. Default constructor populates all built-in codecs. `decode(oid, format, data)` with fallbacks (unknown text→String, unknown binary→raw bytes). `has_binary_codec(oid)` for format selection
 - `ClientQueryError` trait — `SessionNeverOpened`, `SessionClosed`, `SessionNotAuthenticated`, `DataError`
 - `DatabaseConnectInfo` — val class grouping database authentication parameters (user, password, database). Passed to `Session.create()` alongside `ServerConnectInfo`.
 - `ServerConnectInfo` — val class grouping connection parameters (auth, host, service, ssl_mode). Passed to `Session.create()` as the first parameter. Also used by `_CancelSender`.
@@ -135,6 +137,16 @@ In `_RowsBuilder._field_to_type()`:
 - Everything else → `String`
 - NULL → `None`
 
+### Codec Architecture
+
+`Codec` interface with `encode`/`decode`/`format` methods. Built-in codecs are primitives:
+- Binary codecs (`_binary_codecs.pony`): `_BoolBinaryCodec`, `_ByteaBinaryCodec`, `_Int2BinaryCodec`, `_Int4BinaryCodec`, `_Int8BinaryCodec`, `_Float4BinaryCodec`, `_Float8BinaryCodec` — big-endian wire encoding
+- Text codecs (`_text_codecs.pony`): mirror `_RowsBuilder._field_to_type()` logic — `_BoolTextCodec`, `_ByteaTextCodec`, `_Int2TextCodec`, `_Int4TextCodec`, `_Int8TextCodec`, `_Float4TextCodec`, `_Float8TextCodec`
+- `CodecRegistry` (`codec_registry.pony`): maps OIDs to codecs. Default constructor populates all built-ins. `_with_codec` constructor (type-private, public in Phase 3) for custom codecs
+- `_ParamEncoder` (`_param_encoder.pony`): derives PostgreSQL OIDs from `FieldDataTypes` parameter values for Parse messages
+
+**Encode error handling:** `_FrontendMessage.bind()` is partial — it errors if parameter encoding fails. `_QueryReady.try_run_query()` uses a build-before-transition pattern: wire messages are constructed before transitioning to an in-flight state, so encode errors deliver `DataError` to the receiver without leaving the state machine inconsistent. Pipeline queries build message parts into an `iso` array in `ref` scope (where error handling has full access to the session and receiver), then consume the array into a `recover val` block for concatenation.
+
 ### Query Cancellation
 
 `_CancelSender` actor — fire-and-forget actor that sends a `CancelRequest` on a separate TCP connection. PostgreSQL requires cancel requests on a different connection from the one executing the query. No response is expected on the cancel connection — the result (if any) arrives as an `ErrorResponse` on the original session connection. When the session uses `SSLRequired` or `SSLPreferred`, the cancel connection performs SSL negotiation before sending the CancelRequest — mirroring the main session's connection setup. For `SSLRequired`, if the server refuses SSL or the TLS handshake fails, the cancel is silently abandoned. For `SSLPreferred`, server refusal falls back to a plaintext cancel; TLS handshake failure still silently abandons. Created by `_SessionLoggedIn.cancel()` using the session's `ServerConnectInfo`, `backend_pid`, and `backend_secret_key`. Design: [discussion #88](https://github.com/ponylang/postgres/discussions/88).
@@ -147,7 +159,7 @@ In `_RowsBuilder._field_to_type()`:
 
 Tests live in the main `postgres/` package (private test classes), organized across multiple files by concern (`_test_*.pony`). The `Main` test actor in `_test.pony` is the single test registry that lists all tests. Read the individual test files for per-test details.
 
-**Conventions**: `_test.pony` contains shared helpers (`_ConnectionTestConfiguration` for env vars, `_ConnectTestNotify`/`_AuthenticateTestNotify` reused by other files). `_test_response_parser.pony` contains `_Incoming*TestMessage` builder classes that construct raw protocol bytes for mock servers across all test files. `_test_mock_message_reader.pony` contains `_MockMessageReader` for extracting complete PostgreSQL frontend messages from TCP data in mock servers.
+**Conventions**: `_test.pony` contains shared helpers (`_ConnectionTestConfiguration` for env vars, `_ConnectTestNotify`/`_AuthenticateTestNotify` reused by other files). `_test_response_parser.pony` contains `_Incoming*TestMessage` builder classes that construct raw protocol bytes for mock servers across all test files. `_test_mock_message_reader.pony` contains `_MockMessageReader` for extracting complete PostgreSQL frontend messages from TCP data in mock servers. `_test_codecs.pony` contains unit tests for binary/text codecs, `CodecRegistry`, `_ParamEncoder`, and binary-format bind wire format.
 
 **Ports**: Mock server tests use ports in the 7669–7710 range and 9667–9668. **Port 7680 is reserved by Windows** (Update Delivery Optimization) and will fail to bind on WSL2 — do not use it.
 
@@ -157,7 +169,7 @@ Tests live in the main `postgres/` package (private test classes), organized acr
 
 **Authentication:** MD5 password and SCRAM-SHA-256. No SCRAM-SHA-256-PLUS (channel binding), Kerberos, GSS, or certificate auth. Design: [discussion #83](https://github.com/ponylang/postgres/discussions/83).
 
-**Protocol:** Simple query and extended query (parameterized via unnamed and named prepared statements). Parameters are text-format only; type OIDs are inferred by the server. LISTEN/NOTIFY, NoticeResponse, ParameterStatus, COPY FROM STDIN (pull-based), COPY TO STDOUT (push-based), row streaming (portal-based cursors with windowed batch delivery via Execute(max_rows)+Flush+PortalSuspended), query pipelining (multiple Parse/Bind/Execute/Sync cycles in a single TCP write with per-query error isolation). No function calls. Full feature roadmap: [discussion #72](https://github.com/ponylang/postgres/discussions/72).
+**Protocol:** Simple query and extended query (parameterized via unnamed and named prepared statements). Parameters use per-parameter format codes: binary encoding for typed values (`I16`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Array[U8] val`) with explicit OIDs in Parse messages; text format with server-inferred types for `String` and `None`. Results remain text format (Phase 1). LISTEN/NOTIFY, NoticeResponse, ParameterStatus, COPY FROM STDIN (pull-based), COPY TO STDOUT (push-based), row streaming (portal-based cursors with windowed batch delivery via Execute(max_rows)+Flush+PortalSuspended), query pipelining (multiple Parse/Bind/Execute/Sync cycles in a single TCP write with per-query error isolation). No function calls. Full feature roadmap: [discussion #72](https://github.com/ponylang/postgres/discussions/72). Codec design: [discussion #139](https://github.com/ponylang/postgres/discussions/139).
 
 **CI containers:** Stock `postgres:14.5` for plain (port 5432, SCRAM-SHA-256 default) and `ghcr.io/ponylang/postgres-ci-pg-ssl:latest` for SSL (port 5433, SSL + md5user); built via `build-ci-image.yml` workflow dispatch or locally via `.ci-dockerfiles/pg-ssl/build-and-push.bash`. MD5 integration tests connect to the SSL container (without using SSL) because only that container has the md5user.
 

@@ -30,11 +30,11 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     _out.print("Authenticated.")
     _out.print("Sending prepared query....")
     // Parameters are $1, $2, etc. in the query string.
-    // Values are sent as text; the server infers types from the cast.
+    // Values are typed — the driver sends OIDs so the server knows each type.
     // Use None for NULL parameters.
     let q = PreparedQuery(
       "SELECT $1::text AS name, $2::int4 AS age, $3::text AS note",
-      recover val [as (String | None): "Pony"; "10"; None] end)
+      recover val [as FieldDataTypes: "Pony"; I32(10); None] end)
     session.execute(q, this)
 
   be pg_session_authentication_failed(

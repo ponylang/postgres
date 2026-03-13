@@ -691,7 +691,7 @@ actor \nodoc\ _PreparedQueryResultsReceiver is
   new create(h: TestHelper) =>
     _h = h
     _query = PreparedQuery("SELECT $1::text",
-      recover val [as (String | None): "525600"] end)
+      recover val [as FieldDataTypes: "525600"] end)
 
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
@@ -780,7 +780,7 @@ actor \nodoc\ _PreparedQueryNullParamReceiver is
   new create(h: TestHelper) =>
     _h = h
     _query = PreparedQuery("SELECT $1::text",
-      recover val [as (String | None): None] end)
+      recover val [as FieldDataTypes: None] end)
 
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
@@ -865,7 +865,7 @@ actor \nodoc\ _PreparedQueryNonExistentTableReceiver is
     _h = h
     _query = PreparedQuery(
       "SELECT * FROM THIS_TABLE_DOESNT_EXIST WHERE id = $1",
-      recover val [as (String | None): "1"] end)
+      recover val [as FieldDataTypes: "1"] end)
 
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
@@ -950,7 +950,7 @@ actor \nodoc\ _PreparedQueryInsertAndDeleteClient is
       _session.execute(
         PreparedQuery(
           "INSERT INTO prep_i_and_d (col) VALUES ($1)",
-          recover val [as (String | None): "hello"] end),
+          recover val [as FieldDataTypes: "hello"] end),
         this)
     | 2 =>
       // Insert done, verify RowModifying with impacted = 1
@@ -971,7 +971,7 @@ actor \nodoc\ _PreparedQueryInsertAndDeleteClient is
       _session.execute(
         PreparedQuery(
           "DELETE FROM prep_i_and_d WHERE col = $1",
-          recover val [as (String | None): "hello"] end),
+          recover val [as FieldDataTypes: "hello"] end),
         this)
     | 3 =>
       // Delete done, verify RowModifying with impacted = 1
@@ -1089,7 +1089,7 @@ actor \nodoc\ _PreparedQueryMixedClient is
       // Now send PreparedQuery
       _session.execute(
         PreparedQuery("SELECT $1::text",
-          recover val [as (String | None): "42"] end),
+          recover val [as FieldDataTypes: "42"] end),
         this)
     | 2 =>
       // PreparedQuery result, verify
@@ -1231,7 +1231,7 @@ actor \nodoc\ _PrepareAndExecuteClient is
   be pg_statement_prepared(session: Session, name: String) =>
     _session.execute(
       NamedPreparedQuery("s1",
-        recover val [as (String | None): "525600"] end),
+        recover val [as FieldDataTypes: "525600"] end),
       this)
 
   be pg_prepare_failed(session: Session, name: String,
@@ -1313,11 +1313,11 @@ actor \nodoc\ _PrepareAndExecuteMultipleClient is
   be pg_statement_prepared(session: Session, name: String) =>
     _session.execute(
       NamedPreparedQuery("s1",
-        recover val [as (String | None): "first"] end),
+        recover val [as FieldDataTypes: "first"] end),
       this)
     _session.execute(
       NamedPreparedQuery("s1",
-        recover val [as (String | None): "second"] end),
+        recover val [as FieldDataTypes: "second"] end),
       this)
 
   be pg_prepare_failed(session: Session, name: String,
@@ -1418,7 +1418,7 @@ actor \nodoc\ _PrepareAndCloseClient is
     _session.close_statement("s1")
     _session.execute(
       NamedPreparedQuery("s1",
-        recover val [as (String | None): "hello"] end),
+        recover val [as FieldDataTypes: "hello"] end),
       this)
 
   be pg_prepare_failed(session: Session, name: String,
@@ -1555,7 +1555,7 @@ actor \nodoc\ _PrepareAfterCloseClient is
       _session.prepare("s1", "SELECT 42::text", this)
     | 2 =>
       _session.execute(
-        NamedPreparedQuery("s1", recover val Array[(String | None)] end),
+        NamedPreparedQuery("s1", recover val Array[FieldDataTypes] end),
         this)
     else
       _h.fail("Unexpected phase " + _phase.string())
@@ -1766,7 +1766,7 @@ actor \nodoc\ _MixedAllThreeClient is
     _phase = _phase + 1
     _session.execute(
       NamedPreparedQuery("mix",
-        recover val [as (String | None): "named"] end),
+        recover val [as FieldDataTypes: "named"] end),
       this)
 
   be pg_prepare_failed(session: Session, name: String,
@@ -1792,7 +1792,7 @@ actor \nodoc\ _MixedAllThreeClient is
             end
             _session.execute(
               PreparedQuery("SELECT $1::text",
-                recover val [as (String | None): "prepared"] end),
+                recover val [as FieldDataTypes: "prepared"] end),
               this)
           | 2 =>
             if v != "prepared" then

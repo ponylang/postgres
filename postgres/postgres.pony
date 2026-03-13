@@ -102,13 +102,16 @@ Three query types are available, all executed via `session.execute()`:
   result callback.
 
 * **`PreparedQuery`** — a parameterized single statement using `$1`,
-  `$2`, etc. Parameters are text-format strings or `None` for NULL.
-  Uses an unnamed server-side prepared statement (created and destroyed
-  per execution).
+  `$2`, etc. Parameters are `Array[FieldDataTypes] val` — typed values
+  (`I16`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Array[U8] val`) are sent
+  in binary format with explicit OIDs, while `String` and `None` use
+  text format with server-inferred types. Uses an unnamed server-side
+  prepared statement (created and destroyed per execution).
 
 * **`NamedPreparedQuery`** — executes a previously prepared named
-  statement (see `session.prepare()`). Use this when executing the
-  same parameterized query many times to avoid repeated parsing.
+  statement (see `session.prepare()`). Same typed parameter semantics
+  as `PreparedQuery`. Use this when executing the same parameterized
+  query many times to avoid repeated parsing.
 
 For one-off parameterized queries, prefer `PreparedQuery`. Use
 `NamedPreparedQuery` only when you need to reuse a prepared statement
@@ -165,8 +168,14 @@ be pg_session_authenticated(session: Session) =>
   session.prepare("find_user", "SELECT * FROM users WHERE id = $1", this)
 
 be pg_statement_prepared(session: Session, name: String) =>
-  session.execute(NamedPreparedQuery(name, ["42"]), this)
-  session.execute(NamedPreparedQuery(name, ["99"]), this)
+  session.execute(
+    NamedPreparedQuery(name,
+      recover val [as FieldDataTypes: I32(42)] end),
+    this)
+  session.execute(
+    NamedPreparedQuery(name,
+      recover val [as FieldDataTypes: I32(99)] end),
+    this)
   // When done, optionally: session.close_statement(name)
 ```
 
@@ -226,7 +235,7 @@ pull-based paged result consumption with bounded memory:
 be pg_session_authenticated(session: Session) =>
   session.stream(
     PreparedQuery("SELECT * FROM big_table",
-      recover val Array[(String | None)] end),
+      recover val Array[FieldDataTypes] end),
     100, this)  // window_size = 100 rows per batch
 
 be pg_stream_batch(session: Session, rows: Rows) =>
@@ -263,11 +272,11 @@ be pg_session_authenticated(session: Session) =>
   let queries = recover val
     [as (PreparedQuery | NamedPreparedQuery):
       PreparedQuery("SELECT * FROM users WHERE id = $1",
-        recover val [as (String | None): "1"] end)
+        recover val [as FieldDataTypes: I32(1)] end)
       PreparedQuery("SELECT * FROM users WHERE id = $1",
-        recover val [as (String | None): "2"] end)
+        recover val [as FieldDataTypes: I32(2)] end)
       PreparedQuery("SELECT * FROM users WHERE id = $1",
-        recover val [as (String | None): "3"] end)
+        recover val [as FieldDataTypes: I32(3)] end)
     ]
   end
   session.pipeline(queries, this)
@@ -303,7 +312,8 @@ supported.
 ## Supported Features
 
 * Simple and extended query protocols
-* Parameterized queries (unnamed and named prepared statements)
+* Typed parameterized queries with binary encoding for numeric, boolean,
+  and bytea types (unnamed and named prepared statements)
 * SSL/TLS via `SSLRequired` and `SSLPreferred`
 * MD5 and SCRAM-SHA-256 authentication
 * Transaction status tracking (`TransactionStatus`)

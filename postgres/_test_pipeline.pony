@@ -41,11 +41,11 @@ actor \nodoc\ _PipelineSuccessTestClient is
     let queries = recover val
       [as (PreparedQuery | NamedPreparedQuery):
         PreparedQuery("SELECT 1",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
         PreparedQuery("SELECT 2",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
         PreparedQuery("SELECT 3",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
       ]
     end
     session.pipeline(queries, this)
@@ -221,11 +221,11 @@ actor \nodoc\ _PipelineWithFailureTestClient is
     let queries = recover val
       [as (PreparedQuery | NamedPreparedQuery):
         PreparedQuery("SELECT 1",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
         PreparedQuery("SELECT bad_table",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
         PreparedQuery("SELECT 3",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
       ]
     end
     session.pipeline(queries, this)
@@ -540,7 +540,7 @@ actor \nodoc\ _PipelineSingleQueryTestClient is
     let queries = recover val
       [as (PreparedQuery | NamedPreparedQuery):
         PreparedQuery("SELECT 42",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
       ]
     end
     session.pipeline(queries, this)
@@ -652,9 +652,9 @@ actor \nodoc\ _PipelineShutdownDrainsQueueTestClient is
     let queries = recover val
       [as (PreparedQuery | NamedPreparedQuery):
         PreparedQuery("SELECT 1",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
         PreparedQuery("SELECT 2",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
       ]
     end
     session.pipeline(queries, this)
@@ -765,11 +765,11 @@ actor \nodoc\ _PipelineShutdownInFlightTestClient is
     let queries = recover val
       [as (PreparedQuery | NamedPreparedQuery):
         PreparedQuery("SELECT 1",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
         PreparedQuery("SELECT 2",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
         PreparedQuery("SELECT 3",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
       ]
     end
     session.pipeline(queries, this)
@@ -946,9 +946,9 @@ actor \nodoc\ _PipelineRowModifyingTestClient is
     let queries = recover val
       [as (PreparedQuery | NamedPreparedQuery):
         PreparedQuery("INSERT INTO t VALUES (1)",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
         PreparedQuery("INSERT INTO t VALUES (2)",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
       ]
     end
     session.pipeline(queries, this)
@@ -1109,9 +1109,9 @@ actor \nodoc\ _PipelineMixedQueryTypesTestClient is
     let queries = recover val
       [as (PreparedQuery | NamedPreparedQuery):
         PreparedQuery("SELECT 1",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
         NamedPreparedQuery("my_stmt",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
       ]
     end
     session.pipeline(queries, this)
@@ -1220,9 +1220,9 @@ actor \nodoc\ _PipelineAllFailTestClient is
     let queries = recover val
       [as (PreparedQuery | NamedPreparedQuery):
         PreparedQuery("SELECT bad1",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
         PreparedQuery("SELECT bad2",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
       ]
     end
     session.pipeline(queries, this)
@@ -1400,11 +1400,11 @@ actor \nodoc\ _PipelineIntegrationNotify is
       let queries = recover val
         [as (PreparedQuery | NamedPreparedQuery):
           PreparedQuery("SELECT id, name FROM pipeline_test WHERE id = $1",
-            recover val [as (String | None): "1"] end)
+            recover val [as FieldDataTypes: I32(1)] end)
           PreparedQuery("SELECT id, name FROM pipeline_test WHERE id = $1",
-            recover val [as (String | None): "2"] end)
+            recover val [as FieldDataTypes: I32(2)] end)
           PreparedQuery("SELECT id, name FROM pipeline_test WHERE id = $1",
-            recover val [as (String | None): "3"] end)
+            recover val [as FieldDataTypes: I32(3)] end)
         ]
       end
       session.pipeline(queries, this)
@@ -1479,11 +1479,11 @@ actor \nodoc\ _PipelineIntegrationWithFailureNotify is
     let queries = recover val
       [as (PreparedQuery | NamedPreparedQuery):
         PreparedQuery("SELECT 1",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
         PreparedQuery("SELECT * FROM nonexistent_table_xyz",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
         PreparedQuery("SELECT 3",
-          recover val Array[(String | None)] end)
+          recover val Array[FieldDataTypes] end)
       ]
     end
     session.pipeline(queries, this)

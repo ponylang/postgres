@@ -132,82 +132,193 @@ primitive _FrontendMessage
     end
 
   fun bind(portal: String, stmt: String,
-    params: Array[(String | None)] val): Array[U8] val
+    params: Array[FieldDataTypes] val): Array[U8] val ?
   =>
     """
     Build a Bind message for the extended query protocol.
 
     Format: Byte1('B') Int32(len) String(portal) String(stmt)
-            Int16(0) Int16(num_params) [Int32(val_len) Byte[](val)]*
+            Int16(num_param_formats) Int16[](param_formats)
+            Int16(num_params) [Int32(val_len) Byte[](val)]*
             Int16(0)
 
-    All parameters use text format (num_param_formats = 0 shorthand).
-    NULL parameters have val_len = -1 with no value bytes.
+    Parameters use per-parameter format codes: binary (1) for typed values
+    (I16, I32, I64, F32, F64, Bool, Array[U8] val), text (0) for String.
+    NULL parameters use text format code (doesn't matter — no data bytes).
+    Result format codes remain all text (num_result_formats = 0 shorthand).
     """
-    try
-      recover val
-        // Calculate params payload size
-        var params_size: USize = 0
-        for p in params.values() do
-          params_size = params_size + 4 // val_len field
-          match p
-          | let s: String => params_size = params_size + s.size()
-          end
+    recover val
+      // Calculate params payload size
+      var params_data_size: USize = 0
+      for p in params.values() do
+        params_data_size = params_data_size + 4 // val_len field
+        match p
+        | let s: String => params_data_size = params_data_size + s.size()
+        | let _: I16 => params_data_size = params_data_size + 2
+        | let _: I32 => params_data_size = params_data_size + 4
+        | let _: I64 => params_data_size = params_data_size + 8
+        | let _: F32 => params_data_size = params_data_size + 4
+        | let _: F64 => params_data_size = params_data_size + 8
+        | let _: Bool => params_data_size = params_data_size + 1
+        | let a: Array[U8] val =>
+          params_data_size = params_data_size + a.size()
+        | None => None // NULL: val_len = -1, no data
         end
-        // 1 type + 4 length + portal + null + stmt + null
-        // + 2 num_param_formats + 2 num_params + params_size
-        // + 2 num_result_formats
-        let length: U32 = 4 + portal.size().u32() + 1 + stmt.size().u32() + 1
-          + 2 + 2 + params_size.u32() + 2
-        let msg_size = (length + 1).usize()
-        let msg: Array[U8] = Array[U8].init(0, msg_size)
-        msg.update_u8(0, 'B')?
-        ifdef bigendian then
-          msg.update_u32(1, length)?
-        else
-          msg.update_u32(1, length.bswap())?
-        end
-        var offset: USize = 5
-        msg.copy_from(portal.array(), 0, offset, portal.size())
-        offset = offset + portal.size() + 1
-        msg.copy_from(stmt.array(), 0, offset, stmt.size())
-        offset = offset + stmt.size() + 1
-        // num_param_formats = 0 (all text shorthand) — already zero from init
-        offset = offset + 2
-        // num_params
-        ifdef bigendian then
-          msg.update_u16(offset, params.size().u16())?
-        else
-          msg.update_u16(offset, params.size().u16().bswap())?
-        end
-        offset = offset + 2
-        for p in params.values() do
-          match \exhaustive\ p
-          | let s: String =>
-            ifdef bigendian then
-              msg.update_u32(offset, s.size().u32())?
-            else
-              msg.update_u32(offset, s.size().u32().bswap())?
-            end
-            offset = offset + 4
-            msg.copy_from(s.array(), 0, offset, s.size())
-            offset = offset + s.size()
-          | None =>
-            // NULL: val_len = -1 (0xFFFFFFFF as unsigned)
-            ifdef bigendian then
-              msg.update_u32(offset, U32.max_value())?
-            else
-              msg.update_u32(offset, U32.max_value().bswap())?
-            end
-            offset = offset + 4
-          end
-        end
-        // num_result_formats = 0 (all text shorthand) — already zero from init
-        msg
       end
-    else
-      _Unreachable()
-      []
+      // 1 type + 4 length + portal + null + stmt + null
+      // + 2 num_param_formats + (2 * num_params) for format codes
+      // + 2 num_params + params_data_size
+      // + 2 num_result_formats
+      let length: U32 = 4 + portal.size().u32() + 1 + stmt.size().u32() + 1
+        + 2 + (params.size().u32() * 2) + 2 + params_data_size.u32() + 2
+      let msg_size = (length + 1).usize()
+      let msg: Array[U8] = Array[U8].init(0, msg_size)
+      msg.update_u8(0, 'B')?
+      ifdef bigendian then
+        msg.update_u32(1, length)?
+      else
+        msg.update_u32(1, length.bswap())?
+      end
+      var offset: USize = 5
+      msg.copy_from(portal.array(), 0, offset, portal.size())
+      offset = offset + portal.size() + 1
+      msg.copy_from(stmt.array(), 0, offset, stmt.size())
+      offset = offset + stmt.size() + 1
+      // num_param_formats = N (one per parameter)
+      ifdef bigendian then
+        msg.update_u16(offset, params.size().u16())?
+      else
+        msg.update_u16(offset, params.size().u16().bswap())?
+      end
+      offset = offset + 2
+      // Per-parameter format codes
+      for p in params.values() do
+        let fmt: U16 = match p
+        | let _: String => 0
+        | None => 0
+        else
+          1 // binary for all typed values
+        end
+        ifdef bigendian then
+          msg.update_u16(offset, fmt)?
+        else
+          msg.update_u16(offset, fmt.bswap())?
+        end
+        offset = offset + 2
+      end
+      // num_params
+      ifdef bigendian then
+        msg.update_u16(offset, params.size().u16())?
+      else
+        msg.update_u16(offset, params.size().u16().bswap())?
+      end
+      offset = offset + 2
+      for p in params.values() do
+        match p
+        | let s: String =>
+          ifdef bigendian then
+            msg.update_u32(offset, s.size().u32())?
+          else
+            msg.update_u32(offset, s.size().u32().bswap())?
+          end
+          offset = offset + 4
+          msg.copy_from(s.array(), 0, offset, s.size())
+          offset = offset + s.size()
+        | let v: I16 =>
+          ifdef bigendian then
+            msg.update_u32(offset, U32(2))?
+          else
+            msg.update_u32(offset, U32(2).bswap())?
+          end
+          offset = offset + 4
+          ifdef bigendian then
+            msg.update_u16(offset, v.u16())?
+          else
+            msg.update_u16(offset, v.u16().bswap())?
+          end
+          offset = offset + 2
+        | let v: I32 =>
+          ifdef bigendian then
+            msg.update_u32(offset, U32(4))?
+          else
+            msg.update_u32(offset, U32(4).bswap())?
+          end
+          offset = offset + 4
+          ifdef bigendian then
+            msg.update_u32(offset, v.u32())?
+          else
+            msg.update_u32(offset, v.u32().bswap())?
+          end
+          offset = offset + 4
+        | let v: I64 =>
+          ifdef bigendian then
+            msg.update_u32(offset, U32(8))?
+          else
+            msg.update_u32(offset, U32(8).bswap())?
+          end
+          offset = offset + 4
+          ifdef bigendian then
+            msg.update_u64(offset, v.u64())?
+          else
+            msg.update_u64(offset, v.u64().bswap())?
+          end
+          offset = offset + 8
+        | let v: F32 =>
+          ifdef bigendian then
+            msg.update_u32(offset, U32(4))?
+          else
+            msg.update_u32(offset, U32(4).bswap())?
+          end
+          offset = offset + 4
+          ifdef bigendian then
+            msg.update_u32(offset, v.bits())?
+          else
+            msg.update_u32(offset, v.bits().bswap())?
+          end
+          offset = offset + 4
+        | let v: F64 =>
+          ifdef bigendian then
+            msg.update_u32(offset, U32(8))?
+          else
+            msg.update_u32(offset, U32(8).bswap())?
+          end
+          offset = offset + 4
+          ifdef bigendian then
+            msg.update_u64(offset, v.bits())?
+          else
+            msg.update_u64(offset, v.bits().bswap())?
+          end
+          offset = offset + 8
+        | let v: Bool =>
+          ifdef bigendian then
+            msg.update_u32(offset, U32(1))?
+          else
+            msg.update_u32(offset, U32(1).bswap())?
+          end
+          offset = offset + 4
+          msg.update_u8(offset, if v then 1 else 0 end)?
+          offset = offset + 1
+        | let a: Array[U8] val =>
+          ifdef bigendian then
+            msg.update_u32(offset, a.size().u32())?
+          else
+            msg.update_u32(offset, a.size().u32().bswap())?
+          end
+          offset = offset + 4
+          msg.copy_from(a, 0, offset, a.size())
+          offset = offset + a.size()
+        | None =>
+          // NULL: val_len = -1 (0xFFFFFFFF as unsigned)
+          ifdef bigendian then
+            msg.update_u32(offset, U32.max_value())?
+          else
+            msg.update_u32(offset, U32.max_value().bswap())?
+          end
+          offset = offset + 4
+        end
+      end
+      // num_result_formats = 0 (all text shorthand) — already zero from init
+      msg
     end
 
   fun describe_portal(portal: String): Array[U8] val =>

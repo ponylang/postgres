@@ -41,7 +41,7 @@ actor \nodoc\ _StreamingSuccessTestClient is
   be pg_session_authenticated(session: Session) =>
     _session = session
     session.stream(
-      PreparedQuery("SELECT id FROM t", recover val Array[(String | None)] end),
+      PreparedQuery("SELECT id FROM t", recover val Array[FieldDataTypes] end),
       2, this)
 
   be pg_session_authentication_failed(
@@ -269,7 +269,7 @@ actor \nodoc\ _StreamingEmptyTestClient is
   be pg_session_authenticated(session: Session) =>
     _session = session
     session.stream(
-      PreparedQuery("SELECT id FROM empty", recover val Array[(String | None)] end),
+      PreparedQuery("SELECT id FROM empty", recover val Array[FieldDataTypes] end),
       2, this)
 
   be pg_session_authentication_failed(
@@ -444,7 +444,7 @@ actor \nodoc\ _StreamingEarlyStopTestClient is
   be pg_session_authenticated(session: Session) =>
     _session = session
     session.stream(
-      PreparedQuery("SELECT id FROM t", recover val Array[(String | None)] end),
+      PreparedQuery("SELECT id FROM t", recover val Array[FieldDataTypes] end),
       2, this)
 
   be pg_session_authentication_failed(
@@ -630,7 +630,7 @@ actor \nodoc\ _StreamingServerErrorTestClient is
   be pg_session_authenticated(session: Session) =>
     _session = session
     session.stream(
-      PreparedQuery("SELECT id FROM bad", recover val Array[(String | None)] end),
+      PreparedQuery("SELECT id FROM bad", recover val Array[FieldDataTypes] end),
       2, this)
 
   be pg_session_authentication_failed(
@@ -840,10 +840,10 @@ actor \nodoc\ _StreamingShutdownTestClient is
   be pg_session_authenticated(session: Session) =>
     _pending = 2
     session.stream(
-      PreparedQuery("SELECT 1", recover val Array[(String | None)] end),
+      PreparedQuery("SELECT 1", recover val Array[FieldDataTypes] end),
       2, this)
     session.stream(
-      PreparedQuery("SELECT 2", recover val Array[(String | None)] end),
+      PreparedQuery("SELECT 2", recover val Array[FieldDataTypes] end),
       2, this)
     session.close()
 
@@ -970,7 +970,7 @@ actor \nodoc\ _StreamingQueryResultsNotify is
       // Rows inserted. Start streaming.
       session.stream(
         PreparedQuery("SELECT id FROM streaming_test ORDER BY id",
-          recover val Array[(String | None)] end),
+          recover val Array[FieldDataTypes] end),
         2, this)
     | 5 =>
       // Table dropped after streaming. Done.
@@ -1051,7 +1051,7 @@ actor \nodoc\ _StreamingAfterSessionClosedNotify is
 
   be pg_session_shutdown(session: Session) =>
     session.stream(
-      PreparedQuery("SELECT 1", recover val Array[(String | None)] end),
+      PreparedQuery("SELECT 1", recover val Array[FieldDataTypes] end),
       2, this)
 
   be pg_stream_batch(session: Session, rows: Rows) =>

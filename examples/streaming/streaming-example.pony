@@ -76,7 +76,7 @@ actor Client is
       _session.stream(
         PreparedQuery(
           "SELECT id, name FROM streaming_example ORDER BY id",
-          recover val Array[(String | None)] end),
+          recover val Array[FieldDataTypes] end),
         3, this)
     | 5 =>
       _out.print("Done.")

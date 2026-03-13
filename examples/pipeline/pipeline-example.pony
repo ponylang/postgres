@@ -76,13 +76,13 @@ actor Client is
         [as (PreparedQuery | NamedPreparedQuery):
           PreparedQuery(
             "SELECT id, name FROM pipeline_example WHERE id = $1",
-            recover val [as (String | None): "1"] end)
+            recover val [as FieldDataTypes: I32(1)] end)
           PreparedQuery(
             "SELECT id, name FROM pipeline_example WHERE id = $1",
-            recover val [as (String | None): "2"] end)
+            recover val [as FieldDataTypes: I32(2)] end)
           PreparedQuery(
             "SELECT id, name FROM pipeline_example WHERE id = $1",
-            recover val [as (String | None): "3"] end)
+            recover val [as FieldDataTypes: I32(3)] end)
         ]
       end
       _session.pipeline(queries, this)

@@ -40,17 +40,17 @@ When `close()` was called while the session was between processing an error resp
 
 ## Add parameterized queries via extended query protocol
 
-You can now execute parameterized queries using `PreparedQuery`. Parameters are referenced as `$1`, `$2`, etc. in the query string and passed as an array of `(String | None)` values. Use `None` for SQL NULL.
+You can now execute parameterized queries using `PreparedQuery`. Parameters are referenced as `$1`, `$2`, etc. in the query string and passed as an `Array[FieldDataTypes] val`. Typed values (`I16`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Array[U8] val`) use binary wire format; `String` and `None` use text format. Use `None` for SQL NULL.
 
 ```pony
-// Parameterized SELECT
+// Parameterized SELECT with typed parameter
 let query = PreparedQuery("SELECT * FROM users WHERE id = $1",
-  recover val [as (String | None): "42"] end)
+  recover val [as FieldDataTypes: I32(42)] end)
 session.execute(query, receiver)
 
 // INSERT with NULL parameter
 let insert = PreparedQuery("INSERT INTO items (name, desc) VALUES ($1, $2)",
-  recover val [as (String | None): "widget"; None] end)
+  recover val [as FieldDataTypes: "widget"; None] end)
 session.execute(insert, receiver)
 ```
 
@@ -95,7 +95,7 @@ be pg_statement_prepared(session: Session, name: String) =>
   // Execute with different parameters
   session.execute(
     NamedPreparedQuery("find_user",
-      recover val [as (String | None): "42"] end),
+      recover val [as FieldDataTypes: I32(42)] end),
     result_receiver)
 
 // Clean up when done
@@ -528,11 +528,11 @@ A new `PipelineReceiver` interface provides three callbacks: `pg_pipeline_result
 let queries = recover val
   [as (PreparedQuery | NamedPreparedQuery):
     PreparedQuery("SELECT * FROM users WHERE id = $1",
-      recover val [as (String | None): "1"] end)
+      recover val [as FieldDataTypes: I32(1)] end)
     PreparedQuery("SELECT * FROM users WHERE id = $1",
-      recover val [as (String | None): "2"] end)
+      recover val [as FieldDataTypes: I32(2)] end)
     PreparedQuery("SELECT * FROM users WHERE id = $1",
-      recover val [as (String | None): "3"] end)
+      recover val [as FieldDataTypes: I32(3)] end)
   ]
 end
 session.pipeline(queries, my_receiver)

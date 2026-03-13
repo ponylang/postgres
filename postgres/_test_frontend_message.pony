@@ -85,41 +85,43 @@ class \nodoc\ iso _TestFrontendMessageBind is UnitTest
   fun name(): String =>
     "FrontendMessage/Bind"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     // Bind("", "", ["abc"])
-    // params_size = 4+3 = 7
-    // Length = 4 + 0+1 + 0+1 + 2 + 2 + 7 + 2 = 19, total = 20
+    // Per-param format codes: 1 format code (text=0 for String)
+    // params_data = 4+3 = 7
+    // Length = 4 + 0+1 + 0+1 + 2 + 1*2 + 2 + 7 + 2 = 21, total = 22
     let expected: Array[U8] = ifdef bigendian then
-      [ 66; 19; 0; 0; 0; 0; 0; 0; 0; 1; 0
+      [ 66; 21; 0; 0; 0; 0; 0; 1; 0; 0; 0; 1; 0
         3; 0; 0; 0; 97; 98; 99; 0; 0 ]
     else
-      [ 66; 0; 0; 0; 19; 0; 0; 0; 0; 0; 1
+      [ 66; 0; 0; 0; 21; 0; 0; 0; 1; 0; 0; 0; 1
         0; 0; 0; 3; 97; 98; 99; 0; 0 ]
     end
 
-    let params: Array[(String | None)] val = recover val ["abc"] end
+    let params: Array[FieldDataTypes] val = recover val [as FieldDataTypes: "abc"] end
     h.assert_array_eq[U8](expected,
-      _FrontendMessage.bind("", "", params))
+      _FrontendMessage.bind("", "", params)?)
 
 class \nodoc\ iso _TestFrontendMessageBindWithNull is UnitTest
   fun name(): String =>
     "FrontendMessage/BindWithNull"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     // Bind("", "", [None])
-    // params_size = 4
-    // Length = 4 + 0+1 + 0+1 + 2 + 2 + 4 + 2 = 16, total = 17
+    // Per-param format codes: 1 format code (text=0 for None)
+    // params_data = 4
+    // Length = 4 + 0+1 + 0+1 + 2 + 1*2 + 2 + 4 + 2 = 18, total = 19
     let expected: Array[U8] = ifdef bigendian then
-      [ 66; 16; 0; 0; 0; 0; 0; 0; 0; 1; 0
+      [ 66; 18; 0; 0; 0; 0; 0; 1; 0; 0; 0; 1; 0
         255; 255; 255; 255; 0; 0 ]
     else
-      [ 66; 0; 0; 0; 16; 0; 0; 0; 0; 0; 1
+      [ 66; 0; 0; 0; 18; 0; 0; 0; 1; 0; 0; 0; 1
         255; 255; 255; 255; 0; 0 ]
     end
 
-    let params: Array[(String | None)] val = recover val [None] end
+    let params: Array[FieldDataTypes] val = recover val [as FieldDataTypes: None] end
     h.assert_array_eq[U8](expected,
-      _FrontendMessage.bind("", "", params))
+      _FrontendMessage.bind("", "", params)?)
 
 class \nodoc\ iso _TestFrontendMessageDescribePortal is UnitTest
   fun name(): String =>

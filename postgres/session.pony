@@ -1049,48 +1049,65 @@ class _QueryReady is _QueryNoQueryInFlight
             li.query_state = _SimpleQueryInFlight.create()
             s._connection().send(_FrontendMessage.query(sq.string))
           | let pq: PreparedQuery =>
-            li.query_state = _ExtendedQueryInFlight.create()
-            let parse = _FrontendMessage.parse("", pq.string,
-              recover val Array[U32] end)
-            let bind = _FrontendMessage.bind("", "", pq.params)
-            let describe = _FrontendMessage.describe_portal("")
-            let execute = _FrontendMessage.execute_msg("", 0)
-            let sync = _FrontendMessage.sync()
-            let combined = recover val
-              let total = parse.size() + bind.size() + describe.size()
-                + execute.size() + sync.size()
-              let buf = Array[U8](total)
-              buf.copy_from(parse, 0, 0, parse.size())
-              buf.copy_from(bind, 0, parse.size(), bind.size())
-              buf.copy_from(describe, 0,
-                parse.size() + bind.size(), describe.size())
-              buf.copy_from(execute, 0,
-                parse.size() + bind.size() + describe.size(), execute.size())
-              buf.copy_from(sync, 0,
-                parse.size() + bind.size() + describe.size() + execute.size(),
-                sync.size())
-              buf
+            // Build messages before transitioning state so an encode
+            // error in bind() leaves the state machine in _QueryReady.
+            let combined = try
+              let parse = _FrontendMessage.parse("", pq.string,
+                _ParamEncoder.oids_for(pq.params))
+              let bind = _FrontendMessage.bind("", "", pq.params)?
+              let describe = _FrontendMessage.describe_portal("")
+              let execute = _FrontendMessage.execute_msg("", 0)
+              let sync = _FrontendMessage.sync()
+              recover val
+                let total = parse.size() + bind.size() + describe.size()
+                  + execute.size() + sync.size()
+                let buf = Array[U8](total)
+                buf.copy_from(parse, 0, 0, parse.size())
+                buf.copy_from(bind, 0, parse.size(), bind.size())
+                buf.copy_from(describe, 0,
+                  parse.size() + bind.size(), describe.size())
+                buf.copy_from(execute, 0,
+                  parse.size() + bind.size() + describe.size(), execute.size())
+                buf.copy_from(sync, 0,
+                  parse.size() + bind.size() + describe.size()
+                    + execute.size(),
+                  sync.size())
+                buf
+              end
+            else
+              qry.receiver.pg_query_failed(s, qry.query, DataError)
+              try li.query_queue.shift()? else _Unreachable() end
+              try_run_query(s, li)
+              return
             end
-            s._connection().send(consume combined)
+            li.query_state = _ExtendedQueryInFlight.create()
+            s._connection().send(combined)
           | let nq: NamedPreparedQuery =>
-            li.query_state = _ExtendedQueryInFlight.create()
-            let bind = _FrontendMessage.bind("", nq.name, nq.params)
-            let describe = _FrontendMessage.describe_portal("")
-            let execute = _FrontendMessage.execute_msg("", 0)
-            let sync = _FrontendMessage.sync()
-            let combined = recover val
-              let total = bind.size() + describe.size()
-                + execute.size() + sync.size()
-              let buf = Array[U8](total)
-              buf.copy_from(bind, 0, 0, bind.size())
-              buf.copy_from(describe, 0, bind.size(), describe.size())
-              buf.copy_from(execute, 0,
-                bind.size() + describe.size(), execute.size())
-              buf.copy_from(sync, 0,
-                bind.size() + describe.size() + execute.size(), sync.size())
-              buf
+            let combined = try
+              let bind = _FrontendMessage.bind("", nq.name, nq.params)?
+              let describe = _FrontendMessage.describe_portal("")
+              let execute = _FrontendMessage.execute_msg("", 0)
+              let sync = _FrontendMessage.sync()
+              recover val
+                let total = bind.size() + describe.size()
+                  + execute.size() + sync.size()
+                let buf = Array[U8](total)
+                buf.copy_from(bind, 0, 0, bind.size())
+                buf.copy_from(describe, 0, bind.size(), describe.size())
+                buf.copy_from(execute, 0,
+                  bind.size() + describe.size(), execute.size())
+                buf.copy_from(sync, 0,
+                  bind.size() + describe.size() + execute.size(), sync.size())
+                buf
+              end
+            else
+              qry.receiver.pg_query_failed(s, qry.query, DataError)
+              try li.query_queue.shift()? else _Unreachable() end
+              try_run_query(s, li)
+              return
             end
-            s._connection().send(consume combined)
+            li.query_state = _ExtendedQueryInFlight.create()
+            s._connection().send(combined)
           end
         | let prep: _QueuedPrepare =>
           li.query_state = _PrepareInFlight.create()
@@ -1126,50 +1143,66 @@ class _QueryReady is _QueryNoQueryInFlight
           li.query_state = _CopyOutInFlight
           s._connection().send(_FrontendMessage.query(co.sql))
         | let sq: _QueuedStreamingQuery =>
-          li.query_state = _StreamingQueryInFlight.create()
           match \exhaustive\ sq.query
           | let pq: PreparedQuery =>
-            let parse = _FrontendMessage.parse("", pq.string,
-              recover val Array[U32] end)
-            let bind = _FrontendMessage.bind("", "", pq.params)
-            let describe = _FrontendMessage.describe_portal("")
-            let execute = _FrontendMessage.execute_msg("", sq.window_size)
-            let flush_msg = _FrontendMessage.flush()
-            let combined = recover val
-              let total = parse.size() + bind.size() + describe.size()
-                + execute.size() + flush_msg.size()
-              let buf = Array[U8](total)
-              buf.copy_from(parse, 0, 0, parse.size())
-              buf.copy_from(bind, 0, parse.size(), bind.size())
-              buf.copy_from(describe, 0,
-                parse.size() + bind.size(), describe.size())
-              buf.copy_from(execute, 0,
-                parse.size() + bind.size() + describe.size(), execute.size())
-              buf.copy_from(flush_msg, 0,
-                parse.size() + bind.size() + describe.size() + execute.size(),
-                flush_msg.size())
-              buf
+            let combined = try
+              let parse = _FrontendMessage.parse("", pq.string,
+                _ParamEncoder.oids_for(pq.params))
+              let bind = _FrontendMessage.bind("", "", pq.params)?
+              let describe = _FrontendMessage.describe_portal("")
+              let execute = _FrontendMessage.execute_msg("", sq.window_size)
+              let flush_msg = _FrontendMessage.flush()
+              recover val
+                let total = parse.size() + bind.size() + describe.size()
+                  + execute.size() + flush_msg.size()
+                let buf = Array[U8](total)
+                buf.copy_from(parse, 0, 0, parse.size())
+                buf.copy_from(bind, 0, parse.size(), bind.size())
+                buf.copy_from(describe, 0,
+                  parse.size() + bind.size(), describe.size())
+                buf.copy_from(execute, 0,
+                  parse.size() + bind.size() + describe.size(), execute.size())
+                buf.copy_from(flush_msg, 0,
+                  parse.size() + bind.size() + describe.size()
+                    + execute.size(),
+                  flush_msg.size())
+                buf
+              end
+            else
+              sq.receiver.pg_stream_failed(s, sq.query, DataError)
+              try li.query_queue.shift()? else _Unreachable() end
+              try_run_query(s, li)
+              return
             end
-            s._connection().send(consume combined)
+            li.query_state = _StreamingQueryInFlight.create()
+            s._connection().send(combined)
           | let nq: NamedPreparedQuery =>
-            let bind = _FrontendMessage.bind("", nq.name, nq.params)
-            let describe = _FrontendMessage.describe_portal("")
-            let execute = _FrontendMessage.execute_msg("", sq.window_size)
-            let flush_msg = _FrontendMessage.flush()
-            let combined = recover val
-              let total = bind.size() + describe.size()
-                + execute.size() + flush_msg.size()
-              let buf = Array[U8](total)
-              buf.copy_from(bind, 0, 0, bind.size())
-              buf.copy_from(describe, 0, bind.size(), describe.size())
-              buf.copy_from(execute, 0,
-                bind.size() + describe.size(), execute.size())
-              buf.copy_from(flush_msg, 0,
-                bind.size() + describe.size() + execute.size(),
-                flush_msg.size())
-              buf
+            let combined = try
+              let bind = _FrontendMessage.bind("", nq.name, nq.params)?
+              let describe = _FrontendMessage.describe_portal("")
+              let execute = _FrontendMessage.execute_msg("", sq.window_size)
+              let flush_msg = _FrontendMessage.flush()
+              recover val
+                let total = bind.size() + describe.size()
+                  + execute.size() + flush_msg.size()
+                let buf = Array[U8](total)
+                buf.copy_from(bind, 0, 0, bind.size())
+                buf.copy_from(describe, 0, bind.size(), describe.size())
+                buf.copy_from(execute, 0,
+                  bind.size() + describe.size(), execute.size())
+                buf.copy_from(flush_msg, 0,
+                  bind.size() + describe.size() + execute.size(),
+                  flush_msg.size())
+                buf
+              end
+            else
+              sq.receiver.pg_stream_failed(s, sq.query, DataError)
+              try li.query_queue.shift()? else _Unreachable() end
+              try_run_query(s, li)
+              return
             end
-            s._connection().send(consume combined)
+            li.query_state = _StreamingQueryInFlight.create()
+            s._connection().send(combined)
           end
         | let pl: _QueuedPipeline =>
           if pl.queries.size() == 0 then
@@ -1182,37 +1215,72 @@ class _QueryReady is _QueryNoQueryInFlight
             try_run_query(s, li)
             return
           end
-          li.query_state = _PipelineInFlight.create()
-          let combined = recover val
-            let parts = Array[Array[U8] val]
-            for query in pl.queries.values() do
-              match \exhaustive\ query
-              | let pq: PreparedQuery =>
-                parts.push(_FrontendMessage.parse("", pq.string,
-                  recover val Array[U32] end))
-                parts.push(_FrontendMessage.bind("", "", pq.params))
-                parts.push(_FrontendMessage.describe_portal(""))
-                parts.push(_FrontendMessage.execute_msg("", 0))
-                parts.push(_FrontendMessage.sync())
-              | let nq: NamedPreparedQuery =>
-                parts.push(_FrontendMessage.bind("", nq.name, nq.params))
-                parts.push(_FrontendMessage.describe_portal(""))
-                parts.push(_FrontendMessage.execute_msg("", 0))
-                parts.push(_FrontendMessage.sync())
+          let parts = recover iso Array[Array[U8] val] end
+          for (qi, query) in pl.queries.pairs() do
+            match \exhaustive\ query
+            | let pq: PreparedQuery =>
+              parts.push(_FrontendMessage.parse("", pq.string,
+                _ParamEncoder.oids_for(pq.params)))
+              try
+                parts.push(_FrontendMessage.bind("", "", pq.params)?)
+              else
+                var i: USize = 0
+                while i < pl.queries.size() do
+                  try
+                    pl.receiver.pg_pipeline_failed(s, i,
+                      pl.queries(i)?, DataError)
+                  else
+                    _Unreachable()
+                  end
+                  i = i + 1
+                end
+                pl.receiver.pg_pipeline_complete(s)
+                try li.query_queue.shift()? else _Unreachable() end
+                try_run_query(s, li)
+                return
               end
+              parts.push(_FrontendMessage.describe_portal(""))
+              parts.push(_FrontendMessage.execute_msg("", 0))
+              parts.push(_FrontendMessage.sync())
+            | let nq: NamedPreparedQuery =>
+              try
+                parts.push(_FrontendMessage.bind("", nq.name, nq.params)?)
+              else
+                var i: USize = 0
+                while i < pl.queries.size() do
+                  try
+                    pl.receiver.pg_pipeline_failed(s, i,
+                      pl.queries(i)?, DataError)
+                  else
+                    _Unreachable()
+                  end
+                  i = i + 1
+                end
+                pl.receiver.pg_pipeline_complete(s)
+                try li.query_queue.shift()? else _Unreachable() end
+                try_run_query(s, li)
+                return
+              end
+              parts.push(_FrontendMessage.describe_portal(""))
+              parts.push(_FrontendMessage.execute_msg("", 0))
+              parts.push(_FrontendMessage.sync())
             end
+          end
+          let combined = recover val
+            let p: Array[Array[U8] val] ref = consume parts
             var total: USize = 0
-            for part in parts.values() do
+            for part in p.values() do
               total = total + part.size()
             end
             let buf = Array[U8](total)
             var offset: USize = 0
-            for part in parts.values() do
+            for part in p.values() do
               buf.copy_from(part, 0, offset, part.size())
               offset = offset + part.size()
             end
             buf
           end
+          li.query_state = _PipelineInFlight.create()
           s._connection().send(consume combined)
         end
       end

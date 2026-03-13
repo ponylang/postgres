@@ -42,6 +42,7 @@ All notable changes to this project will be documented in this file. This projec
 - Change Session constructor to accept ServerConnectInfo ([PR #89](https://github.com/ponylang/postgres/pull/89))
 - Fix typo in SesssionNeverOpened ([PR #59](https://github.com/ponylang/postgres/pull/59))
 - Change Session constructor to accept DatabaseConnectInfo ([PR #91](https://github.com/ponylang/postgres/pull/91))
+- Change Result and ClientQueryError from traits to union types ([PR #143](https://github.com/ponylang/postgres/pull/143))
 
 ## [0.2.2] - 2025-07-16
 

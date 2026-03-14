@@ -258,9 +258,261 @@ primitive _NumericBinaryCodec is Codec
   fun format(): U16 => 1
 
   fun encode(value: FieldDataTypes): Array[U8] val ? =>
-    // Encoding numeric from String is complex; error for now.
-    // Phase 3 can add full encode support.
-    error
+    match value
+    | let s: String =>
+      // Special values
+      if s == "NaN" then
+        return recover val
+          let a = Array[U8].init(0, 8)
+          ifdef bigendian then
+            a.update_u16(4, 0xC000)?
+          else
+            a.update_u16(4, U16(0xC000).bswap())?
+          end
+          a
+        end
+      end
+      if s == "Infinity" then
+        return recover val
+          let a = Array[U8].init(0, 8)
+          ifdef bigendian then
+            a.update_u16(4, 0xD000)?
+          else
+            a.update_u16(4, U16(0xD000).bswap())?
+          end
+          a
+        end
+      end
+      if s == "-Infinity" then
+        return recover val
+          let a = Array[U8].init(0, 8)
+          ifdef bigendian then
+            a.update_u16(4, 0xF000)?
+          else
+            a.update_u16(4, U16(0xF000).bswap())?
+          end
+          a
+        end
+      end
+
+      // Parse sign
+      var input = s
+      let sign: U16 = if input.at("-") then
+        input = input.substring(1)
+        0x4000
+      else
+        0x0000
+      end
+
+      // Split into integer and fractional parts
+      let dot_parts = input.split(".")
+      let int_part = dot_parts(0)?
+      let frac_part: String = try dot_parts(1)? else "" end
+
+      // Validate characters
+      for ch in int_part.values() do
+        if (ch < '0') or (ch > '9') then error end
+      end
+      for ch in frac_part.values() do
+        if (ch < '0') or (ch > '9') then error end
+      end
+
+      // dscale = number of fractional digits
+      let dscale = frac_part.size().u16()
+
+      // Combine into a single digit string (no leading zeros on integer
+      // part except for "0")
+      var combined = String
+      // Strip leading zeros from integer part
+      var leading = true
+      for ch in int_part.values() do
+        if leading and (ch == '0') then continue end
+        leading = false
+        combined.push(ch)
+      end
+      // Append fractional digits
+      combined.append(frac_part)
+      // Strip trailing zeros from the combined representation
+      // (they're tracked by dscale, not stored as digits)
+      while combined.size() > 0 do
+        try
+          if combined(combined.size() - 1)? == '0' then
+            combined.truncate(combined.size() - 1)
+          else
+            break
+          end
+        else
+          break
+        end
+      end
+
+      // Handle zero
+      if combined.size() == 0 then
+        return recover val
+          let a = Array[U8].init(0, 8)
+          // ndigits=0, weight=0, sign=positive, dscale
+          ifdef bigendian then
+            a.update_u16(6, dscale)?
+          else
+            a.update_u16(6, dscale.bswap())?
+          end
+          a
+        end
+      end
+
+      // Number of integer digits (before decimal point, excluding
+      // leading zeros)
+      var int_digit_count: USize = 0
+      leading = true
+      for ch in int_part.values() do
+        if leading and (ch == '0') then continue end
+        leading = false
+        int_digit_count = int_digit_count + 1
+      end
+
+      // Weight = (number of base-10000 groups needed for integer part) - 1
+      let weight: I16 = if int_digit_count == 0 then
+        // Pure fractional: weight is negative
+        // Count leading zeros in fractional part to determine weight
+        var leading_zeros: USize = 0
+        for ch in frac_part.values() do
+          if ch == '0' then
+            leading_zeros = leading_zeros + 1
+          else
+            break
+          end
+        end
+        -((leading_zeros / 4) + 1).i16()
+      else
+        ((int_digit_count - 1) / 4).i16()
+      end
+
+      // Build base-10000 digit groups
+      // Align integer part to groups of 4 from the right
+      // The first group may have fewer than 4 digits
+      let base10k: Array[U16] iso = recover iso Array[U16] end
+
+      if int_digit_count > 0 then
+        // Integer part: group from left, first group may be short
+        let first_group_size = ((int_digit_count - 1) % 4) + 1
+        var pos: USize = 0
+        // Skip leading zeros in int_part
+        var skip: USize = 0
+        for ch in int_part.values() do
+          if (skip < (int_part.size() - int_digit_count)) then
+            skip = skip + 1
+          else
+            break
+          end
+        end
+
+        // Extract non-leading-zero integer digits
+        let int_digits = String
+        var skipped: USize = 0
+        for ch in int_part.values() do
+          if skipped < (int_part.size() - int_digit_count) then
+            skipped = skipped + 1
+          else
+            int_digits.push(ch)
+          end
+        end
+
+        // First group
+        var digit: U16 = 0
+        var i: USize = 0
+        while i < first_group_size do
+          digit = (digit * 10) + (int_digits(i)? - '0').u16()
+          i = i + 1
+        end
+        base10k.push(digit)
+        pos = first_group_size
+
+        // Remaining full groups from integer part
+        while pos < int_digit_count do
+          digit = 0
+          var j: USize = 0
+          while j < 4 do
+            digit = (digit * 10) + (int_digits(pos + j)? - '0').u16()
+            j = j + 1
+          end
+          base10k.push(digit)
+          pos = pos + 4
+        end
+
+        // Fractional groups
+        pos = 0
+        while pos < frac_part.size() do
+          digit = 0
+          var j: USize = 0
+          while j < 4 do
+            let ch = if (pos + j) < frac_part.size() then
+              try frac_part(pos + j)? else '0' end
+            else
+              '0'
+            end
+            digit = (digit * 10) + (ch - '0').u16()
+            j = j + 1
+          end
+          base10k.push(digit)
+          pos = pos + 4
+        end
+      else
+        // Pure fractional: need to account for leading zeros in groups
+        var pos: USize = 0
+        while pos < frac_part.size() do
+          var digit: U16 = 0
+          var j: USize = 0
+          while j < 4 do
+            let ch = if (pos + j) < frac_part.size() then
+              try frac_part(pos + j)? else '0' end
+            else
+              '0'
+            end
+            digit = (digit * 10) + (ch - '0').u16()
+            j = j + 1
+          end
+          base10k.push(digit)
+          pos = pos + 4
+        end
+      end
+
+      // Trim trailing zero groups (they're tracked by dscale)
+      while (base10k.size() > 0)
+        and (try base10k(base10k.size() - 1)? == 0 else false end)
+      do
+        try base10k.pop()? end
+      end
+
+      let ndigits = base10k.size().i16()
+      let digits_val: Array[U16] val = consume base10k
+
+      recover val
+        let a = Array[U8].init(0, 8 + (ndigits.usize() * 2))
+        ifdef bigendian then
+          a.update_u16(0, ndigits.u16())?
+          a.update_u16(2, weight.u16())?
+          a.update_u16(4, sign)?
+          a.update_u16(6, dscale)?
+        else
+          a.update_u16(0, ndigits.u16().bswap())?
+          a.update_u16(2, weight.u16().bswap())?
+          a.update_u16(4, sign.bswap())?
+          a.update_u16(6, dscale.bswap())?
+        end
+        var idx: USize = 8
+        for d in digits_val.values() do
+          ifdef bigendian then
+            a.update_u16(idx, d)?
+          else
+            a.update_u16(idx, d.bswap())?
+          end
+          idx = idx + 2
+        end
+        a
+      end
+    else
+      error
+    end
 
   fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() < 8 then error end

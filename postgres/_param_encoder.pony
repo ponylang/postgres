@@ -5,7 +5,9 @@ primitive _ParamEncoder
   server knows the expected types for typed parameters. `String` and `None`
   get OID 0 (server infers the type).
   """
-  fun oids_for(params: Array[FieldDataTypes] val): Array[U32] val =>
+  fun oids_for(params: Array[FieldDataTypes] val,
+    registry: CodecRegistry): Array[U32] val
+  =>
     recover val
       let oids = Array[U32](params.size())
       for p in params.values() do
@@ -17,6 +19,7 @@ primitive _ParamEncoder
         | let _: F64 => U32(701)
         | let _: Bool => U32(16)
         | let _: Array[U8] val => U32(17)
+        | let a: PgArray => registry.array_oid_for(a.element_oid)
         | let _: PgTimestamp => U32(1114)
         | let _: PgTime => U32(1083)
         | let _: PgDate => U32(1082)

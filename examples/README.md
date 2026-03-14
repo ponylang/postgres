@@ -2,6 +2,10 @@
 
 Each subdirectory is a self-contained Pony program demonstrating a different part of the postgres library.
 
+## array
+
+Array types using `PreparedQuery` with binary-format results and `PgArray` parameters. Executes a SELECT that returns an `int4[]` literal, matches on `PgArray` in the result and iterates the decoded elements, then sends a `PgArray` parameter containing `NULL` elements back as a query parameter to verify the encode/decode roundtrip.
+
 ## bytea
 
 Binary data using `bytea` columns. Executes a SELECT that returns a bytea value, matches on `Bytea` in the result, and prints the decoded bytes. Shows how the driver automatically decodes PostgreSQL's hex-format bytea representation into a `Bytea` wrapper around raw byte arrays.

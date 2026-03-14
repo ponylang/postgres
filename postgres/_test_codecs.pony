@@ -370,7 +370,7 @@ class \nodoc\ iso _TestParamEncoderOids is UnitTest
         PgTime(MakePgTimeMicroseconds(0) as PgTimeMicroseconds)
         PgDate(0); PgInterval(0, 0, 0)]
     end
-    let oids = _ParamEncoder.oids_for(params)
+    let oids = _ParamEncoder.oids_for(params, CodecRegistry)
     h.assert_eq[USize](13, oids.size())
     try
       h.assert_eq[U32](21, oids(0)?)    // I16
@@ -403,7 +403,7 @@ class \nodoc\ iso _TestFrontendMessageBindWithBinaryI32 is UnitTest
     let params: Array[FieldDataTypes] val = recover val
       [as FieldDataTypes: I32(42)]
     end
-    let result = _FrontendMessage.bind("", "", params)?
+    let result = _FrontendMessage.bind("", "", params, CodecRegistry)?
     h.assert_eq[USize](25, result.size())
 
     // Check format code is binary (1)
@@ -436,7 +436,7 @@ class \nodoc\ iso _TestFrontendMessageBindMixedParams is UnitTest
     let params: Array[FieldDataTypes] val = recover val
       [as FieldDataTypes: "hello"; I32(42); None]
     end
-    let result = _FrontendMessage.bind("", "", params)?
+    let result = _FrontendMessage.bind("", "", params, CodecRegistry)?
     h.assert_eq[USize](42, result.size())
 
 class \nodoc\ iso _TestFrontendMessageBindEmptyParams is UnitTest
@@ -449,7 +449,7 @@ class \nodoc\ iso _TestFrontendMessageBindEmptyParams is UnitTest
     // Result format: num_result_formats=1, format_code=1 (binary)
     // Length = 4 + 0+1 + 0+1 + 2 + 0 + 2 + 0 + 2 + 2 = 14, total = 15
     let params: Array[FieldDataTypes] val = recover val Array[FieldDataTypes] end
-    let result = _FrontendMessage.bind("", "", params)?
+    let result = _FrontendMessage.bind("", "", params, CodecRegistry)?
     h.assert_eq[USize](15, result.size())
 
 class \nodoc\ iso _TestFrontendMessageBindTemporalParams is UnitTest
@@ -468,7 +468,7 @@ class \nodoc\ iso _TestFrontendMessageBindTemporalParams is UnitTest
         PgDate(365)            // 2001-01-01
         PgInterval(0, 30, 1)] // 1 mon 30 days
     end
-    let result = _FrontendMessage.bind("", "", params)?
+    let result = _FrontendMessage.bind("", "", params, CodecRegistry)?
     h.assert_eq[USize](75, result.size())
 
     // All 4 format codes should be binary (1)
@@ -870,8 +870,11 @@ class \nodoc\ iso _TestNumericBinaryCodecEncodeErrors is UnitTest
     "Codec/Binary/Numeric/EncodeErrors"
 
   fun apply(h: TestHelper) =>
-    // Encode is not supported, should error
-    h.assert_error({()? => _NumericBinaryCodec.encode("42")? })
+    // Non-String types should error
+    h.assert_error({()? => _NumericBinaryCodec.encode(I32(42))? })
+    h.assert_error({()? => _NumericBinaryCodec.encode(true)? })
+    // Invalid string formats should error
+    h.assert_error({()? => _NumericBinaryCodec.encode("abc")? })
 
 class \nodoc\ iso _TestNumericBinaryCodecBadSign is UnitTest
   """

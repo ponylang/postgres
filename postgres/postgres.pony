@@ -104,10 +104,10 @@ Three query types are available, all executed via `session.execute()`:
 * **`PreparedQuery`** — a parameterized single statement using `$1`,
   `$2`, etc. Parameters are `Array[FieldDataTypes] val` — typed values
   (`I16`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Array[U8] val`,
-  `PgTimestamp`, `PgTime`, `PgDate`, `PgInterval`) are sent in binary
-  format with explicit OIDs, while `String` and `None` use text format
-  with server-inferred types. Uses an unnamed server-side prepared
-  statement (created and destroyed per execution).
+  `PgArray`, `PgTimestamp`, `PgTime`, `PgDate`, `PgInterval`) are sent
+  in binary format with explicit OIDs, while `String` and `None` use
+  text format with server-inferred types. Uses an unnamed server-side
+  prepared statement (created and destroyed per execution).
 
 * **`NamedPreparedQuery`** — executes a previously prepared named
   statement (see `session.prepare()`). Same typed parameter semantics
@@ -145,6 +145,8 @@ be pg_query_result(session: Session, result: Result) =>
         | let b: Bool => _env.out.print(field.name + ": " + b.string())
         | let v: Bytea =>
           _env.out.print(field.name + ": " + v.data.size().string() + " bytes")
+        | let a: PgArray =>
+          _env.out.print(field.name + ": " + a.string())
         | let t: PgTimestamp => _env.out.print(field.name + ": " + t.string())
         | let t: PgDate => _env.out.print(field.name + ": " + t.string())
         | let t: PgTime => _env.out.print(field.name + ": " + t.string())
@@ -163,9 +165,10 @@ Field values are typed based on the PostgreSQL column OID:
 bytea → `Bytea`, bool → `Bool`, int2 → `I16`, int4 → `I32`,
 int8 → `I64`, float4 → `F32`, float8 → `F64`, date → `PgDate`,
 time → `PgTime`, timestamp/timestamptz → `PgTimestamp`,
-interval → `PgInterval`, NULL → `None`. Extended query results use
-binary format — unknown OIDs produce `RawBytes`. Simple query
-results use text format — unknown OIDs produce `String`.
+interval → `PgInterval`, array types → `PgArray`, NULL → `None`.
+Extended query results use binary format — unknown OIDs produce
+`RawBytes`. Simple query results use text format — unknown OIDs
+produce `String`.
 
 **`timestamptz` and query format:** `PreparedQuery` results use binary
 format where `timestamptz` values are always UTC microseconds.
@@ -319,6 +322,31 @@ it. If cancelled, the query's `ResultReceiver` receives
 `pg_query_failed` with SQLSTATE 57014. Queued queries are not
 affected.
 
+## Array Types
+
+1-dimensional PostgreSQL arrays are automatically decoded into `PgArray`
+values. All built-in element types are supported (int2, int4, int8,
+float4, float8, bool, text, bytea, date, time, timestamp, timestamptz,
+interval, uuid, jsonb, numeric, and text-like types).
+
+`PgArray` can also be used as a query parameter:
+
+```pony
+let arr = PgArray(23,
+  recover val [as (FieldData | None): I32(1); I32(2); None; I32(4)] end)
+session.execute(PreparedQuery("SELECT $1::int4[]",
+  recover val [as FieldDataTypes: arr] end), receiver)
+```
+
+For custom array types (arrays of custom codec-registered OIDs), use
+`CodecRegistry.with_array_type()`:
+
+```pony
+let registry = CodecRegistry
+  .with_codec(600, PointBinaryCodec)
+  .with_array_type(1017, 600)
+```
+
 ## Custom Codecs
 
 Extend the driver with custom type decoders. Implement `Codec` to decode
@@ -387,5 +415,7 @@ supported.
 * Query pipelining (batched multi-query execution)
 * Query cancellation
 * ParameterStatus tracking (server runtime parameters)
+* 1-dimensional array types (decode and encode via `PgArray`)
 * Custom codecs via `CodecRegistry.with_codec()`
+* Custom array types via `CodecRegistry.with_array_type()`
 """

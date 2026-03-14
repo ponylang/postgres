@@ -50,6 +50,9 @@ test: unit-tests integration-tests examples
 unit-tests: $(tests_binary)
 	$^ --exclude=integration/ --sequential
 
+test-one: $(tests_binary)
+	$^ --only="$(t)"
+
 integration-tests: $(tests_binary)
 	$^ --only=integration/ --sequential
 
@@ -101,4 +104,4 @@ $(BUILD_DIR):
 $(COVERAGE_DIR):
 	mkdir -p $(COVERAGE_DIR)
 
-.PHONY: all examples clean docs TAGS test coverage start-pg-containers stop-pg-containers
+.PHONY: all examples clean docs TAGS test test-one coverage start-pg-containers stop-pg-containers

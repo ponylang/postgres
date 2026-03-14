@@ -374,6 +374,10 @@ actor \nodoc\ Main is TestList
     test(_TestFieldInequalityCustomType)
     test(_TestFieldEqualityCustomWithoutEquatable)
     test(_TestFieldEqualityCustomVsBuiltin)
+    test(_TestFieldEqualityCustomEquatableVsNonEquatable)
+    test(_TestCodecRegistryWithCodecCustomText)
+    test(Property1UnitTest[(I64, I64)](
+      _TestFieldCustomEqualityReflexiveProperty))
 
 class \nodoc\ iso _TestAuthenticate is UnitTest
   """

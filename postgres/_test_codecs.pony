@@ -2895,14 +2895,16 @@ class \nodoc\ iso _TestCodecRegistryWithCodecOverride is UnitTest
     "CodecRegistry/WithCodec/Override"
 
   fun apply(h: TestHelper) =>
-    // Override built-in bool codec
+    // Override built-in bool codec with point codec
     let reg = CodecRegistry.with_codec(16, _TestPointCodec)
     // OID 16 is normally bool; with override, it should try point codec
     // which expects 16 bytes, not 1 — so it should error and fall back
+    // to RawBytes (unknown binary fallback)
     let data: Array[U8] val = recover val [1] end
     match reg.decode(16, 1, data)
-    | let _: RawBytes => h.assert_true(true) // Falls back
-    else h.assert_true(true) // Any non-error result is fine
+    | let r: RawBytes =>
+      h.assert_array_eq[U8](data, r.data)
+    else h.fail("Expected RawBytes fallback when overridden codec errors")
     end
 
 class \nodoc\ iso _TestCodecRegistryWithCodecChaining is UnitTest
@@ -3018,3 +3020,57 @@ class \nodoc\ iso _TestFieldEqualityCustomVsBuiltin is UnitTest
     let p = _TestPoint(1.0, 2.0)
     h.assert_false(Field("x", p) == Field("x", I32(42)))
     h.assert_false(Field("x", I32(42)) == Field("x", p))
+
+class \nodoc\ iso _TestFieldEqualityCustomEquatableVsNonEquatable is UnitTest
+  """
+  Verifies symmetry when comparing a custom type with FieldDataEquatable
+  against a custom type without it. Neither direction should be equal.
+  """
+  fun name(): String =>
+    "Field/Equality/CustomEquatableVsNonEquatable"
+
+  fun apply(h: TestHelper) =>
+    let equatable = _TestPoint(1.0, 2.0)
+    let opaque = _TestOpaqueData("(1.0,2.0)")
+    // FieldDataEquatable dispatches to _TestPoint.field_data_eq which returns
+    // false for non-_TestPoint types
+    h.assert_false(Field("x", equatable) == Field("x", opaque))
+    // _TestOpaqueData has no FieldDataEquatable, falls to else false
+    h.assert_false(Field("x", opaque) == Field("x", equatable))
+
+// ---------------------------------------------------------------------------
+// Custom text codec test
+// ---------------------------------------------------------------------------
+
+primitive \nodoc\ _TestUppercaseTextCodec is Codec
+  """
+  Trivial custom text codec for testing the text branch of with_codec.
+  Decodes by uppercasing the input.
+  """
+  fun format(): U16 => 0
+
+  fun encode(value: FieldDataTypes): Array[U8] val ? =>
+    error
+
+  fun decode(data: Array[U8] val): FieldData =>
+    let s = String.from_array(data)
+    recover val s.upper() end
+
+class \nodoc\ iso _TestCodecRegistryWithCodecCustomText is UnitTest
+  fun name(): String =>
+    "CodecRegistry/WithCodec/CustomTextCodec"
+
+  fun apply(h: TestHelper) =>
+    let reg = CodecRegistry.with_codec(99900, _TestUppercaseTextCodec)
+    // Custom text codec should decode via the text codec map
+    let data: Array[U8] val = "hello".array()
+    match reg.decode(99900, 0, data)
+    | let s: String => h.assert_eq[String]("HELLO", s)
+    else h.fail("Expected String from custom text codec")
+    end
+    // Binary format for same OID should fall back to RawBytes
+    // (no binary codec registered)
+    match reg.decode(99900, 1, data)
+    | let r: RawBytes => h.assert_array_eq[U8](data, r.data)
+    else h.fail("Expected RawBytes fallback for binary format of text-only codec")
+    end

@@ -5,9 +5,8 @@ use "pony_test"
 
 class \nodoc\ iso _TestFieldEqualityReflexive is UnitTest
   """
-  Every FieldDataTypes variant produces a Field that is equal to itself.
-  Covers all 13 variants of the FieldDataTypes union to verify each match
-  branch in Field.eq.
+  Every built-in FieldData type produces a Field that is equal to itself.
+  Covers all 14 built-in types to verify each match branch in Field.eq.
   """
   fun name(): String => "Field/Equality/Reflexive"
 
@@ -36,7 +35,7 @@ class \nodoc\ iso _TestFieldEqualityReflexive is UnitTest
 class \nodoc\ iso _TestFieldEqualityStructural is UnitTest
   """
   Two independently constructed Fields with the same name and value are equal.
-  Covers all 13 variants of the FieldDataTypes union.
+  Covers all 14 built-in FieldData types.
   """
   fun name(): String => "Field/Equality/Structural"
 
@@ -63,6 +62,9 @@ class \nodoc\ iso _TestFieldEqualityStructural is UnitTest
     h.assert_true(
       Field("a", PgTimestamp(1000)) == Field("a", PgTimestamp(1000)))
     h.assert_true(Field("a", "hello") == Field("a", "hello"))
+    h.assert_true(
+      Field("a", RawBytes(recover val [as U8: 7; 8] end))
+        == Field("a", RawBytes(recover val [as U8: 7; 8] end)))
 
 class \nodoc\ iso _TestFieldEqualitySymmetric is UnitTest
   """
@@ -92,7 +94,7 @@ class \nodoc\ iso _TestFieldEqualitySymmetric is UnitTest
     let f8 = Field("x", I32(0))
     h.assert_true(f7.eq(f8) == f8.eq(f7))
 
-    // Array[U8] vs String
+    // Bytea vs String
     let f9 = Field("x", Bytea(recover val [as U8: 1; 2] end))
     let f10 = Field("x", "hello")
     h.assert_true(f9.eq(f10) == f10.eq(f9))
@@ -119,7 +121,7 @@ class \nodoc\ iso _TestFieldInequality is UnitTest
     h.assert_false(Field("a", None) == Field("a", I32(0)))
     h.assert_false(Field("a", I32(0)) == Field("a", None))
 
-    // Array[U8] vs different Array[U8]
+    // Bytea vs different Bytea
     h.assert_false(
       Field("a", Bytea(recover val [as U8: 1; 2] end))
         == Field("a", Bytea(recover val [as U8: 1; 3] end)))
@@ -127,7 +129,15 @@ class \nodoc\ iso _TestFieldInequality is UnitTest
       Field("a", Bytea(recover val [as U8: 1; 2] end))
         == Field("a", Bytea(recover val [as U8: 1; 2; 3] end)))
 
-    // Array[U8] vs String
+    // Bytea vs RawBytes (same underlying bytes, different types)
+    h.assert_false(
+      Field("a", Bytea(recover val [as U8: 1; 2] end))
+        == Field("a", RawBytes(recover val [as U8: 1; 2] end)))
+    h.assert_false(
+      Field("a", RawBytes(recover val [as U8: 1; 2] end))
+        == Field("a", Bytea(recover val [as U8: 1; 2] end)))
+
+    // Bytea vs String
     h.assert_false(
       Field("a", Bytea(recover val [as U8: 1; 2] end))
         == Field("a", "hello"))
@@ -463,3 +473,20 @@ class \nodoc\ iso _TestRowsReflexiveProperty is Property1[Rows]
 
   fun ref property(arg1: Rows, h: PropertyHelper) =>
     h.assert_true(arg1 == arg1)
+
+class \nodoc\ iso _TestFieldCustomEqualityReflexiveProperty
+  is Property1[(I64, I64)]
+  """
+  Fields containing custom FieldDataEquatable values are reflexively equal.
+  Uses generated I64 pairs converted to F64 to construct _TestPoint values.
+  """
+  fun name(): String => "Field/Equality/CustomReflexive/Property"
+
+  fun gen(): Generator[(I64, I64)] =>
+    Generators.zip2[I64, I64](
+      Generators.i64(),
+      Generators.i64())
+
+  fun ref property(arg1: (I64, I64), h: PropertyHelper) =>
+    let p = _TestPoint(F64.from[I64](arg1._1), F64.from[I64](arg1._2))
+    h.assert_true(Field("pt", p) == Field("pt", p))

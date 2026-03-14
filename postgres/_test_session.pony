@@ -630,7 +630,7 @@ actor \nodoc\ _TerminateSentTestServer
 class \nodoc\ iso _TestByteaResultDecoding is UnitTest
   """
   Verifies that a bytea column (OID 17) is decoded from PostgreSQL's hex
-  format into Array[U8] val. Uses a mock server that sends RowDescription
+  format into Bytea. Uses a mock server that sends RowDescription
   with a bytea column followed by a DataRow containing hex-encoded bytes.
   """
   fun name(): String =>
@@ -654,7 +654,7 @@ class \nodoc\ iso _TestByteaResultDecoding is UnitTest
 class \nodoc\ iso _TestEmptyByteaResultDecoding is UnitTest
   """
   Verifies that an empty bytea value (just the \\x prefix) is decoded into
-  an empty Array[U8] val.
+  an empty Bytea.
   """
   fun name(): String =>
     "Bytea/EmptyResultDecoding"

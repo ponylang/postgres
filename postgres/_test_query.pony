@@ -2067,8 +2067,8 @@ actor \nodoc\ _CopyInAbortRollbackClient is
 
 class \nodoc\ iso _TestQueryByteaResults is UnitTest
   """
-  Verifies that a bytea column is decoded from hex format into Array[U8] val
-  when queried from a real PostgreSQL server.
+  Verifies that a bytea column is decoded from hex format into Bytea when
+  queried from a real PostgreSQL server.
   """
   fun name(): String =>
     "integration/Query/ByteaResults"

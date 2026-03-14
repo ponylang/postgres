@@ -12,7 +12,7 @@ Custom type decoding via `CodecRegistry.with_codec()`. Defines a `Point` class i
 
 ## query
 
-Minimal example using `SimpleQuery`. Connects, authenticates, executes `SELECT 525600::text`, and prints the result by iterating rows and matching on `FieldDataTypes`. Start here if you're new to the library.
+Minimal example using `SimpleQuery`. Connects, authenticates, executes `SELECT 525600::text`, and prints the result by iterating rows and matching on field value types. Start here if you're new to the library.
 
 ## prepared-query
 

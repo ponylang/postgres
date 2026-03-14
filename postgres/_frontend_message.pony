@@ -140,12 +140,16 @@ primitive _FrontendMessage
     Format: Byte1('B') Int32(len) String(portal) String(stmt)
             Int16(num_param_formats) Int16[](param_formats)
             Int16(num_params) [Int32(val_len) Byte[](val)]*
-            Int16(0)
+            Int16(num_result_formats) Int16[](result_format_codes)
 
     Parameters use per-parameter format codes: binary (1) for typed values
-    (I16, I32, I64, F32, F64, Bool, Array[U8] val), text (0) for String.
-    NULL parameters use text format code (doesn't matter — no data bytes).
-    Result format codes remain all text (num_result_formats = 0 shorthand).
+    (I16, I32, I64, F32, F64, Bool, Array[U8] val, PgTimestamp, PgTime,
+    PgDate, PgInterval), text (0) for String. NULL parameters use text
+    format code (doesn't matter — no data bytes).
+    Result format: all binary (num_result_formats = 1, format_code = 1).
+
+    Note: The inline encoding for each type must match the corresponding
+    binary codec's encode() method. See _binary_codecs.pony.
     """
     recover val
       // Calculate params payload size
@@ -162,15 +166,19 @@ primitive _FrontendMessage
         | let _: Bool => params_data_size = params_data_size + 1
         | let a: Array[U8] val =>
           params_data_size = params_data_size + a.size()
+        | let _: PgTimestamp => params_data_size = params_data_size + 8
+        | let _: PgTime => params_data_size = params_data_size + 8
+        | let _: PgDate => params_data_size = params_data_size + 4
+        | let _: PgInterval => params_data_size = params_data_size + 16
         | None => None // NULL: val_len = -1, no data
         end
       end
       // 1 type + 4 length + portal + null + stmt + null
       // + 2 num_param_formats + (2 * num_params) for format codes
       // + 2 num_params + params_data_size
-      // + 2 num_result_formats
+      // + 2 num_result_formats + 2 result_format_code (all binary)
       let length: U32 = 4 + portal.size().u32() + 1 + stmt.size().u32() + 1
-        + 2 + (params.size().u32() * 2) + 2 + params_data_size.u32() + 2
+        + 2 + (params.size().u32() * 2) + 2 + params_data_size.u32() + 4
       let msg_size = (length + 1).usize()
       let msg: Array[U8] = Array[U8].init(0, msg_size)
       msg.update_u8(0, 'B')?
@@ -307,6 +315,62 @@ primitive _FrontendMessage
           offset = offset + 4
           msg.copy_from(a, 0, offset, a.size())
           offset = offset + a.size()
+        | let v: PgTimestamp =>
+          ifdef bigendian then
+            msg.update_u32(offset, U32(8))?
+          else
+            msg.update_u32(offset, U32(8).bswap())?
+          end
+          offset = offset + 4
+          ifdef bigendian then
+            msg.update_u64(offset, v.microseconds.u64())?
+          else
+            msg.update_u64(offset, v.microseconds.u64().bswap())?
+          end
+          offset = offset + 8
+        | let v: PgTime =>
+          ifdef bigendian then
+            msg.update_u32(offset, U32(8))?
+          else
+            msg.update_u32(offset, U32(8).bswap())?
+          end
+          offset = offset + 4
+          ifdef bigendian then
+            msg.update_u64(offset, v.microseconds.u64())?
+          else
+            msg.update_u64(offset, v.microseconds.u64().bswap())?
+          end
+          offset = offset + 8
+        | let v: PgDate =>
+          ifdef bigendian then
+            msg.update_u32(offset, U32(4))?
+          else
+            msg.update_u32(offset, U32(4).bswap())?
+          end
+          offset = offset + 4
+          ifdef bigendian then
+            msg.update_u32(offset, v.days.u32())?
+          else
+            msg.update_u32(offset, v.days.u32().bswap())?
+          end
+          offset = offset + 4
+        | let v: PgInterval =>
+          ifdef bigendian then
+            msg.update_u32(offset, U32(16))?
+          else
+            msg.update_u32(offset, U32(16).bswap())?
+          end
+          offset = offset + 4
+          ifdef bigendian then
+            msg.update_u64(offset, v.microseconds.u64())?
+            msg.update_u32(offset + 8, v.days.u32())?
+            msg.update_u32(offset + 12, v.months.u32())?
+          else
+            msg.update_u64(offset, v.microseconds.u64().bswap())?
+            msg.update_u32(offset + 8, v.days.u32().bswap())?
+            msg.update_u32(offset + 12, v.months.u32().bswap())?
+          end
+          offset = offset + 16
         | None =>
           // NULL: val_len = -1 (0xFFFFFFFF as unsigned)
           ifdef bigendian then
@@ -317,7 +381,19 @@ primitive _FrontendMessage
           offset = offset + 4
         end
       end
-      // num_result_formats = 0 (all text shorthand) — already zero from init
+      // num_result_formats = 1 (single code applied to all columns)
+      ifdef bigendian then
+        msg.update_u16(offset, U16(1))?
+      else
+        msg.update_u16(offset, U16(1).bswap())?
+      end
+      offset = offset + 2
+      // result_format_code = 1 (binary)
+      ifdef bigendian then
+        msg.update_u16(offset, U16(1))?
+      else
+        msg.update_u16(offset, U16(1).bswap())?
+      end
       msg
     end
 

@@ -156,25 +156,23 @@ actor \nodoc\ _PipelineSuccessTestServer
           if msg(0)? == 'S' then
             // Sync received — send result for this query cycle
             _query_count = _query_count + 1
-            try
-              let columns: Array[(String, String)] val = recover val
-                [("?column?", "int4")]
-              end
-              let row_desc =
-                _IncomingRowDescriptionTestMessage(columns)?.bytes()
-              let data_row_cols: Array[(String | None)] val = recover val
-                [as (String | None): _query_count.string()]
-              end
-              let data_row =
-                _IncomingDataRowTestMessage(data_row_cols).bytes()
-              let cmd_complete =
-                _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
-              let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-              _tcp_connection.send(row_desc)
-              _tcp_connection.send(data_row)
-              _tcp_connection.send(cmd_complete)
-              _tcp_connection.send(ready)
+            let columns: Array[(String, U32, U16)] val = recover val
+              [("?column?", U32(23), U16(0))]
             end
+            let row_desc =
+              _IncomingRowDescriptionTestMessage(columns).bytes()
+            let data_row_cols: Array[(String | None)] val = recover val
+              [as (String | None): _query_count.string()]
+            end
+            let data_row =
+              _IncomingDataRowTestMessage(data_row_cols).bytes()
+            let cmd_complete =
+              _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
+            let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+            _tcp_connection.send(row_desc)
+            _tcp_connection.send(data_row)
+            _tcp_connection.send(cmd_complete)
+            _tcp_connection.send(ready)
           end
         end
         _process()
@@ -344,25 +342,23 @@ actor \nodoc\ _PipelineWithFailureTestServer
               _tcp_connection.send(ready)
             else
               // Queries 1 and 3 succeed
-              try
-                let columns: Array[(String, String)] val = recover val
-                  [("?column?", "int4")]
-                end
-                let row_desc =
-                  _IncomingRowDescriptionTestMessage(columns)?.bytes()
-                let data_row_cols: Array[(String | None)] val = recover val
-                  [as (String | None): _sync_count.string()]
-                end
-                let data_row =
-                  _IncomingDataRowTestMessage(data_row_cols).bytes()
-                let cmd_complete =
-                  _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
-                let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-                _tcp_connection.send(row_desc)
-                _tcp_connection.send(data_row)
-                _tcp_connection.send(cmd_complete)
-                _tcp_connection.send(ready)
+              let columns: Array[(String, U32, U16)] val = recover val
+                [("?column?", U32(23), U16(0))]
               end
+              let row_desc =
+                _IncomingRowDescriptionTestMessage(columns).bytes()
+              let data_row_cols: Array[(String | None)] val = recover val
+                [as (String | None): _sync_count.string()]
+              end
+              let data_row =
+                _IncomingDataRowTestMessage(data_row_cols).bytes()
+              let cmd_complete =
+                _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
+              let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+              _tcp_connection.send(row_desc)
+              _tcp_connection.send(data_row)
+              _tcp_connection.send(cmd_complete)
+              _tcp_connection.send(ready)
             end
           end
         end
@@ -882,25 +878,23 @@ actor \nodoc\ _PipelineShutdownInFlightTestServer
           if (msg(0)? == 'S') and (not _sync_sent) then
             // Respond to only the first Sync
             _sync_sent = true
-            try
-              let columns: Array[(String, String)] val = recover val
-                [("?column?", "int4")]
-              end
-              let row_desc =
-                _IncomingRowDescriptionTestMessage(columns)?.bytes()
-              let data_row_cols: Array[(String | None)] val = recover val
-                [as (String | None): "1"]
-              end
-              let data_row =
-                _IncomingDataRowTestMessage(data_row_cols).bytes()
-              let cmd_complete =
-                _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
-              let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-              _tcp_connection.send(row_desc)
-              _tcp_connection.send(data_row)
-              _tcp_connection.send(cmd_complete)
-              _tcp_connection.send(ready)
+            let columns: Array[(String, U32, U16)] val = recover val
+              [("?column?", U32(23), U16(0))]
             end
+            let row_desc =
+              _IncomingRowDescriptionTestMessage(columns).bytes()
+            let data_row_cols: Array[(String | None)] val = recover val
+              [as (String | None): "1"]
+            end
+            let data_row =
+              _IncomingDataRowTestMessage(data_row_cols).bytes()
+            let cmd_complete =
+              _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
+            let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+            _tcp_connection.send(row_desc)
+            _tcp_connection.send(data_row)
+            _tcp_connection.send(cmd_complete)
+            _tcp_connection.send(ready)
             // After this, go silent — client will call close()
           end
         end

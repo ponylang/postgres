@@ -66,6 +66,10 @@ actor Client is (SessionStatusNotify & ResultReceiver)
           | let v: F32 => _out.print(v.string())
           | let v: F64 => _out.print(v.string())
           | let v: Bool => _out.print(v.string())
+          | let t: PgTimestamp => _out.print(t.string())
+          | let t: PgTime => _out.print(t.string())
+          | let t: PgDate => _out.print(t.string())
+          | let t: PgInterval => _out.print(t.string())
           | None => _out.print("NULL")
           end
         end

@@ -67,8 +67,9 @@ class RowIterator is Iterator[Row]
     this
 
 primitive _RowsBuilder
-  fun apply(rows': Array[Array[(String|None)] val] val,
-    row_descriptions': Array[(String, U32)] val): Rows ?
+  fun apply(rows': Array[Array[(Array[U8] val | None)] val] val,
+    row_descriptions': Array[(String, U32, U16)] val,
+    registry: CodecRegistry): Rows ?
   =>
     let rows = recover iso Array[Row] end
     for row in rows'.values() do
@@ -76,52 +77,14 @@ primitive _RowsBuilder
       for (i, v) in row.pairs() do
         let desc = row_descriptions'(i)?
         let field_name = desc._1
-        let field_type = desc._2
-        let field_value = _field_to_type(v, field_type)?
-        let field = Field(field_name, field_value)
-        fields.push(field)
+        let oid = desc._2
+        let format_code = desc._3
+        let field_value: FieldDataTypes = match v
+        | let data: Array[U8] val => registry.decode(oid, format_code, data)
+        | None => None
+        end
+        fields.push(Field(field_name, field_value))
       end
       rows.push(Row(consume fields))
     end
     Rows(consume rows)
-
-  fun _field_to_type(field: (String | None), type_id: U32): FieldDataTypes ? =>
-    match \exhaustive\ field
-    | let f: String =>
-      match type_id
-      | 16 => f.at("t")
-      | 17 => _decode_hex_bytea(f)?
-      | 20 => f.i64()?
-      | 21 => f.i16()?
-      | 23 => f.i32()?
-      | 700 => f.f32()?
-      | 701 => f.f64()?
-      else
-        f
-      end
-    | None =>
-      None
-    end
-
-  fun _decode_hex_bytea(s: String): Array[U8] val ? =>
-    if (s.size() < 2) or (s(0)? != '\\') or (s(1)? != 'x') then error end
-    let hex_len = s.size() - 2
-    if (hex_len % 2) != 0 then error end
-    recover val
-      let result = Array[U8](hex_len / 2)
-      var i: USize = 2
-      while i < s.size() do
-        let hi = _hex_digit(s(i)?)?
-        let lo = _hex_digit(s(i + 1)?)?
-        result.push((hi * 16) + lo)
-        i = i + 2
-      end
-      result
-    end
-
-  fun _hex_digit(c: U8): U8 ? =>
-    if (c >= '0') and (c <= '9') then c - '0'
-    elseif (c >= 'a') and (c <= 'f') then (c - 'a') + 10
-    elseif (c >= 'A') and (c <= 'F') then (c - 'A') + 10
-    else error
-    end

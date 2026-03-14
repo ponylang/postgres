@@ -347,29 +347,28 @@ actor \nodoc\ _NotificationMidQueryTestServer
     else
       match _reader.read_message()
       | let _: Array[U8] val =>
-        try
-          let columns: Array[(String, String)] val = [("col", "text")]
-          let row_desc =
-            _IncomingRowDescriptionTestMessage(columns)?.bytes()
+        let columns: Array[(String, U32, U16)] val =
+          [("col", U32(25), U16(0))]
+        let row_desc =
+          _IncomingRowDescriptionTestMessage(columns).bytes()
 
-          let row1_cols: Array[(String | None)] val = ["row1"]
-          let data_row_1 = _IncomingDataRowTestMessage(row1_cols).bytes()
-          let row2_cols: Array[(String | None)] val = ["row2"]
-          let data_row_2 = _IncomingDataRowTestMessage(row2_cols).bytes()
+        let row1_cols: Array[(String | None)] val = ["row1"]
+        let data_row_1 = _IncomingDataRowTestMessage(row1_cols).bytes()
+        let row2_cols: Array[(String | None)] val = ["row2"]
+        let data_row_2 = _IncomingDataRowTestMessage(row2_cols).bytes()
 
-          let notif = _IncomingNotificationResponseTestMessage(
-            1, "ch", "mid-query").bytes()
+        let notif = _IncomingNotificationResponseTestMessage(
+          1, "ch", "mid-query").bytes()
 
-          let cmd = _IncomingCommandCompleteTestMessage("SELECT 2").bytes()
-          let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        let cmd = _IncomingCommandCompleteTestMessage("SELECT 2").bytes()
+        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
 
-          _tcp_connection.send(row_desc)
-          _tcp_connection.send(data_row_1)
-          _tcp_connection.send(notif)
-          _tcp_connection.send(data_row_2)
-          _tcp_connection.send(cmd)
-          _tcp_connection.send(ready)
-        end
+        _tcp_connection.send(row_desc)
+        _tcp_connection.send(data_row_1)
+        _tcp_connection.send(notif)
+        _tcp_connection.send(data_row_2)
+        _tcp_connection.send(cmd)
+        _tcp_connection.send(ready)
       end
     end
 

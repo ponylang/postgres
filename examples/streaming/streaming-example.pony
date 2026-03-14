@@ -104,6 +104,10 @@ actor Client is
         match field.value
         | let v: String => _out.write(v)
         | let v: I32 => _out.write(v.string())
+        | let t: PgTimestamp => _out.write(t.string())
+        | let t: PgTime => _out.write(t.string())
+        | let t: PgDate => _out.write(t.string())
+        | let t: PgInterval => _out.write(t.string())
         | None => _out.write("NULL")
         end
       end

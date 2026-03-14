@@ -38,6 +38,10 @@ class val Field is Equatable[Field]
     | (let a: I32, let b: I32) => a == b
     | (let a: I64, let b: I64) => a == b
     | (None, None) => true
+    | (let a: PgDate, let b: PgDate) => a == b
+    | (let a: PgInterval, let b: PgInterval) => a == b
+    | (let a: PgTime, let b: PgTime) => a == b
+    | (let a: PgTimestamp, let b: PgTimestamp) => a == b
     | (let a: String, let b: String) => a == b
     else
       false

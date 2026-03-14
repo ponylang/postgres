@@ -162,14 +162,12 @@ actor \nodoc\ _StreamingSuccessTestServer
             // First Execute received. Send RowDescription + 2 DataRows +
             // PortalSuspended
             _execute_count = _execute_count + 1
-            try
-              let columns: Array[(String, String)] val = recover val
-                [("id", "int4")]
-              end
-              let row_desc =
-                _IncomingRowDescriptionTestMessage(columns)?.bytes()
-              _tcp_connection.send(row_desc)
+            let columns: Array[(String, U32, U16)] val = recover val
+              [("id", U32(23), U16(0))]
             end
+            let row_desc =
+              _IncomingRowDescriptionTestMessage(columns).bytes()
+            _tcp_connection.send(row_desc)
             _send_data_rows(2, (_execute_count.usize() - 1) * 2)
             let ps = _IncomingPortalSuspendedTestMessage.bytes()
             _tcp_connection.send(ps)
@@ -374,17 +372,15 @@ actor \nodoc\ _StreamingEmptyTestServer
         try
           if msg(0)? == 'E' then
             // Execute received — send RowDescription + CommandComplete
-            try
-              let columns: Array[(String, String)] val = recover val
-                [("id", "int4")]
-              end
-              let row_desc =
-                _IncomingRowDescriptionTestMessage(columns)?.bytes()
-              let cmd_complete =
-                _IncomingCommandCompleteTestMessage("SELECT 0").bytes()
-              _tcp_connection.send(row_desc)
-              _tcp_connection.send(cmd_complete)
+            let columns: Array[(String, U32, U16)] val = recover val
+              [("id", U32(23), U16(0))]
             end
+            let row_desc =
+              _IncomingRowDescriptionTestMessage(columns).bytes()
+            let cmd_complete =
+              _IncomingCommandCompleteTestMessage("SELECT 0").bytes()
+            _tcp_connection.send(row_desc)
+            _tcp_connection.send(cmd_complete)
             _state = 2
           else
             _process()
@@ -551,14 +547,12 @@ actor \nodoc\ _StreamingEarlyStopTestServer
       | let msg: Array[U8] val =>
         try
           if msg(0)? == 'E' then
-            try
-              let columns: Array[(String, String)] val = recover val
-                [("id", "int4")]
-              end
-              let row_desc =
-                _IncomingRowDescriptionTestMessage(columns)?.bytes()
-              _tcp_connection.send(row_desc)
+            let columns: Array[(String, U32, U16)] val = recover val
+              [("id", U32(23), U16(0))]
             end
+            let row_desc =
+              _IncomingRowDescriptionTestMessage(columns).bytes()
+            _tcp_connection.send(row_desc)
             let data_row_cols: Array[(String | None)] val = recover val
               [as (String | None): "1"]
             end
@@ -779,25 +773,23 @@ actor \nodoc\ _StreamingServerErrorTestServer
       | let msg: Array[U8] val =>
         try
           if msg(0)? == 'Q' then
-            try
-              let columns: Array[(String, String)] val = recover val
-                [("?column?", "text")]
-              end
-              let row_desc =
-                _IncomingRowDescriptionTestMessage(columns)?.bytes()
-              let data_row_cols: Array[(String | None)] val = recover val
-                [as (String | None): "1"]
-              end
-              let data_row =
-                _IncomingDataRowTestMessage(data_row_cols).bytes()
-              let cmd_complete =
-                _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
-              let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-              _tcp_connection.send(row_desc)
-              _tcp_connection.send(data_row)
-              _tcp_connection.send(cmd_complete)
-              _tcp_connection.send(ready)
+            let columns: Array[(String, U32, U16)] val = recover val
+              [("?column?", U32(25), U16(0))]
             end
+            let row_desc =
+              _IncomingRowDescriptionTestMessage(columns).bytes()
+            let data_row_cols: Array[(String | None)] val = recover val
+              [as (String | None): "1"]
+            end
+            let data_row =
+              _IncomingDataRowTestMessage(data_row_cols).bytes()
+            let cmd_complete =
+              _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
+            let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+            _tcp_connection.send(row_desc)
+            _tcp_connection.send(data_row)
+            _tcp_connection.send(cmd_complete)
+            _tcp_connection.send(ready)
           end
         end
       end

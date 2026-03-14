@@ -174,25 +174,58 @@ class \nodoc\ iso _TestResponseParserRowDescriptionMessage is UnitTest
     "ResponseParser/RowDescriptionMessage"
 
   fun apply(h: TestHelper) ? =>
-    let columns: Array[(String, String)] val = recover val
-      [ ("is_it_true", "bool"); ("description", "text"); ("tiny", "int2")
-        ("essay", "text"); ("price", "int4"); ("counter", "int8")
-        ("money", "float4"); ("big_money", "float8") ]
-    end
-    let expected: Array[(String, U32)] val = recover val
-      [ ("is_it_true", 16); ("description", 25); ("tiny", 21); ("essay", 25)
-        ("price", 23); ("counter", 20); ("money", 700); ("big_money", 701) ]
+    let columns: Array[(String, U32, U16)] val = recover val
+      [ ("is_it_true", U32(16), U16(0))
+        ("description", U32(25), U16(0))
+        ("tiny", U32(21), U16(0))
+        ("essay", U32(25), U16(0))
+        ("price", U32(23), U16(0))
+        ("counter", U32(20), U16(0))
+        ("money", U32(700), U16(0))
+        ("big_money", U32(701), U16(0)) ]
     end
 
-    let bytes = _IncomingRowDescriptionTestMessage(columns)?.bytes()
+    let bytes = _IncomingRowDescriptionTestMessage(columns).bytes()
     let r: Reader = Reader.>append(bytes)
 
     match _ResponseParser(r)?
     | let m: _RowDescriptionMessage =>
-      h.assert_eq[USize](expected.size(), m.columns.size())
-      for i in Range(0, expected.size()) do
-        h.assert_eq[String](expected(i)?._1, m.columns(i)?._1)
-        h.assert_eq[U32](expected(i)?._2, m.columns(i)?._2)
+      h.assert_eq[USize](columns.size(), m.columns.size())
+      for i in Range(0, columns.size()) do
+        h.assert_eq[String](columns(i)?._1, m.columns(i)?._1)
+        h.assert_eq[U32](columns(i)?._2, m.columns(i)?._2)
+        h.assert_eq[U16](columns(i)?._3, m.columns(i)?._3)
+      end
+    else
+      h.fail("Wrong message returned.")
+    end
+
+class \nodoc\ iso _TestResponseParserRowDescriptionBinaryFormat is UnitTest
+  """
+  Verifies that RowDescription correctly parses binary format codes (1)
+  in addition to text format codes (0).
+  """
+  fun name(): String =>
+    "ResponseParser/RowDescriptionBinaryFormat"
+
+  fun apply(h: TestHelper) ? =>
+    let columns: Array[(String, U32, U16)] val = recover val
+      [ ("id", U32(23), U16(1))
+        ("name", U32(25), U16(1))
+        ("created", U32(1114), U16(1))
+        ("mixed", U32(16), U16(0)) ]
+    end
+
+    let bytes = _IncomingRowDescriptionTestMessage(columns).bytes()
+    let r: Reader = Reader.>append(bytes)
+
+    match _ResponseParser(r)?
+    | let m: _RowDescriptionMessage =>
+      h.assert_eq[USize](columns.size(), m.columns.size())
+      for i in Range(0, columns.size()) do
+        h.assert_eq[String](columns(i)?._1, m.columns(i)?._1)
+        h.assert_eq[U32](columns(i)?._2, m.columns(i)?._2)
+        h.assert_eq[U16](columns(i)?._3, m.columns(i)?._3)
       end
     else
       h.fail("Wrong message returned.")
@@ -396,12 +429,14 @@ class \nodoc\ iso _TestResponseParserDataRowMessage is UnitTest
     | let m: _DataRowMessage =>
       h.assert_eq[USize](4, m.columns.size())
       match m.columns(0)?
-      | "Hello" => None
+      | let a: Array[U8] val =>
+        h.assert_eq[String]("Hello", String.from_array(a))
       else
         h.fail("First column not parsed correctly")
       end
       match m.columns(1)?
-      | "There" => None
+      | let a: Array[U8] val =>
+        h.assert_eq[String]("There", String.from_array(a))
       else
         h.fail("Second column not parsed correctly")
       end
@@ -411,9 +446,10 @@ class \nodoc\ iso _TestResponseParserDataRowMessage is UnitTest
         h.fail("NULL column not parsed correctly")
       end
       match m.columns(3)?
-      | "" => None
+      | let a: Array[U8] val =>
+        h.assert_eq[USize](0, a.size())
       else
-        h.fail("Empty string column not parsed correctly")
+        h.fail("Empty column not parsed correctly")
       end
     else
       h.fail("Wrong message returned.")
@@ -984,7 +1020,7 @@ class \nodoc\ val _IncomingDataRowTestMessage
 class \nodoc\ val _IncomingRowDescriptionTestMessage
   let _bytes: Array[U8] val
 
-  new val create(columns: Array[(String, String)] val) ? =>
+  new val create(columns: Array[(String, U32, U16)] val) =>
     let number_of_columns = columns.size()
     var payload_size: USize = 4 + 2
     let wb: Writer = Writer
@@ -994,18 +1030,6 @@ class \nodoc\ val _IncomingRowDescriptionTestMessage
     wb.u16_be(number_of_columns.u16())
     for column in columns.values() do
       let name: String = column._1
-      let column_type: U32 = match column._2
-        | "text" => 25
-        | "bytea" => 17
-        | "bool" => 16
-        | "int2" => 21
-        | "int4" => 23
-        | "int8" => 20
-        | "float4" => 700
-        | "float8" => 701
-        else
-          error
-        end
       // column name size and null terminator plus additional fields
       payload_size = payload_size + name.size() + 1 + 18
       wb.write(name)
@@ -1014,11 +1038,11 @@ class \nodoc\ val _IncomingRowDescriptionTestMessage
       wb.u32_be(0)
       // currently unused in the parser
       wb.u16_be(0)
-      wb.u32_be(column_type)
+      wb.u32_be(column._2)
       // currently unused in the parser
       wb.u16_be(0)
       wb.u32_be(0)
-      wb.u16_be(0)
+      wb.u16_be(column._3)
     end
 
     // bytes with placeholder for length
@@ -1569,12 +1593,8 @@ primitive \nodoc\ _RandomMessageBytesGen
     | 18 =>
       _IncomingReadyForQueryTestMessage(_random_rfq_status(rnd)).bytes()
     | 19 =>
-      try
-        _IncomingRowDescriptionTestMessage(
-          _random_row_desc_columns(rnd))?.bytes()
-      else
-        _IncomingAuthenticationOkTestMessage.bytes()
-      end
+      _IncomingRowDescriptionTestMessage(
+        _random_row_desc_columns(rnd)).bytes()
     | 20 => _IncomingParseCompleteTestMessage.bytes()
     | 21 => _IncomingBindCompleteTestMessage.bytes()
     | 22 => _IncomingNoDataTestMessage.bytes()
@@ -1681,17 +1701,18 @@ primitive \nodoc\ _RandomMessageBytesGen
     consume arr
 
   fun _random_row_desc_columns(rnd: Randomness):
-    Array[(String, String)] val
+    Array[(String, U32, U16)] val
   =>
-    let known_types: Array[String] val = recover val
-      ["text"; "int4"; "int8"; "bool"; "int2"; "float4"; "float8"; "bytea"]
+    let known_oids: Array[U32] val = recover val
+      [as U32: 25; 23; 20; 16; 21; 700; 701; 17; 1082; 1083; 1114; 1184; 1186]
     end
     let size = rnd.usize(1, 5)
-    let arr = recover iso Array[(String, String)](size) end
+    let arr = recover iso Array[(String, U32, U16)](size) end
     for i in Range(0, size) do
       try
-        let type_idx = rnd.usize(0, known_types.size() - 1)
-        arr.push(("col" + i.string(), known_types(type_idx)?))
+        let type_idx = rnd.usize(0, known_oids.size() - 1)
+        let fmt = rnd.usize(0, 1).u16()
+        arr.push(("col" + i.string(), known_oids(type_idx)?, fmt))
       end
     end
     consume arr
@@ -1736,11 +1757,11 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainSimpleQueryResult
     "ResponseParser/MultipleMessages/Chain/SimpleQueryResult"
 
   fun apply(h: TestHelper) ? =>
-    let columns: Array[(String, String)] val = recover val
-      [("id", "int4"); ("name", "text")]
+    let columns: Array[(String, U32, U16)] val = recover val
+      [("id", U32(23), U16(0)); ("name", U32(25), U16(0))]
     end
     let r: Reader = Reader
-    r.append(_IncomingRowDescriptionTestMessage(columns)?.bytes())
+    r.append(_IncomingRowDescriptionTestMessage(columns).bytes())
     r.append(_IncomingDataRowTestMessage(
       recover val [as (String | None): "1"; "Alice"] end).bytes())
     r.append(_IncomingDataRowTestMessage(
@@ -1764,13 +1785,15 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainSimpleQueryResult
     | let m: _DataRowMessage =>
       h.assert_eq[USize](2, m.columns.size())
       match m.columns(0)?
-      | "1" => None
+      | let a: Array[U8] val =>
+        h.assert_eq[String]("1", String.from_array(a))
       else
         h.fail("Row 1 col 0 not parsed correctly.")
         return
       end
       match m.columns(1)?
-      | "Alice" => None
+      | let a: Array[U8] val =>
+        h.assert_eq[String]("Alice", String.from_array(a))
       else
         h.fail("Row 1 col 1 not parsed correctly.")
         return
@@ -1784,13 +1807,15 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainSimpleQueryResult
     | let m: _DataRowMessage =>
       h.assert_eq[USize](2, m.columns.size())
       match m.columns(0)?
-      | "2" => None
+      | let a: Array[U8] val =>
+        h.assert_eq[String]("2", String.from_array(a))
       else
         h.fail("Row 2 col 0 not parsed correctly.")
         return
       end
       match m.columns(1)?
-      | "Bob" => None
+      | let a: Array[U8] val =>
+        h.assert_eq[String]("Bob", String.from_array(a))
       else
         h.fail("Row 2 col 1 not parsed correctly.")
         return
@@ -2132,11 +2157,11 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainStreamingQuerySequence
     "ResponseParser/MultipleMessages/Chain/StreamingQuerySequence"
 
   fun apply(h: TestHelper) ? =>
-    let columns: Array[(String, String)] val = recover val
-      [("id", "int4"); ("name", "text")]
+    let columns: Array[(String, U32, U16)] val = recover val
+      [("id", U32(23), U16(0)); ("name", U32(25), U16(0))]
     end
     let r: Reader = Reader
-    r.append(_IncomingRowDescriptionTestMessage(columns)?.bytes())
+    r.append(_IncomingRowDescriptionTestMessage(columns).bytes())
     // First batch: 1 row + PortalSuspended
     r.append(_IncomingDataRowTestMessage(
       recover val [as (String | None): "1"; "Alice"] end).bytes())
@@ -2170,7 +2195,8 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainStreamingQuerySequence
     | let m: _DataRowMessage =>
       h.assert_eq[USize](2, m.columns.size())
       match m.columns(0)?
-      | "1" => None
+      | let a: Array[U8] val =>
+        h.assert_eq[String]("1", String.from_array(a))
       else
         h.fail("Batch 1 row col 0 not parsed correctly.")
         return
@@ -2190,7 +2216,8 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainStreamingQuerySequence
     | let m: _DataRowMessage =>
       h.assert_eq[USize](2, m.columns.size())
       match m.columns(0)?
-      | "2" => None
+      | let a: Array[U8] val =>
+        h.assert_eq[String]("2", String.from_array(a))
       else
         h.fail("Batch 2 row 1 col 0 not parsed correctly.")
         return
@@ -2204,7 +2231,8 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainStreamingQuerySequence
     | let m: _DataRowMessage =>
       h.assert_eq[USize](2, m.columns.size())
       match m.columns(0)?
-      | "3" => None
+      | let a: Array[U8] val =>
+        h.assert_eq[String]("3", String.from_array(a))
       else
         h.fail("Batch 2 row 2 col 0 not parsed correctly.")
         return
@@ -2224,7 +2252,8 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainStreamingQuerySequence
     | let m: _DataRowMessage =>
       h.assert_eq[USize](2, m.columns.size())
       match m.columns(0)?
-      | "4" => None
+      | let a: Array[U8] val =>
+        h.assert_eq[String]("4", String.from_array(a))
       else
         h.fail("Batch 3 row col 0 not parsed correctly.")
         return

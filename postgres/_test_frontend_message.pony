@@ -89,13 +89,14 @@ class \nodoc\ iso _TestFrontendMessageBind is UnitTest
     // Bind("", "", ["abc"])
     // Per-param format codes: 1 format code (text=0 for String)
     // params_data = 4+3 = 7
-    // Length = 4 + 0+1 + 0+1 + 2 + 1*2 + 2 + 7 + 2 = 21, total = 22
+    // Result format: num_result_formats=1, format_code=1 (binary)
+    // Length = 4 + 0+1 + 0+1 + 2 + 1*2 + 2 + 7 + 2 + 2 = 23, total = 24
     let expected: Array[U8] = ifdef bigendian then
-      [ 66; 21; 0; 0; 0; 0; 0; 1; 0; 0; 0; 1; 0
-        3; 0; 0; 0; 97; 98; 99; 0; 0 ]
+      [ 66; 23; 0; 0; 0; 0; 0; 1; 0; 0; 0; 1; 0
+        3; 0; 0; 0; 97; 98; 99; 0; 1; 0; 1 ]
     else
-      [ 66; 0; 0; 0; 21; 0; 0; 0; 1; 0; 0; 0; 1
-        0; 0; 0; 3; 97; 98; 99; 0; 0 ]
+      [ 66; 0; 0; 0; 23; 0; 0; 0; 1; 0; 0; 0; 1
+        0; 0; 0; 3; 97; 98; 99; 0; 1; 0; 1 ]
     end
 
     let params: Array[FieldDataTypes] val = recover val [as FieldDataTypes: "abc"] end
@@ -110,13 +111,14 @@ class \nodoc\ iso _TestFrontendMessageBindWithNull is UnitTest
     // Bind("", "", [None])
     // Per-param format codes: 1 format code (text=0 for None)
     // params_data = 4
-    // Length = 4 + 0+1 + 0+1 + 2 + 1*2 + 2 + 4 + 2 = 18, total = 19
+    // Result format: num_result_formats=1, format_code=1 (binary)
+    // Length = 4 + 0+1 + 0+1 + 2 + 1*2 + 2 + 4 + 2 + 2 = 20, total = 21
     let expected: Array[U8] = ifdef bigendian then
-      [ 66; 18; 0; 0; 0; 0; 0; 1; 0; 0; 0; 1; 0
-        255; 255; 255; 255; 0; 0 ]
+      [ 66; 20; 0; 0; 0; 0; 0; 1; 0; 0; 0; 1; 0
+        255; 255; 255; 255; 0; 1; 0; 1 ]
     else
-      [ 66; 0; 0; 0; 18; 0; 0; 0; 1; 0; 0; 0; 1
-        255; 255; 255; 255; 0; 0 ]
+      [ 66; 0; 0; 0; 20; 0; 0; 0; 1; 0; 0; 0; 1
+        255; 255; 255; 255; 0; 1; 0; 1 ]
     end
 
     let params: Array[FieldDataTypes] val = recover val [as FieldDataTypes: None] end

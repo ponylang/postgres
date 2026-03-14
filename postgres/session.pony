@@ -1077,8 +1077,9 @@ class _QueryReady is _QueryNoQueryInFlight
             // error in bind() leaves the state machine in _QueryReady.
             let combined = try
               let parse = _FrontendMessage.parse("", pq.string,
-                _ParamEncoder.oids_for(pq.params))
-              let bind = _FrontendMessage.bind("", "", pq.params)?
+                _ParamEncoder.oids_for(pq.params, li.codec_registry))
+              let bind = _FrontendMessage.bind("", "", pq.params,
+                li.codec_registry)?
               let describe = _FrontendMessage.describe_portal("")
               let execute = _FrontendMessage.execute_msg("", 0)
               let sync = _FrontendMessage.sync()
@@ -1108,7 +1109,8 @@ class _QueryReady is _QueryNoQueryInFlight
             s._connection().send(combined)
           | let nq: NamedPreparedQuery =>
             let combined = try
-              let bind = _FrontendMessage.bind("", nq.name, nq.params)?
+              let bind = _FrontendMessage.bind("", nq.name, nq.params,
+                li.codec_registry)?
               let describe = _FrontendMessage.describe_portal("")
               let execute = _FrontendMessage.execute_msg("", 0)
               let sync = _FrontendMessage.sync()
@@ -1171,8 +1173,9 @@ class _QueryReady is _QueryNoQueryInFlight
           | let pq: PreparedQuery =>
             let combined = try
               let parse = _FrontendMessage.parse("", pq.string,
-                _ParamEncoder.oids_for(pq.params))
-              let bind = _FrontendMessage.bind("", "", pq.params)?
+                _ParamEncoder.oids_for(pq.params, li.codec_registry))
+              let bind = _FrontendMessage.bind("", "", pq.params,
+                li.codec_registry)?
               let describe = _FrontendMessage.describe_portal("")
               let execute = _FrontendMessage.execute_msg("", sq.window_size)
               let flush_msg = _FrontendMessage.flush()
@@ -1202,7 +1205,8 @@ class _QueryReady is _QueryNoQueryInFlight
             s._connection().send(combined)
           | let nq: NamedPreparedQuery =>
             let combined = try
-              let bind = _FrontendMessage.bind("", nq.name, nq.params)?
+              let bind = _FrontendMessage.bind("", nq.name, nq.params,
+                li.codec_registry)?
               let describe = _FrontendMessage.describe_portal("")
               let execute = _FrontendMessage.execute_msg("", sq.window_size)
               let flush_msg = _FrontendMessage.flush()
@@ -1244,9 +1248,10 @@ class _QueryReady is _QueryNoQueryInFlight
             match \exhaustive\ query
             | let pq: PreparedQuery =>
               parts.push(_FrontendMessage.parse("", pq.string,
-                _ParamEncoder.oids_for(pq.params)))
+                _ParamEncoder.oids_for(pq.params, li.codec_registry)))
               try
-                parts.push(_FrontendMessage.bind("", "", pq.params)?)
+                parts.push(_FrontendMessage.bind("", "", pq.params,
+                  li.codec_registry)?)
               else
                 var i: USize = 0
                 while i < pl.queries.size() do
@@ -1268,7 +1273,8 @@ class _QueryReady is _QueryNoQueryInFlight
               parts.push(_FrontendMessage.sync())
             | let nq: NamedPreparedQuery =>
               try
-                parts.push(_FrontendMessage.bind("", nq.name, nq.params)?)
+                parts.push(_FrontendMessage.bind("", nq.name, nq.params,
+                  li.codec_registry)?)
               else
                 var i: USize = 0
                 while i < pl.queries.size() do

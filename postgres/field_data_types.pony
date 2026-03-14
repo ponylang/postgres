@@ -7,6 +7,7 @@ type FieldDataTypes is
   | I32
   | I64
   | None
+  | PgArray
   | PgDate
   | PgInterval
   | PgTime

@@ -101,7 +101,7 @@ class \nodoc\ iso _TestFrontendMessageBind is UnitTest
 
     let params: Array[FieldDataTypes] val = recover val [as FieldDataTypes: "abc"] end
     h.assert_array_eq[U8](expected,
-      _FrontendMessage.bind("", "", params)?)
+      _FrontendMessage.bind("", "", params, CodecRegistry)?)
 
 class \nodoc\ iso _TestFrontendMessageBindWithNull is UnitTest
   fun name(): String =>
@@ -123,7 +123,7 @@ class \nodoc\ iso _TestFrontendMessageBindWithNull is UnitTest
 
     let params: Array[FieldDataTypes] val = recover val [as FieldDataTypes: None] end
     h.assert_array_eq[U8](expected,
-      _FrontendMessage.bind("", "", params)?)
+      _FrontendMessage.bind("", "", params, CodecRegistry)?)
 
 class \nodoc\ iso _TestFrontendMessageDescribePortal is UnitTest
   fun name(): String =>

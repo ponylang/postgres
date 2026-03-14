@@ -132,7 +132,8 @@ primitive _FrontendMessage
     end
 
   fun bind(portal: String, stmt: String,
-    params: Array[FieldDataTypes] val): Array[U8] val ?
+    params: Array[FieldDataTypes] val,
+    registry: CodecRegistry): Array[U8] val ?
   =>
     """
     Build a Bind message for the extended query protocol.
@@ -144,16 +145,31 @@ primitive _FrontendMessage
 
     Parameters use per-parameter format codes: binary (1) for typed values
     (I16, I32, I64, F32, F64, Bool, Array[U8] val, PgTimestamp, PgTime,
-    PgDate, PgInterval), text (0) for String. NULL parameters use text
-    format code (doesn't matter — no data bytes).
+    PgDate, PgInterval, PgArray), text (0) for String. NULL parameters use
+    text format code (doesn't matter — no data bytes).
     Result format: all binary (num_result_formats = 1, format_code = 1).
 
     Note: The inline encoding for each type must match the corresponding
     binary codec's encode() method. See _binary_codecs.pony.
     """
+    // Pre-encode PgArray parameters before the recover block.
+    // _ArrayEncoder needs codec access that isn't available inside recover.
+    let pre_encoded: Array[(Array[U8] val | None)] val = recover val
+      let pe = Array[(Array[U8] val | None)](params.size())
+      for p in params.values() do
+        match p
+        | let a: PgArray => pe.push(_ArrayEncoder(a)?)
+        else
+          pe.push(None)
+        end
+      end
+      pe
+    end
+
     recover val
       // Calculate params payload size
       var params_data_size: USize = 0
+      var pi: USize = 0
       for p in params.values() do
         params_data_size = params_data_size + 4 // val_len field
         match p
@@ -166,12 +182,18 @@ primitive _FrontendMessage
         | let _: Bool => params_data_size = params_data_size + 1
         | let a: Array[U8] val =>
           params_data_size = params_data_size + a.size()
+        | let _: PgArray =>
+          match try pre_encoded(pi)? else None end
+          | let enc: Array[U8] val =>
+            params_data_size = params_data_size + enc.size()
+          end
         | let _: PgTimestamp => params_data_size = params_data_size + 8
         | let _: PgTime => params_data_size = params_data_size + 8
         | let _: PgDate => params_data_size = params_data_size + 4
         | let _: PgInterval => params_data_size = params_data_size + 16
         | None => None // NULL: val_len = -1, no data
         end
+        pi = pi + 1
       end
       // 1 type + 4 length + portal + null + stmt + null
       // + 2 num_param_formats + (2 * num_params) for format codes
@@ -205,7 +227,7 @@ primitive _FrontendMessage
         | let _: String => 0
         | None => 0
         else
-          1 // binary for all typed values
+          1 // binary for all typed values (including PgArray)
         end
         ifdef bigendian then
           msg.update_u16(offset, fmt)?
@@ -221,6 +243,7 @@ primitive _FrontendMessage
         msg.update_u16(offset, params.size().u16().bswap())?
       end
       offset = offset + 2
+      pi = 0
       for p in params.values() do
         match p
         | let s: String =>
@@ -315,6 +338,18 @@ primitive _FrontendMessage
           offset = offset + 4
           msg.copy_from(a, 0, offset, a.size())
           offset = offset + a.size()
+        | let _: PgArray =>
+          match try pre_encoded(pi)? else None end
+          | let enc: Array[U8] val =>
+            ifdef bigendian then
+              msg.update_u32(offset, enc.size().u32())?
+            else
+              msg.update_u32(offset, enc.size().u32().bswap())?
+            end
+            offset = offset + 4
+            msg.copy_from(enc, 0, offset, enc.size())
+            offset = offset + enc.size()
+          end
         | let v: PgTimestamp =>
           ifdef bigendian then
             msg.update_u32(offset, U32(8))?
@@ -380,6 +415,7 @@ primitive _FrontendMessage
           end
           offset = offset + 4
         end
+        pi = pi + 1
       end
       // num_result_formats = 1 (single code applied to all columns)
       ifdef bigendian then

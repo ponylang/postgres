@@ -4,7 +4,11 @@ Each subdirectory is a self-contained Pony program demonstrating a different par
 
 ## bytea
 
-Binary data using `bytea` columns. Executes a SELECT that returns a bytea value, matches on `Array[U8] val` in the result, and prints the decoded bytes. Shows how the driver automatically decodes PostgreSQL's hex-format bytea representation into raw byte arrays.
+Binary data using `bytea` columns. Executes a SELECT that returns a bytea value, matches on `Bytea` in the result, and prints the decoded bytes. Shows how the driver automatically decodes PostgreSQL's hex-format bytea representation into a `Bytea` wrapper around raw byte arrays.
+
+## custom-codec
+
+Custom type decoding via `CodecRegistry.with_codec()`. Defines a `Point` class implementing `FieldData` and a `PointBinaryCodec` for PostgreSQL's `point` type (OID 600), registers the codec, passes the extended `CodecRegistry` to `Session`, and matches on `Point` in query results. Shows how to extend the driver with decoders for PostgreSQL types not covered by the built-in codecs.
 
 ## query
 

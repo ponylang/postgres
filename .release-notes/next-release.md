@@ -430,7 +430,7 @@ Data format depends on the COPY command — the default is tab-delimited text wi
 
 ## Add bytea type conversion
 
-PostgreSQL `bytea` columns are now automatically decoded from hex format into `Array[U8] val`. Previously, bytea values were returned as raw hex strings (e.g., `\x48656c6c6f`). They are now decoded into byte arrays that you can work with directly.
+PostgreSQL `bytea` columns are now automatically decoded from hex format into `Bytea`, a wrapper around `Array[U8] val`. Previously, bytea values were returned as raw hex strings (e.g., `\x48656c6c6f`). They are now decoded into `Bytea` values whose `.data` field contains the raw bytes.
 
 ```pony
 be pg_query_result(session: Session, result: Result) =>
@@ -439,9 +439,9 @@ be pg_query_result(session: Session, result: Result) =>
     for row in rs.rows().values() do
       for field in row.fields.values() do
         match field.value
-        | let bytes: Array[U8] val =>
+        | let bytes: Bytea =>
           // Decoded bytes — e.g., [72; 101; 108; 108; 111] for "Hello"
-          for b in bytes.values() do
+          for b in bytes.data.values() do
             _env.out.print("byte: " + b.string())
           end
         end
@@ -450,7 +450,7 @@ be pg_query_result(session: Session, result: Result) =>
   end
 ```
 
-Existing code is unaffected — if your `match` on `field.value` doesn't include an `Array[U8] val` arm, bytea values simply won't match any branch (Pony's match is non-exhaustive).
+Existing code is unaffected — if your `match` on `field.value` doesn't include a `Bytea` arm, bytea values simply won't match any branch (Pony's match is non-exhaustive).
 
 ## Add ParameterStatus tracking
 
@@ -617,7 +617,7 @@ This change expands `FieldDataTypes` with four new temporal types and changes th
 - `timestamp` and `timestamptz` columns now decode to `PgTimestamp` (was `String`)
 - `interval` columns now decode to `PgInterval` (was `String`)
 - `oid`, `numeric`, `uuid`, and `jsonb` columns now decode to `String` with proper formatting (was `String` in text mode; now binary-decoded)
-- Columns with unknown OIDs now decode to `Array[U8] val` (was `String` in text mode)
+- Columns with unknown OIDs now decode to `RawBytes` (was `String` in text mode)
 
 Any code with exhaustive `match` on `FieldDataTypes` or `field.value` must add arms for the new temporal types.
 
@@ -633,7 +633,7 @@ be pg_query_result(session: Session, result: Result) =>
         | let s: String => _env.out.print(field.name + ": " + s)
         | let i: I32 => _env.out.print(field.name + ": " + i.string())
         | let b: Bool => _env.out.print(field.name + ": " + b.string())
-        | let v: Array[U8] val =>
+        | let v: Bytea =>
           _env.out.print(field.name + ": bytes")
         | None => _env.out.print(field.name + ": NULL")
         end
@@ -654,7 +654,7 @@ be pg_query_result(session: Session, result: Result) =>
         | let s: String => _env.out.print(field.name + ": " + s)
         | let i: I32 => _env.out.print(field.name + ": " + i.string())
         | let b: Bool => _env.out.print(field.name + ": " + b.string())
-        | let v: Array[U8] val =>
+        | let v: Bytea =>
           _env.out.print(field.name + ": bytes")
         | let t: PgTimestamp => _env.out.print(field.name + ": " + t.string())
         | let t: PgDate => _env.out.print(field.name + ": " + t.string())
@@ -668,4 +668,93 @@ be pg_query_result(session: Session, result: Result) =>
 ```
 
 The temporal types store their raw PostgreSQL values and provide `string()` methods that format them in standard PostgreSQL output format. `PgTimestamp` and `PgDate` support infinity via `I64.max_value()`/`I64.min_value()` and `I32.max_value()`/`I32.min_value()` respectively. `PgTime` uses constrained types — construct via `MakePgTimeMicroseconds` to validate the microseconds value, then pass the result to `PgTime.create()`.
+
+## Add custom codec registry
+
+You can now register custom codecs for PostgreSQL types not covered by the built-in codecs. Implement the `Codec` interface to decode a PostgreSQL type, define a result class implementing the `FieldData` interface, and register the codec with `CodecRegistry.with_codec()`:
+
+```pony
+// Custom result type for PostgreSQL point (OID 600)
+class val Point is FieldData
+  let x: F64
+  let y: F64
+
+  new val create(x': F64, y': F64) =>
+    x = x'
+    y = y'
+
+  fun string(): String iso^ =>
+    recover iso String .> append("(" + x.string() + "," + y.string() + ")") end
+
+// Custom binary codec
+primitive PointBinaryCodec is Codec
+  fun format(): U16 => 1
+
+  fun encode(value: FieldDataTypes): Array[U8] val ? =>
+    error
+
+  fun decode(data: Array[U8] val): FieldData ? =>
+    if data.size() != 16 then error end
+    let x = F64.from_bits(data.read_u64(0)?.bswap())
+    let y = F64.from_bits(data.read_u64(8)?.bswap())
+    Point(x, y)
+
+// Register and pass to Session
+let registry = CodecRegistry
+  .with_codec(600, PointBinaryCodec)
+let session = Session(server_info, db_info, notify where registry = registry)
+
+// Match on the custom type in results
+match field.value
+| let p: Point => env.out.print(p.string())
+end
+```
+
+Custom types that need to participate in `Field.eq()` comparisons should also implement `FieldDataEquatable`.
+
+## Change result field values from closed union to open interface
+
+`Field.value` is now `FieldData` (an open interface) instead of `FieldDataTypes` (a closed union). This is what enables custom codec result types — any `val` class with a `string()` method can be a field value.
+
+As part of this change, `Array[U8] val` no longer appears directly as a result field value. Two new wrapper types replace it:
+
+- `Bytea` — wraps `Array[U8] val` for known bytea columns (OID 17). Access the raw bytes via `.data`.
+- `RawBytes` — wraps `Array[U8] val` for unknown binary-format OIDs. Access the raw bytes via `.data`.
+
+Before:
+
+```pony
+match field.value
+| let v: Array[U8] val =>
+  for b in v.values() do
+    _env.out.print("byte: " + b.string())
+  end
+end
+```
+
+After:
+
+```pony
+match field.value
+| let v: Bytea =>
+  for b in v.data.values() do
+    _env.out.print("byte: " + b.string())
+  end
+| let v: RawBytes =>
+  for b in v.data.values() do
+    _env.out.print("byte: " + b.string())
+  end
+end
+```
+
+`Session.create()` now accepts an optional `registry` parameter (defaults to `CodecRegistry` with all built-in codecs):
+
+```pony
+// Default — same as before
+let session = Session(server_info, db_info, notify)
+
+// With custom codecs
+let registry = CodecRegistry.with_codec(600, PointBinaryCodec)
+let session = Session(server_info, db_info, notify where registry = registry)
+```
 

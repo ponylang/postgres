@@ -22,8 +22,13 @@ interface val Codec
     Errors when the value's type doesn't match what this codec expects.
     """
 
-  fun decode(data: Array[U8] val): FieldDataTypes ?
+  fun decode(data: Array[U8] val): FieldData ?
     """
     Decode wire format bytes from a result column to a Pony value.
     Errors when the data is malformed or has an unexpected length.
+
+    The return type is `FieldData` (an open interface) rather than
+    `FieldDataTypes` (a closed union) so that custom codecs can return their
+    own types. The encode path stays `FieldDataTypes` because parameters must
+    map to known PostgreSQL OIDs for the wire protocol.
     """

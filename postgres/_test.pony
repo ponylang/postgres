@@ -113,8 +113,8 @@ actor \nodoc\ Main is TestList
     test(_TestRowsEquality)
     test(_TestRowsInequality)
     test(Property1UnitTest[Field](_TestFieldReflexiveProperty))
-    test(Property1UnitTest[FieldDataTypes](_TestFieldStructuralProperty))
-    test(Property1UnitTest[(FieldDataTypes, FieldDataTypes)](
+    test(Property1UnitTest[FieldData](_TestFieldStructuralProperty))
+    test(Property1UnitTest[(FieldData, FieldData)](
       _TestFieldSymmetricProperty))
     test(Property1UnitTest[Row](_TestRowReflexiveProperty))
     test(Property1UnitTest[Rows](_TestRowsReflexiveProperty))
@@ -360,6 +360,20 @@ actor \nodoc\ Main is TestList
     test(_TestNumericBinaryCodecLargeNumber)
     test(_TestNumericBinaryCodecNegativeNdigits)
     test(_TestPgIntervalStringMinValue)
+    test(_TestByteaString)
+    test(_TestByteaEquality)
+    test(_TestRawBytesString)
+    test(_TestRawBytesEquality)
+    test(_TestCodecRegistryWithCodecBinary)
+    test(_TestCodecRegistryWithCodecText)
+    test(_TestCodecRegistryWithCodecOverride)
+    test(_TestCodecRegistryWithCodecChaining)
+    test(_TestCodecRegistryWithCodecPreservesBuiltins)
+    test(_TestRowsBuilderWithCustomCodec)
+    test(_TestFieldEqualityCustomType)
+    test(_TestFieldInequalityCustomType)
+    test(_TestFieldEqualityCustomWithoutEquatable)
+    test(_TestFieldEqualityCustomVsBuiltin)
 
 class \nodoc\ iso _TestAuthenticate is UnitTest
   """

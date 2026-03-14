@@ -1,3 +1,9 @@
+"""
+Custom codec for PostgreSQL's `point` type (OID 600). Demonstrates how to
+create a custom `FieldData` type, implement a binary `Codec` for it, register
+the codec with `CodecRegistry.with_codec()`, and match on the custom type in
+query results.
+"""
 use "cli"
 use "collections"
 use lori = "lori"
@@ -9,8 +15,58 @@ actor Main
   new create(env: Env) =>
     let server_info = ServerInfo(env.vars)
     let auth = lori.TCPConnectAuth(env.root)
+    Client(auth, server_info, env.out)
 
-    let client = Client(auth, server_info, env.out)
+class val Point is (FieldData & Equatable[Point])
+  """
+  Custom decoded type for PostgreSQL `point` (OID 600).
+  A point is two float8 values: (x, y).
+  """
+  let x: F64
+  let y: F64
+
+  new val create(x': F64, y': F64) =>
+    x = x'
+    y = y'
+
+  fun eq(that: box->Point): Bool =>
+    (x == that.x) and (y == that.y)
+
+  fun string(): String iso^ =>
+    recover iso
+      let s = String
+      s.append("(")
+      s.append(x.string())
+      s.append(",")
+      s.append(y.string())
+      s.append(")")
+      s
+    end
+
+primitive PointBinaryCodec is Codec
+  """
+  Binary codec for PostgreSQL `point` (OID 600).
+  16 bytes: two IEEE 754 float8 values in big-endian order.
+  """
+  fun format(): U16 => 1
+
+  fun encode(value: FieldDataTypes): Array[U8] val ? =>
+    // Encoding not needed for this example
+    error
+
+  fun decode(data: Array[U8] val): FieldData ? =>
+    if data.size() != 16 then error end
+    let x = ifdef bigendian then
+      F64.from_bits(data.read_u64(0)?)
+    else
+      F64.from_bits(data.read_u64(0)?.bswap())
+    end
+    let y = ifdef bigendian then
+      F64.from_bits(data.read_u64(8)?)
+    else
+      F64.from_bits(data.read_u64(8)?.bswap())
+    end
+    Point(x, y)
 
 actor Client is (SessionStatusNotify & ResultReceiver)
   let _session: Session
@@ -18,18 +74,23 @@ actor Client is (SessionStatusNotify & ResultReceiver)
 
   new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
+    // Register the custom codec for point (OID 600) and pass it to Session
+    let registry = CodecRegistry.with_codec(600, PointBinaryCodec)
     _session = Session(
       ServerConnectInfo(auth, info.host, info.port),
       DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+      this where registry = registry)
 
   be close() =>
     _session.close()
 
   be pg_session_authenticated(session: Session) =>
     _out.print("Authenticated.")
-    _out.print("Sending query....")
-    let q = SimpleQuery("SELECT 525600::text")
+    _out.print("Querying point data...")
+    // Use PreparedQuery to get binary format results
+    let q = PreparedQuery(
+      "SELECT '(1.5,2.5)'::point AS pt",
+      recover val Array[FieldDataTypes] end)
     session.execute(q, this)
 
   be pg_session_authentication_failed(
@@ -44,29 +105,16 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       _out.print("ResultSet (" + r.rows().size().string() + " rows):")
       for row in r.rows().values() do
         for field in row.fields.values() do
-          _out.write(field.name + "=")
+          _out.write("  " + field.name + "=")
           match field.value
+          | let p: Point =>
+            _out.print("Point(" + p.x.string() + ", " + p.y.string() + ")")
           | let v: String => _out.print(v)
-          | let v: I16 => _out.print(v.string())
           | let v: I32 => _out.print(v.string())
-          | let v: I64 => _out.print(v.string())
-          | let v: F32 => _out.print(v.string())
-          | let v: F64 => _out.print(v.string())
-          | let v: Bool => _out.print(v.string())
-          | let v: Bytea =>
-            _out.print(v.data.size().string() + " bytes")
-          | let t: PgTimestamp => _out.print(t.string())
-          | let t: PgTime => _out.print(t.string())
-          | let t: PgDate => _out.print(t.string())
-          | let t: PgInterval => _out.print(t.string())
           | None => _out.print("NULL")
           end
         end
       end
-    | let r: RowModifying =>
-      _out.print(r.command() + " " + r.impacted().string() + " rows")
-    | let r: SimpleResult =>
-      _out.print("Query executed.")
     end
     close()
 
@@ -74,8 +122,6 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _out.print("Query failed.")
-    // Our example program is failing, we want to exit so, let's shut down the
-    // connection.
     close()
 
 class val ServerInfo

@@ -18,7 +18,7 @@ primitive _BoolTextCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes =>
+  fun decode(data: Array[U8] val): FieldData =>
     String.from_array(data).at("t")
 
 primitive _ByteaTextCodec is Codec
@@ -46,12 +46,12 @@ primitive _ByteaTextCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     let s = String.from_array(data)
     if (s.size() < 2) or (s(0)? != '\\') or (s(1)? != 'x') then error end
     let hex_len = s.size() - 2
     if (hex_len % 2) != 0 then error end
-    recover val
+    let decoded_bytes: Array[U8] val = recover val
       let result = Array[U8](hex_len / 2)
       var i: USize = 2
       while i < s.size() do
@@ -62,6 +62,7 @@ primitive _ByteaTextCodec is Codec
       end
       result
     end
+    Bytea(decoded_bytes)
 
   fun _hex_digit(c: U8): U8 ? =>
     if (c >= '0') and (c <= '9') then c - '0'
@@ -87,7 +88,7 @@ primitive _Int2TextCodec is Codec
     else error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     String.from_array(data).i16()?
 
 primitive _Int4TextCodec is Codec
@@ -102,7 +103,7 @@ primitive _Int4TextCodec is Codec
     else error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     String.from_array(data).i32()?
 
 primitive _Int8TextCodec is Codec
@@ -117,7 +118,7 @@ primitive _Int8TextCodec is Codec
     else error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     String.from_array(data).i64()?
 
 primitive _Float4TextCodec is Codec
@@ -132,7 +133,7 @@ primitive _Float4TextCodec is Codec
     else error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     String.from_array(data).f32()?
 
 primitive _Float8TextCodec is Codec
@@ -147,7 +148,7 @@ primitive _Float8TextCodec is Codec
     else error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     String.from_array(data).f64()?
 
 primitive _TextPassthroughTextCodec is Codec
@@ -165,7 +166,7 @@ primitive _TextPassthroughTextCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes =>
+  fun decode(data: Array[U8] val): FieldData =>
     String.from_array(data)
 
 primitive _OidTextCodec is Codec
@@ -181,7 +182,7 @@ primitive _OidTextCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes =>
+  fun decode(data: Array[U8] val): FieldData =>
     String.from_array(data)
 
 primitive _NumericTextCodec is Codec
@@ -197,7 +198,7 @@ primitive _NumericTextCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes =>
+  fun decode(data: Array[U8] val): FieldData =>
     String.from_array(data)
 
 primitive _UuidTextCodec is Codec
@@ -213,7 +214,7 @@ primitive _UuidTextCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes =>
+  fun decode(data: Array[U8] val): FieldData =>
     String.from_array(data)
 
 primitive _JsonbTextCodec is Codec
@@ -229,7 +230,7 @@ primitive _JsonbTextCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes =>
+  fun decode(data: Array[U8] val): FieldData =>
     String.from_array(data)
 
 primitive _DateTextCodec is Codec
@@ -246,7 +247,7 @@ primitive _DateTextCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     let s = String.from_array(data)
     if s == "infinity" then return PgDate(I32.max_value()) end
     if s == "-infinity" then return PgDate(I32.min_value()) end
@@ -298,7 +299,7 @@ primitive _TimeTextCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     let s = String.from_array(data)
     (let hours, let minutes, let seconds, let frac) = _parse_time(s)?
     let us: I64 = (hours * 3_600_000_000) + (minutes * 60_000_000)
@@ -355,7 +356,7 @@ primitive _TimestampTextCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     let s = String.from_array(data)
     if s == "infinity" then return PgTimestamp(I64.max_value()) end
     if s == "-infinity" then return PgTimestamp(I64.min_value()) end
@@ -402,7 +403,7 @@ primitive _TimestamptzTextCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     let s = String.from_array(data)
     if s == "infinity" then return PgTimestamp(I64.max_value()) end
     if s == "-infinity" then return PgTimestamp(I64.min_value()) end
@@ -447,7 +448,7 @@ primitive _IntervalTextCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     let s = String.from_array(data)
     var total_months: I32 = 0
     var total_days: I32 = 0

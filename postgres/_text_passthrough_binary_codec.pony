@@ -14,5 +14,5 @@ primitive _TextPassthroughBinaryCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes =>
+  fun decode(data: Array[U8] val): FieldData =>
     String.from_array(data)

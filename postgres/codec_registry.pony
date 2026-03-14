@@ -6,8 +6,15 @@ class val CodecRegistry
   a new registry.
 
   The default constructor creates a registry with all built-in text and binary
-  codecs. Users who need custom codecs can create an extended registry with
-  `_with_codec` (type-private in Phase 2; public in Phase 3).
+  codecs. Use `with_codec` to create an extended registry with custom codecs
+  for additional PostgreSQL types:
+
+  ```pony
+  let registry = CodecRegistry
+    .with_codec(600, PointBinaryCodec)
+    .with_codec(601, LsegBinaryCodec)
+  let session = Session(server_info, db_info, notify where registry = registry)
+  ```
   """
   let _text_codecs: Map[U32, Codec] val
   let _binary_codecs: Map[U32, Codec] val
@@ -79,11 +86,17 @@ class val CodecRegistry
       m
     end
 
+  fun val with_codec(oid: U32, codec: Codec): CodecRegistry =>
+    """
+    Returns a new registry with the given codec added or replacing an existing
+    one for the given OID. Supports chaining:
+    `CodecRegistry.with_codec(600, A).with_codec(790, B)`.
+    """
+    CodecRegistry._with_codec(this, oid, codec)
+
   new val _with_codec(base: CodecRegistry, oid: U32, codec: Codec) =>
     """
     New registry that adds or replaces the codec for the given OID.
-    Type-private in Phase 2 (underscore on method name); will be made public
-    in Phase 3 by removing the underscore.
     """
     let fmt = codec.format()
     if fmt == 0 then
@@ -108,12 +121,12 @@ class val CodecRegistry
       end
     end
 
-  fun decode(oid: U32, format: U16, data: Array[U8] val): FieldDataTypes =>
+  fun decode(oid: U32, format: U16, data: Array[U8] val): FieldData =>
     """
     Decode result column data using the registered codec.
     Format 0 uses the text codec, format 1 uses the binary codec.
     Text fallback for unknown OIDs: `String.from_array(data)`.
-    Binary fallback for unknown OIDs: raw `Array[U8] val`.
+    Binary fallback for unknown OIDs: `RawBytes(data)`.
     """
     if format == 0 then
       try
@@ -125,7 +138,7 @@ class val CodecRegistry
       try
         _binary_codecs(oid)?.decode(data)?
       else
-        data
+        RawBytes(data)
       end
     end
 

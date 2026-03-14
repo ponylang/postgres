@@ -31,7 +31,7 @@ Managed via `corral`.
 
 ### Session State Machine
 
-`Session` actor is the main entry point. Constructor takes `ServerConnectInfo` (auth, host, service, ssl_mode) and `DatabaseConnectInfo` (user, password, database). Implements `lori.TCPConnectionActor` and `lori.ClientLifecycleEventReceiver`. The stored `ServerConnectInfo` is accessible via `server_connect_info()` for use by `_CancelSender`. State transitions via `_SessionState` interface with concrete states:
+`Session` actor is the main entry point. Constructor takes `ServerConnectInfo` (auth, host, service, ssl_mode), `DatabaseConnectInfo` (user, password, database), and an optional `CodecRegistry` (defaults to `CodecRegistry` with all built-in codecs). Implements `lori.TCPConnectionActor` and `lori.ClientLifecycleEventReceiver`. The stored `ServerConnectInfo` is accessible via `server_connect_info()` for use by `_CancelSender`. State transitions via `_SessionState` interface with concrete states:
 
 ```
 _SessionUnopened  --connect (no SSL)-->              _SessionConnected
@@ -80,7 +80,7 @@ This design makes illegal state transitions call `_IllegalState()` (panic) by de
 5. `_CommandCompleteMessage` triggers result delivery to receiver
 6. `_ReadyForQueryMessage` dequeues completed operation, transitions to `_QueryReady`
 
-Only one operation is in-flight at a time. The queue serializes execution. `query_queue`, `query_state`, `backend_pid`, `backend_secret_key`, and `codec_registry` are non-underscore-prefixed fields on `_SessionLoggedIn` because other types in this package need cross-type access (Pony private fields are type-private). `codec_registry: CodecRegistry` is created internally with default codecs and passed to all `_RowsBuilder` call sites. On shutdown, `_SessionLoggedIn.on_shutdown` calls `query_state.drain_in_flight()` to let the in-flight state handle its own queue item (skipping notification if `on_error_response` already notified the receiver), then drains remaining queued items with `SessionClosed`. This prevents double-notification when `close()` arrives between ErrorResponse and ReadyForQuery delivery.
+Only one operation is in-flight at a time. The queue serializes execution. `query_queue`, `query_state`, `backend_pid`, `backend_secret_key`, and `codec_registry` are non-underscore-prefixed fields on `_SessionLoggedIn` because other types in this package need cross-type access (Pony private fields are type-private). `codec_registry: CodecRegistry` is received from the `Session` constructor and threaded through the state machine (`_SessionUnopened` → `_ConnectableState.on_connected` → `_SessionSSLNegotiating`/`_SessionConnected` → `_AuthenticableState.on_authentication_ok`/`on_authentication_sasl` → `_SessionSCRAMAuthenticating`/`_SessionLoggedIn`), then passed to all `_RowsBuilder` call sites. On shutdown, `_SessionLoggedIn.on_shutdown` calls `query_state.drain_in_flight()` to let the in-flight state handle its own queue item (skipping notification if `on_error_response` already notified the receiver), then drains remaining queued items with `SessionClosed`. This prevents double-notification when `close()` arrives between ErrorResponse and ReadyForQuery delivery.
 
 **Query cancellation:** `session.cancel()` requests cancellation of the currently executing query by opening a separate TCP connection via `_CancelSender` and sending a `CancelRequest`. The `cancel` method on `_SessionState` follows the same "never illegal" contract as `close` — it is a no-op in all states except `_SessionLoggedIn`, where it fires only when a query is in flight (not in `_QueryReady` or `_QueryNotReady`). Cancellation is best-effort; the server may or may not honor it. If cancelled, the query's `ResultReceiver` receives `pg_query_failed` with an `ErrorResponseMessage` (SQLSTATE 57014).
 
@@ -102,8 +102,12 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 - `PreparedQuery` — val class wrapping a query string + `Array[FieldDataTypes] val` params (extended query protocol, single statement only). Typed params (`I16`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Array[U8] val`, `PgTimestamp`, `PgTime`, `PgDate`, `PgInterval`) use binary wire format with explicit OIDs; `String` and `None` use text format with server-inferred types
 - `NamedPreparedQuery` — val class wrapping a statement name + `Array[FieldDataTypes] val` params (executes a previously prepared named statement). Same typed parameter semantics as `PreparedQuery`
 - `Result` — union type `(ResultSet | RowModifying | SimpleResult)`
-- `Rows` / `Row` / `Field` — result data. `Field.value` is `FieldDataTypes` union
-- `FieldDataTypes` = `(Array[U8] val | Bool | F32 | F64 | I16 | I32 | I64 | None | PgDate | PgInterval | PgTime | PgTimestamp | String)`
+- `Rows` / `Row` / `Field` — result data. `Field.value` is `FieldData` (open interface)
+- `FieldData` — `interface val` requiring `fun string(): String iso^`. Open result type for decoded column values. All built-in types conform structurally. Custom codecs return their own types implementing this interface
+- `FieldDataEquatable` — `interface val` with `fun field_data_eq(that: FieldData box): Bool`. Opt-in equality for custom `FieldData` types used in `Field.eq()`. Built-in types use explicit match arms; custom types implement this to participate in field equality
+- `Bytea` — val class wrapping `Array[U8] val` for PostgreSQL bytea columns (OID 17). Access raw bytes via `.data`. Implements `FieldData` and `Equatable[Bytea]`
+- `RawBytes` — val class wrapping `Array[U8] val` for unknown binary-format OIDs. Semantically distinct from `Bytea`. Implements `FieldData` and `Equatable[RawBytes]`
+- `FieldDataTypes` = `(Array[U8] val | Bool | F32 | F64 | I16 | I32 | I64 | None | PgDate | PgInterval | PgTime | PgTimestamp | String)` — closed union for encode path (query parameters)
 - `PgTimestamp` — val class wrapping `microseconds: I64` (since 2000-01-01). `I64.max_value()` / `I64.min_value()` = infinity. Implements `Equatable`, `string()` returns ISO format. For `timestamptz` columns: binary-format results (`PreparedQuery`) store UTC microseconds; text-format results (`SimpleQuery`) store session-local time with timezone suffix stripped
 - `PgTimeMicroseconds` — type alias for `Constrained[I64, PgTimeValidator]`. Validated microseconds value for constructing `PgTime`
 - `MakePgTimeMicroseconds` — type alias for `MakeConstrained[I64, PgTimeValidator]`. Returns `(PgTimeMicroseconds | ValidationFailure)`
@@ -123,8 +127,8 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 - `CopyOutReceiver` interface (tag) — `pg_copy_data(Session, Array[U8] val)`, `pg_copy_complete(Session, count)`, `pg_copy_failed(Session, (ErrorResponseMessage | ClientQueryError))`. Push-based: server drives the flow, delivering data chunks via `pg_copy_data` and signaling completion via `pg_copy_complete`
 - `StreamingResultReceiver` interface (tag) — `pg_stream_batch(Session, Rows)`, `pg_stream_complete(Session)`, `pg_stream_failed(Session, (PreparedQuery | NamedPreparedQuery), (ErrorResponseMessage | ClientQueryError))`. Pull-based: session delivers batches via `pg_stream_batch`; client calls `fetch_more()` for the next batch or `close_stream()` to end early
 - `PipelineReceiver` interface (tag) — `pg_pipeline_result(Session, USize, Result)`, `pg_pipeline_failed(Session, USize, (PreparedQuery | NamedPreparedQuery), (ErrorResponseMessage | ClientQueryError))`, `pg_pipeline_complete(Session)`. Each query result/failure is delivered with its pipeline index. `pg_pipeline_complete` always fires last
-- `Codec` interface (val) — `format(): U16`, `encode(FieldDataTypes): Array[U8] val ?`, `decode(Array[U8] val): FieldDataTypes ?`. Wire format codec for a PostgreSQL type. Built-in codecs are primitives (zero-allocation singletons)
-- `CodecRegistry` class (val) — maps OIDs to text and binary `Codec` instances. Default constructor populates all built-in codecs. `decode(oid, format, data)` with fallbacks (unknown text→String, unknown binary→raw bytes). `has_binary_codec(oid)` for format selection
+- `Codec` interface (val) — `format(): U16`, `encode(FieldDataTypes): Array[U8] val ?`, `decode(Array[U8] val): FieldData ?`. Wire format codec for a PostgreSQL type. Encode stays closed (`FieldDataTypes`), decode is open (`FieldData`). Built-in codecs are primitives (zero-allocation singletons)
+- `CodecRegistry` class (val) — maps OIDs to text and binary `Codec` instances. Immutable — `with_codec(oid, codec)` returns a new registry with the codec added or replacing an existing one. Supports chaining: `CodecRegistry.with_codec(600, A).with_codec(790, B)`. Default constructor populates all built-in codecs. `decode(oid, format, data)` returns `FieldData` with fallbacks (unknown text→`String`, unknown binary→`RawBytes`). `has_binary_codec(oid)` for format selection
 - `ClientQueryError` — union type `(SessionNeverOpened | SessionClosed | SessionNotAuthenticated | DataError)`
 - `DatabaseConnectInfo` — val class grouping database authentication parameters (user, password, database). Passed to `Session.create()` alongside `ServerConnectInfo`.
 - `ServerConnectInfo` — val class grouping connection parameters (auth, host, service, ssl_mode). Passed to `Session.create()` as the first parameter. Also used by `_CancelSender`.
@@ -137,7 +141,7 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 Codec-based decoding via `CodecRegistry.decode(oid, format_code, data)`. Extended query results use binary format (format_code=1); SimpleQuery results use text format (format_code=0).
 
 **Binary format codecs** (extended query path):
-- 16 (bool) → `Bool`, 17 (bytea) → `Array[U8] val`
+- 16 (bool) → `Bool`, 17 (bytea) → `Bytea`
 - 21 (int2) → `I16`, 23 (int4) → `I32`, 20 (int8) → `I64`
 - 700 (float4) → `F32`, 701 (float8) → `F64`
 - 1082 (date) → `PgDate`, 1083 (time) → `PgTime`
@@ -145,12 +149,12 @@ Codec-based decoding via `CodecRegistry.decode(oid, format_code, data)`. Extende
 - 1186 (interval) → `PgInterval`
 - 26 (oid) → `String`, 1700 (numeric) → `String`, 2950 (uuid) → `String`, 3802 (jsonb) → `String`
 - 18 (char), 19 (name), 25 (text), 114 (json), 142 (xml), 1042 (bpchar), 1043 (varchar) → `String` (text passthrough binary codec)
-- Unknown OIDs → `Array[U8] val`
+- Unknown OIDs → `RawBytes`
 - NULL → `None`
 
 **Text format codecs** (SimpleQuery path): Same type mappings as binary codecs. Unknown OIDs → `String`.
 
-**Fallbacks**: `CodecRegistry.decode()` falls back to `String` for unknown text-format OIDs and `Array[U8] val` for unknown binary-format OIDs.
+**Fallbacks**: `CodecRegistry.decode()` falls back to `String` for unknown text-format OIDs and `RawBytes` for unknown binary-format OIDs.
 
 ### Codec Architecture
 
@@ -158,7 +162,7 @@ Codec-based decoding via `CodecRegistry.decode(oid, format_code, data)`. Extende
 - Binary codecs (`_binary_codecs.pony`): `_BoolBinaryCodec`, `_ByteaBinaryCodec`, `_Int2BinaryCodec`, `_Int4BinaryCodec`, `_Int8BinaryCodec`, `_Float4BinaryCodec`, `_Float8BinaryCodec`, `_DateBinaryCodec`, `_TimeBinaryCodec`, `_TimestampBinaryCodec`, `_IntervalBinaryCodec`, `_OidBinaryCodec`, `_NumericBinaryCodec`, `_UuidBinaryCodec`, `_JsonbBinaryCodec` — big-endian wire encoding
 - Text passthrough binary codec (`_text_passthrough_binary_codec.pony`): `_TextPassthroughBinaryCodec` — for text-like OIDs (char, name, text, json, xml, bpchar, varchar) where PostgreSQL binary format is raw UTF-8
 - Text codecs (`_text_codecs.pony`): `_BoolTextCodec`, `_ByteaTextCodec`, `_Int2TextCodec`, `_Int4TextCodec`, `_Int8TextCodec`, `_Float4TextCodec`, `_Float8TextCodec`, `_DateTextCodec`, `_TimeTextCodec`, `_TimestampTextCodec`, `_TimestamptzTextCodec`, `_IntervalTextCodec`, `_TextPassthroughTextCodec`, `_OidTextCodec`, `_NumericTextCodec`, `_UuidTextCodec`, `_JsonbTextCodec`
-- `CodecRegistry` (`codec_registry.pony`): maps OIDs to codecs. Default constructor populates all built-ins. `_with_codec` constructor (type-private, public in Phase 3) for custom codecs
+- `CodecRegistry` (`codec_registry.pony`): maps OIDs to codecs. Default constructor populates all built-ins. `with_codec(oid, codec)` returns a new registry with the codec added/replaced. `_with_codec` constructor (type-private) used internally by `with_codec`
 - `_ParamEncoder` (`_param_encoder.pony`): derives PostgreSQL OIDs from `FieldDataTypes` parameter values for Parse messages
 
 **Encode error handling:** `_FrontendMessage.bind()` is partial — it errors if parameter encoding fails. `_QueryReady.try_run_query()` uses a build-before-transition pattern: wire messages are constructed before transitioning to an in-flight state, so encode errors deliver `DataError` to the receiver without leaving the state machine inconsistent. Pipeline queries build message parts into an `iso` array in `ref` scope (where error handling has full access to the session and receiver), then consume the array into a `recover val` block for concatenation.

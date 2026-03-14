@@ -1,6 +1,6 @@
 """
 Querying binary data using `bytea` columns. Executes a SELECT that returns a
-bytea value, matches on `Array[U8] val` in the result, and prints the decoded
+bytea value, matches on `Bytea` in the result, and prints the decoded
 bytes. Shows how the driver automatically decodes PostgreSQL's hex-format
 bytea representation into raw byte arrays.
 """
@@ -53,10 +53,10 @@ actor Client is (SessionStatusNotify & ResultReceiver)
         for field in row.fields.values() do
           _out.write(field.name + "=")
           match field.value
-          | let v: Array[U8] val =>
-            _out.print(v.size().string() + " bytes")
+          | let v: Bytea =>
+            _out.print(v.data.size().string() + " bytes")
             // Print each byte's decimal value
-            for b in v.values() do
+            for b in v.data.values() do
               _out.print("  byte: " + b.string())
             end
           | let v: String => _out.print(v)

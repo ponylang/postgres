@@ -143,8 +143,8 @@ be pg_query_result(session: Session, result: Result) =>
         | let s: String => _env.out.print(field.name + ": " + s)
         | let i: I32 => _env.out.print(field.name + ": " + i.string())
         | let b: Bool => _env.out.print(field.name + ": " + b.string())
-        | let v: Array[U8] val =>
-          _env.out.print(field.name + ": " + v.size().string() + " bytes")
+        | let v: Bytea =>
+          _env.out.print(field.name + ": " + v.data.size().string() + " bytes")
         | let t: PgTimestamp => _env.out.print(field.name + ": " + t.string())
         | let t: PgDate => _env.out.print(field.name + ": " + t.string())
         | let t: PgTime => _env.out.print(field.name + ": " + t.string())
@@ -160,11 +160,11 @@ be pg_query_result(session: Session, result: Result) =>
 ```
 
 Field values are typed based on the PostgreSQL column OID:
-bytea → `Array[U8] val`, bool → `Bool`, int2 → `I16`, int4 → `I32`,
+bytea → `Bytea`, bool → `Bool`, int2 → `I16`, int4 → `I32`,
 int8 → `I64`, float4 → `F32`, float8 → `F64`, date → `PgDate`,
 time → `PgTime`, timestamp/timestamptz → `PgTimestamp`,
 interval → `PgInterval`, NULL → `None`. Extended query results use
-binary format — unknown OIDs produce `Array[U8] val`. Simple query
+binary format — unknown OIDs produce `RawBytes`. Simple query
 results use text format — unknown OIDs produce `String`.
 
 **`timestamptz` and query format:** `PreparedQuery` results use binary
@@ -319,6 +319,51 @@ it. If cancelled, the query's `ResultReceiver` receives
 `pg_query_failed` with SQLSTATE 57014. Queued queries are not
 affected.
 
+## Custom Codecs
+
+Extend the driver with custom type decoders. Implement `Codec` to decode
+a PostgreSQL type, then register it with `CodecRegistry.with_codec()`:
+
+```pony
+class val Point is FieldData
+  let x: F64
+  let y: F64
+
+  new val create(x': F64, y': F64) =>
+    x = x'
+    y = y'
+
+  fun string(): String iso^ =>
+    recover iso String .> append("(" + x.string() + "," + y.string() + ")") end
+
+primitive PointBinaryCodec is Codec
+  fun format(): U16 => 1  // binary
+
+  fun encode(value: FieldDataTypes): Array[U8] val ? =>
+    error  // encode not needed for result-only types
+
+  fun decode(data: Array[U8] val): FieldData ? =>
+    if data.size() != 16 then error end
+    let x = F64.from_bits(data.read_u64(0)?.bswap())
+    let y = F64.from_bits(data.read_u64(8)?.bswap())
+    Point(x, y)
+
+// Register and pass to Session
+let registry = CodecRegistry.with_codec(600, PointBinaryCodec)
+let session = Session(server_info, db_info, notify where registry = registry)
+```
+
+Result fields from decoded custom types can be matched directly:
+
+```pony
+match field.value
+| let p: Point => _env.out.print(p.string())
+end
+```
+
+Custom types that need to participate in `Field.eq()` comparisons should
+also implement `FieldDataEquatable`.
+
 ## Authentication
 
 The driver supports MD5 password and SCRAM-SHA-256 authentication.
@@ -342,4 +387,5 @@ supported.
 * Query pipelining (batched multi-query execution)
 * Query cancellation
 * ParameterStatus tracking (server runtime parameters)
+* Custom codecs via `CodecRegistry.with_codec()`
 """

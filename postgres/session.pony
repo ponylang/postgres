@@ -27,11 +27,12 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   new create(
     server_connect_info': ServerConnectInfo,
     database_connect_info': DatabaseConnectInfo,
-    notify': SessionStatusNotify)
+    notify': SessionStatusNotify,
+    registry: CodecRegistry = CodecRegistry)
   =>
     _server_connect_info = server_connect_info'
     state = _SessionUnopened(notify', database_connect_info',
-      server_connect_info'.ssl_mode, server_connect_info'.host)
+      server_connect_info'.ssl_mode, server_connect_info'.host, registry)
 
     _tcp_connection = lori.TCPConnection.client(
       server_connect_info'.auth,
@@ -207,16 +208,19 @@ class ref _SessionUnopened is _ConnectableState
   let _database_connect_info: DatabaseConnectInfo
   let _ssl_mode: SSLMode
   let _host: String
+  let _codec_registry: CodecRegistry
 
   new ref create(notify': SessionStatusNotify,
     database_connect_info': DatabaseConnectInfo,
     ssl_mode': SSLMode = SSLDisabled,
-    host': String = "")
+    host': String = "",
+    codec_registry': CodecRegistry = CodecRegistry)
   =>
     _notify = notify'
     _database_connect_info = database_connect_info'
     _ssl_mode = ssl_mode'
     _host = host'
+    _codec_registry = codec_registry'
 
   fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
     r.pg_query_failed(s, q, SessionNeverOpened)
@@ -265,6 +269,9 @@ class ref _SessionUnopened is _ConnectableState
 
   fun notify(): SessionStatusNotify =>
     _notify
+
+  fun codec_registry(): CodecRegistry =>
+    _codec_registry
 
 class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
   fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
@@ -322,19 +329,22 @@ class ref _SessionSSLNegotiating
   let _ssl_ctx: SSLContext val
   let _host: String
   let _fallback_on_refusal: Bool
+  let _codec_registry: CodecRegistry
   var _handshake_started: Bool = false
 
   new ref create(notify': SessionStatusNotify,
     database_connect_info': DatabaseConnectInfo,
     ssl_ctx': SSLContext val,
     host': String,
-    fallback_on_refusal': Bool)
+    fallback_on_refusal': Bool,
+    codec_registry': CodecRegistry = CodecRegistry)
   =>
     _notify = notify'
     _database_connect_info = database_connect_info'
     _ssl_ctx = ssl_ctx'
     _host = host'
     _fallback_on_refusal = fallback_on_refusal'
+    _codec_registry = codec_registry'
 
   fun ref send_ssl_request(s: Session ref) =>
     let msg = _FrontendMessage.ssl_request()
@@ -379,7 +389,8 @@ class ref _SessionSSLNegotiating
     // via _ssl_expect. Without this reset, decrypted data would be delivered
     // 1 byte at a time, breaking _ResponseParser.
     try s._connection().expect(0)? end
-    s.state = _SessionConnected(_notify, _database_connect_info)
+    s.state = _SessionConnected(_notify, _database_connect_info,
+      _codec_registry)
     _notify.pg_session_connected(s)
     let msg = _FrontendMessage.startup(
       _database_connect_info.user, _database_connect_info.database)
@@ -477,13 +488,16 @@ class ref _SessionSSLNegotiating
 class ref _SessionConnected is _AuthenticableState
   let _notify: SessionStatusNotify
   let _database_connect_info: DatabaseConnectInfo
+  let _codec_registry: CodecRegistry
   let _readbuf: Reader = _readbuf.create()
 
   new ref create(notify': SessionStatusNotify,
-    database_connect_info': DatabaseConnectInfo)
+    database_connect_info': DatabaseConnectInfo,
+    codec_registry': CodecRegistry = CodecRegistry)
   =>
     _notify = notify'
     _database_connect_info = database_connect_info'
+    _codec_registry = codec_registry'
 
   fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
     r.pg_query_failed(s, q, SessionNotAuthenticated)
@@ -538,6 +552,9 @@ class ref _SessionConnected is _AuthenticableState
   fun notify(): SessionStatusNotify =>
     _notify
 
+  fun codec_registry(): CodecRegistry =>
+    _codec_registry
+
 class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
   """
   Mid-SCRAM-SHA-256 authentication exchange. Has sent the client-first-message
@@ -548,19 +565,22 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
   let _client_nonce: String
   let _client_first_bare: String
   let _password: String
+  let _codec_registry: CodecRegistry
   var _expected_server_signature: (Array[U8] val | None) = None
 
   new ref create(notify': SessionStatusNotify, readbuf': Reader,
-    client_nonce': String, client_first_bare': String, password': String)
+    client_nonce': String, client_first_bare': String, password': String,
+    codec_registry': CodecRegistry = CodecRegistry)
   =>
     _notify = notify'
     _readbuf = readbuf'
     _client_nonce = client_nonce'
     _client_first_bare = client_first_bare'
     _password = password'
+    _codec_registry = codec_registry'
 
   fun ref on_authentication_ok(s: Session ref) =>
-    s.state = _SessionLoggedIn(notify(), readbuf())
+    s.state = _SessionLoggedIn(notify(), readbuf(), _codec_registry)
     notify().pg_session_authenticated(s)
 
   fun ref on_authentication_failed(s: Session ref,
@@ -794,13 +814,16 @@ class _SessionLoggedIn is _AuthenticatedState
   var query_state: _QueryState
   var backend_pid: I32 = 0
   var backend_secret_key: I32 = 0
-  let codec_registry: CodecRegistry = CodecRegistry
+  let codec_registry: CodecRegistry
   let _notify: SessionStatusNotify
   let _readbuf: Reader
 
-  new ref create(notify': SessionStatusNotify, readbuf': Reader) =>
+  new ref create(notify': SessionStatusNotify, readbuf': Reader,
+    codec_registry': CodecRegistry = CodecRegistry)
+  =>
     _notify = notify'
     _readbuf = readbuf'
+    codec_registry = codec_registry'
     query_state = _QueryNotReady
 
   fun ref on_notification(s: Session ref, msg: _NotificationResponseMessage) =>
@@ -2583,7 +2606,8 @@ trait _ConnectableState is _UnconnectedState
   fun on_connected(s: Session ref) =>
     match \exhaustive\ ssl_mode()
     | SSLDisabled =>
-      s.state = _SessionConnected(notify(), database_connect_info())
+      s.state = _SessionConnected(notify(), database_connect_info(),
+        codec_registry())
       notify().pg_session_connected(s)
       _send_startup_message(s)
     | let pref: SSLPreferred =>
@@ -2602,7 +2626,7 @@ trait _ConnectableState is _UnconnectedState
     try s._connection().expect(1)? end
     let st = _SessionSSLNegotiating(
       notify(), database_connect_info(), ctx, host(),
-      fallback_on_refusal)
+      fallback_on_refusal, codec_registry())
     s.state = st
     st.send_ssl_request(s)
 
@@ -2619,6 +2643,7 @@ trait _ConnectableState is _UnconnectedState
   fun ssl_mode(): SSLMode
   fun host(): String
   fun notify(): SessionStatusNotify
+  fun codec_registry(): CodecRegistry
 
 trait _NotConnectableState
   """
@@ -2758,7 +2783,7 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
   to occur.
   """
   fun ref on_authentication_ok(s: Session ref) =>
-    s.state = _SessionLoggedIn(notify(), readbuf())
+    s.state = _SessionLoggedIn(notify(), readbuf(), codec_registry())
     notify().pg_session_authenticated(s)
 
   fun ref on_authentication_failed(s: Session ref, r: AuthenticationFailureReason) =>
@@ -2801,7 +2826,8 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
       s._connection().send(
         _FrontendMessage.sasl_initial_response("SCRAM-SHA-256", response))
       s.state = _SessionSCRAMAuthenticating(
-        notify(), readbuf(), nonce, client_first_bare, password())
+        notify(), readbuf(), nonce, client_first_bare, password(),
+        codec_registry())
     else
       shutdown(s)
     end
@@ -2820,6 +2846,7 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
   fun password(): String
   fun ref readbuf(): Reader
   fun notify(): SessionStatusNotify
+  fun codec_registry(): CodecRegistry
 
 trait _NotAuthenticableState
   """

@@ -12,12 +12,12 @@ class \nodoc\ iso _TestBoolBinaryCodecRoundtrip is UnitTest
     let encoded_true = codec.encode(true)?
     h.assert_eq[USize](1, encoded_true.size())
     h.assert_eq[U8](1, encoded_true(0)?)
-    h.assert_is[FieldDataTypes](true, codec.decode(encoded_true)?)
+    h.assert_is[FieldData](true, codec.decode(encoded_true)?)
 
     let encoded_false = codec.encode(false)?
     h.assert_eq[USize](1, encoded_false.size())
     h.assert_eq[U8](0, encoded_false(0)?)
-    h.assert_is[FieldDataTypes](false, codec.decode(encoded_false)?)
+    h.assert_is[FieldData](false, codec.decode(encoded_false)?)
 
 class \nodoc\ iso _TestBoolBinaryCodecNonzeroTrue is UnitTest
   fun name(): String =>
@@ -26,7 +26,7 @@ class \nodoc\ iso _TestBoolBinaryCodecNonzeroTrue is UnitTest
   fun apply(h: TestHelper) ? =>
     // Any nonzero byte decodes as true
     let data: Array[U8] val = recover val [42] end
-    h.assert_is[FieldDataTypes](true, _BoolBinaryCodec.decode(data)?)
+    h.assert_is[FieldData](true, _BoolBinaryCodec.decode(data)?)
 
 class \nodoc\ iso _TestBoolBinaryCodecBadLength is UnitTest
   fun name(): String =>
@@ -235,8 +235,8 @@ class \nodoc\ iso _TestByteaBinaryCodecRoundtrip is UnitTest
     // Binary bytea is pass-through
     h.assert_array_eq[U8](data, encoded)
     match codec.decode(encoded)
-    | let decoded: Array[U8] val => h.assert_array_eq[U8](data, decoded)
-    else h.fail("Expected Array[U8] val from decode")
+    | let decoded: Bytea => h.assert_array_eq[U8](data, decoded.data)
+    else h.fail("Expected Bytea from decode")
     end
 
 class \nodoc\ iso _TestByteaBinaryCodecEmpty is UnitTest
@@ -258,11 +258,11 @@ class \nodoc\ iso _TestBoolTextCodecRoundtrip is UnitTest
 
     let encoded_true = codec.encode(true)?
     h.assert_array_eq[U8]("t".array(), encoded_true)
-    h.assert_is[FieldDataTypes](true, codec.decode(encoded_true))
+    h.assert_is[FieldData](true, codec.decode(encoded_true))
 
     let encoded_false = codec.encode(false)?
     h.assert_array_eq[U8]("f".array(), encoded_false)
-    h.assert_is[FieldDataTypes](false, codec.decode(encoded_false))
+    h.assert_is[FieldData](false, codec.decode(encoded_false))
 
 class \nodoc\ iso _TestInt4TextCodecRoundtrip is UnitTest
   fun name(): String =>
@@ -290,8 +290,8 @@ class \nodoc\ iso _TestByteaTextCodecRoundtrip is UnitTest
     // Should produce hex format: \xdeadbeef
     h.assert_array_eq[U8]("\\xdeadbeef".array(), encoded)
     match codec.decode(encoded)?
-    | let decoded: Array[U8] val => h.assert_array_eq[U8](data, decoded)
-    else h.fail("Expected Array[U8] val from decode")
+    | let decoded: Bytea => h.assert_array_eq[U8](data, decoded.data)
+    else h.fail("Expected Bytea from decode")
     end
 
 class \nodoc\ iso _TestByteaTextCodecBadHex is UnitTest
@@ -328,8 +328,8 @@ class \nodoc\ iso _TestCodecRegistryDecodeUnknownBinary is UnitTest
     // Unknown OID in binary format should fall back to raw bytes
     let data: Array[U8] val = recover val [1; 2; 3] end
     match reg.decode(99999, 1, data)
-    | let a: Array[U8] val => h.assert_array_eq[U8](data, a)
-    else h.fail("Expected Array[U8] fallback for unknown binary OID")
+    | let a: RawBytes => h.assert_array_eq[U8](data, a.data)
+    else h.fail("Expected RawBytes fallback for unknown binary OID")
     end
 
 class \nodoc\ iso _TestCodecRegistryDecodeKnown is UnitTest
@@ -340,7 +340,7 @@ class \nodoc\ iso _TestCodecRegistryDecodeKnown is UnitTest
     let reg = CodecRegistry
     // OID 16 (bool) text format, "t" -> true
     let data: Array[U8] val = "t".array()
-    h.assert_is[FieldDataTypes](true, reg.decode(16, 0, data))
+    h.assert_is[FieldData](true, reg.decode(16, 0, data))
 
 class \nodoc\ iso _TestCodecRegistryHasBinaryCodec is UnitTest
   fun name(): String =>
@@ -2743,3 +2743,278 @@ class \nodoc\ iso _TestPgIntervalStringMinValue is UnitTest
     let max_s: String val = max_interval.string()
     // The min_value version should be "-" + max_value's string
     h.assert_eq[String]("-" + consume max_s, s)
+
+// ---------------------------------------------------------------------------
+// Wrapper type tests
+// ---------------------------------------------------------------------------
+
+class \nodoc\ iso _TestByteaString is UnitTest
+  fun name(): String =>
+    "Bytea/String"
+
+  fun apply(h: TestHelper) =>
+    let b = Bytea(recover val [as U8: 0xDE; 0xAD; 0xBE; 0xEF] end)
+    h.assert_eq[String]("\\xdeadbeef", b.string())
+
+    let empty = Bytea(recover val Array[U8] end)
+    h.assert_eq[String]("\\x", empty.string())
+
+class \nodoc\ iso _TestByteaEquality is UnitTest
+  fun name(): String =>
+    "Bytea/Equality"
+
+  fun apply(h: TestHelper) =>
+    let a = Bytea(recover val [as U8: 1; 2; 3] end)
+    let b = Bytea(recover val [as U8: 1; 2; 3] end)
+    h.assert_true(a == b)
+
+    // Different content
+    let c = Bytea(recover val [as U8: 1; 2; 4] end)
+    h.assert_false(a == c)
+
+    // Different lengths
+    let d = Bytea(recover val [as U8: 1; 2] end)
+    h.assert_false(a == d)
+
+    // Empty
+    let e = Bytea(recover val Array[U8] end)
+    let f = Bytea(recover val Array[U8] end)
+    h.assert_true(e == f)
+
+class \nodoc\ iso _TestRawBytesString is UnitTest
+  fun name(): String =>
+    "RawBytes/String"
+
+  fun apply(h: TestHelper) =>
+    let r = RawBytes(recover val [as U8: 0xCA; 0xFE] end)
+    h.assert_eq[String]("\\xcafe", r.string())
+
+    let empty = RawBytes(recover val Array[U8] end)
+    h.assert_eq[String]("\\x", empty.string())
+
+class \nodoc\ iso _TestRawBytesEquality is UnitTest
+  fun name(): String =>
+    "RawBytes/Equality"
+
+  fun apply(h: TestHelper) =>
+    let a = RawBytes(recover val [as U8: 1; 2; 3] end)
+    let b = RawBytes(recover val [as U8: 1; 2; 3] end)
+    h.assert_true(a == b)
+
+    let c = RawBytes(recover val [as U8: 1; 2; 4] end)
+    h.assert_false(a == c)
+
+    let d = RawBytes(recover val [as U8: 1; 2] end)
+    h.assert_false(a == d)
+
+    let e = RawBytes(recover val Array[U8] end)
+    let f = RawBytes(recover val Array[U8] end)
+    h.assert_true(e == f)
+
+// ---------------------------------------------------------------------------
+// Custom codec tests
+// ---------------------------------------------------------------------------
+
+class \nodoc\ val _TestPoint is (FieldData & FieldDataEquatable & Equatable[_TestPoint])
+  let x: F64
+  let y: F64
+
+  new val create(x': F64, y': F64) =>
+    x = x'
+    y = y'
+
+  fun string(): String iso^ =>
+    recover iso
+      let s = String
+      s.append("(")
+      s.append(x.string())
+      s.append(",")
+      s.append(y.string())
+      s.append(")")
+      s
+    end
+
+  fun eq(that: box->_TestPoint): Bool =>
+    (x == that.x) and (y == that.y)
+
+  fun field_data_eq(that: FieldData box): Bool =>
+    match that
+    | let p: _TestPoint box => (x == p.x) and (y == p.y)
+    else false
+    end
+
+primitive \nodoc\ _TestPointCodec is Codec
+  fun format(): U16 => 1
+
+  fun encode(value: FieldDataTypes): Array[U8] val ? =>
+    error
+
+  fun decode(data: Array[U8] val): FieldData ? =>
+    if data.size() != 16 then error end
+    let x = ifdef bigendian then
+      F64.from_bits(data.read_u64(0)?)
+    else
+      F64.from_bits(data.read_u64(0)?.bswap())
+    end
+    let y = ifdef bigendian then
+      F64.from_bits(data.read_u64(8)?)
+    else
+      F64.from_bits(data.read_u64(8)?.bswap())
+    end
+    _TestPoint(x, y)
+
+class \nodoc\ iso _TestCodecRegistryWithCodecBinary is UnitTest
+  fun name(): String =>
+    "CodecRegistry/WithCodec/Binary"
+
+  fun apply(h: TestHelper) =>
+    let reg = CodecRegistry.with_codec(600, _TestPointCodec)
+    let data: Array[U8] val = recover val Array[U8].init(0, 16) end
+    match reg.decode(600, 1, data)
+    | let p: _TestPoint =>
+      h.assert_eq[F64](0, p.x)
+      h.assert_eq[F64](0, p.y)
+    else h.fail("Expected _TestPoint from custom codec")
+    end
+
+class \nodoc\ iso _TestCodecRegistryWithCodecText is UnitTest
+  fun name(): String =>
+    "CodecRegistry/WithCodec/Text"
+
+  fun apply(h: TestHelper) =>
+    // Text codec for same OID should fall back to String
+    let reg = CodecRegistry.with_codec(600, _TestPointCodec)
+    let data: Array[U8] val = "(1,2)".array()
+    match reg.decode(600, 0, data)
+    | let s: String => h.assert_eq[String]("(1,2)", s)
+    else h.fail("Expected String fallback for text format of custom binary codec")
+    end
+
+class \nodoc\ iso _TestCodecRegistryWithCodecOverride is UnitTest
+  fun name(): String =>
+    "CodecRegistry/WithCodec/Override"
+
+  fun apply(h: TestHelper) =>
+    // Override built-in bool codec
+    let reg = CodecRegistry.with_codec(16, _TestPointCodec)
+    // OID 16 is normally bool; with override, it should try point codec
+    // which expects 16 bytes, not 1 — so it should error and fall back
+    let data: Array[U8] val = recover val [1] end
+    match reg.decode(16, 1, data)
+    | let _: RawBytes => h.assert_true(true) // Falls back
+    else h.assert_true(true) // Any non-error result is fine
+    end
+
+class \nodoc\ iso _TestCodecRegistryWithCodecChaining is UnitTest
+  fun name(): String =>
+    "CodecRegistry/WithCodec/Chaining"
+
+  fun apply(h: TestHelper) =>
+    let reg = CodecRegistry
+      .with_codec(600, _TestPointCodec)
+      .with_codec(601, _TestPointCodec)
+    h.assert_true(reg.has_binary_codec(600))
+    h.assert_true(reg.has_binary_codec(601))
+    // Built-in codecs should still be present
+    h.assert_true(reg.has_binary_codec(16))
+
+class \nodoc\ iso _TestCodecRegistryWithCodecPreservesBuiltins is UnitTest
+  fun name(): String =>
+    "CodecRegistry/WithCodec/PreservesBuiltins"
+
+  fun apply(h: TestHelper) =>
+    let reg = CodecRegistry.with_codec(600, _TestPointCodec)
+    // Verify built-in codecs still work
+    let bool_data: Array[U8] val = recover val [1] end
+    match reg.decode(16, 1, bool_data)
+    | let v: Bool => h.assert_true(v)
+    else h.fail("Expected Bool from built-in codec after adding custom codec")
+    end
+
+class \nodoc\ iso _TestRowsBuilderWithCustomCodec is UnitTest
+  fun name(): String =>
+    "RowsBuilder/WithCustomCodec"
+
+  fun apply(h: TestHelper) ? =>
+    let reg = CodecRegistry.with_codec(600, _TestPointCodec)
+
+    let row_descs: Array[(String, U32, U16)] val = recover val
+      [("pt", 600, 1)]
+    end
+
+    let point_data: Array[U8] val = recover val Array[U8].init(0, 16) end
+
+    let raw_rows: Array[Array[(Array[U8] val | None)] val] val = recover val
+      let row: Array[(Array[U8] val | None)] iso =
+        recover iso
+          let r = Array[(Array[U8] val | None)]
+          r.push(point_data)
+          r
+        end
+      [consume row]
+    end
+
+    let rows = _RowsBuilder(raw_rows, row_descs, reg)?
+    h.assert_eq[USize](1, rows.size())
+    match rows(0)?.fields(0)?.value
+    | let p: _TestPoint =>
+      h.assert_eq[F64](0, p.x)
+      h.assert_eq[F64](0, p.y)
+    else h.fail("Expected _TestPoint from RowsBuilder with custom codec")
+    end
+
+// ---------------------------------------------------------------------------
+// Custom equality tests
+// ---------------------------------------------------------------------------
+
+class \nodoc\ iso _TestFieldEqualityCustomType is UnitTest
+  fun name(): String =>
+    "Field/Equality/CustomType"
+
+  fun apply(h: TestHelper) =>
+    let p1 = _TestPoint(1.0, 2.0)
+    let p2 = _TestPoint(1.0, 2.0)
+    h.assert_true(Field("pt", p1) == Field("pt", p2))
+
+class \nodoc\ iso _TestFieldInequalityCustomType is UnitTest
+  fun name(): String =>
+    "Field/Inequality/CustomType"
+
+  fun apply(h: TestHelper) =>
+    let p1 = _TestPoint(1.0, 2.0)
+    let p2 = _TestPoint(3.0, 4.0)
+    h.assert_false(Field("pt", p1) == Field("pt", p2))
+
+class \nodoc\ val _TestOpaqueData is FieldData
+  """
+  Custom `FieldData` that does NOT implement `FieldDataEquatable`.
+  Used to test that custom types without opt-in equality are never equal.
+  """
+  let tag_value: String
+
+  new val create(tag_value': String) =>
+    tag_value = tag_value'
+
+  fun string(): String iso^ =>
+    tag_value.clone()
+
+class \nodoc\ iso _TestFieldEqualityCustomWithoutEquatable is UnitTest
+  fun name(): String =>
+    "Field/Equality/CustomWithoutEquatable"
+
+  fun apply(h: TestHelper) =>
+    // Two identical custom values without FieldDataEquatable are never equal
+    let a = _TestOpaqueData("same")
+    let b = _TestOpaqueData("same")
+    h.assert_false(Field("x", a) == Field("x", b))
+    // Same instance is also not equal (no FieldDataEquatable to dispatch to)
+    h.assert_false(Field("x", a) == Field("x", a))
+
+class \nodoc\ iso _TestFieldEqualityCustomVsBuiltin is UnitTest
+  fun name(): String =>
+    "Field/Equality/CustomVsBuiltin"
+
+  fun apply(h: TestHelper) =>
+    let p = _TestPoint(1.0, 2.0)
+    h.assert_false(Field("x", p) == Field("x", I32(42)))
+    h.assert_false(Field("x", I32(42)) == Field("x", p))

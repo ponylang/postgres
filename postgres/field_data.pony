@@ -16,5 +16,8 @@ interface val FieldDataEquatable
   Opt-in equality for custom `FieldData` types used in `Field.eq()`. Built-in
   types use explicit match arms. Custom types implement this interface to
   participate in field equality comparisons.
+
+  Implementations must return `false` when `that` is a different type to
+  preserve symmetry of `Field.eq()`.
   """
   fun field_data_eq(that: FieldData box): Bool

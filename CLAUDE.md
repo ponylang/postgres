@@ -7,6 +7,7 @@ Pure Pony PostgreSQL driver. Alpha-level. Version 0.2.2.
 ```
 make ssl=3.0.x                        # build and run all tests
 make unit-tests ssl=3.0.x             # unit tests only (no postgres needed)
+make test-one t=TestName ssl=3.0.x    # run a single test by name
 make integration-tests ssl=3.0.x      # integration tests (needs postgres)
 make examples ssl=3.0.x               # compile examples
 make start-pg-containers              # docker postgres:14.5 on ports 5432 (plain) and 5433 (SSL)

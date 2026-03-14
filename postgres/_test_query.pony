@@ -2112,12 +2112,12 @@ actor \nodoc\ _ByteaQueryReceiver is
       try
         let field = r.rows()(0)?.fields(0)?
         match field.value
-        | let actual: Array[U8] val =>
+        | let actual: Bytea =>
           let expected: Array[U8] val =
             recover val [as U8: 72; 101; 108; 108; 111] end
-          _h.assert_array_eq[U8](expected, actual)
+          _h.assert_array_eq[U8](expected, actual.data)
         else
-          _h.fail("Expected Array[U8] val but got a different type.")
+          _h.fail("Expected Bytea but got a different type.")
           _h.complete(false)
           return
         end

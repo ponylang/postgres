@@ -82,8 +82,8 @@ actor Client is (SessionStatusNotify & ResultReceiver)
           | let v: F32 => _out.print(v.string())
           | let v: F64 => _out.print(v.string())
           | let v: Bool => _out.print(v.string())
-          | let v: Array[U8] val =>
-            _out.print(v.size().string() + " bytes")
+          | let v: Bytea =>
+            _out.print(v.data.size().string() + " bytes")
           | let t: PgTimestamp => _out.print(t.string())
           | let t: PgTime => _out.print(t.string())
           | let t: PgDate => _out.print(t.string())

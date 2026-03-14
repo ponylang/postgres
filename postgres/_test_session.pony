@@ -706,10 +706,10 @@ actor \nodoc\ _ByteaTestClient is (SessionStatusNotify & ResultReceiver)
       try
         let field = r.rows()(0)?.fields(0)?
         match field.value
-        | let actual: Array[U8] val =>
-          _h.assert_array_eq[U8](_expected, actual)
+        | let actual: Bytea =>
+          _h.assert_array_eq[U8](_expected, actual.data)
         else
-          _h.fail("Expected Array[U8] val but got a different type.")
+          _h.fail("Expected Bytea but got a different type.")
         end
       else
         _h.fail("Expected at least one row with one field.")

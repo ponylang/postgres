@@ -19,7 +19,7 @@ primitive _BoolBinaryCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 1 then error end
     data(0)? != 0
 
@@ -41,8 +41,8 @@ primitive _ByteaBinaryCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes =>
-    data
+  fun decode(data: Array[U8] val): FieldData =>
+    Bytea(data)
 
 primitive _Int2BinaryCodec is Codec
   """
@@ -70,7 +70,7 @@ primitive _Int2BinaryCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 2 then error end
     ifdef bigendian then
       data.read_u16(0)?.i16()
@@ -104,7 +104,7 @@ primitive _Int4BinaryCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 4 then error end
     ifdef bigendian then
       data.read_u32(0)?.i32()
@@ -138,7 +138,7 @@ primitive _Int8BinaryCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 8 then error end
     ifdef bigendian then
       data.read_u64(0)?.i64()
@@ -172,7 +172,7 @@ primitive _Float4BinaryCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 4 then error end
     ifdef bigendian then
       F32.from_bits(data.read_u32(0)?)
@@ -206,7 +206,7 @@ primitive _Float8BinaryCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 8 then error end
     ifdef bigendian then
       F64.from_bits(data.read_u64(0)?)
@@ -238,7 +238,7 @@ primitive _OidBinaryCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 4 then error end
     let v = ifdef bigendian then
       data.read_u32(0)?
@@ -262,7 +262,7 @@ primitive _NumericBinaryCodec is Codec
     // Phase 3 can add full encode support.
     error
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() < 8 then error end
     let ndigits = ifdef bigendian then
       data.read_u16(0)?.i16()
@@ -417,7 +417,7 @@ primitive _UuidBinaryCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 16 then error end
     recover val
       let s = String(36)
@@ -465,7 +465,7 @@ primitive _JsonbBinaryCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() < 1 then error end
     if data(0)? != 1 then error end
     String.from_array(recover val data.trim(1) end)
@@ -496,7 +496,7 @@ primitive _DateBinaryCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 4 then error end
     let days = ifdef bigendian then
       data.read_u32(0)?.i32()
@@ -531,7 +531,7 @@ primitive _TimeBinaryCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 8 then error end
     let us = ifdef bigendian then
       data.read_u64(0)?.i64()
@@ -567,7 +567,7 @@ primitive _TimestampBinaryCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 8 then error end
     let us = ifdef bigendian then
       data.read_u64(0)?.i64()
@@ -606,7 +606,7 @@ primitive _IntervalBinaryCodec is Codec
       error
     end
 
-  fun decode(data: Array[U8] val): FieldDataTypes ? =>
+  fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 16 then error end
     let us = ifdef bigendian then
       data.read_u64(0)?.i64()

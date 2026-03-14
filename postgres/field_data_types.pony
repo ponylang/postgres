@@ -7,4 +7,8 @@ type FieldDataTypes is
   | I32
   | I64
   | None
+  | PgDate
+  | PgInterval
+  | PgTime
+  | PgTimestamp
   | String )

@@ -2139,3 +2139,153 @@ actor \nodoc\ _ByteaQueryReceiver is
   =>
     _h.fail("Unexpected query failure.")
     _h.complete(false)
+
+class \nodoc\ iso _TestPreparedQueryTypedResults is UnitTest
+  """
+  Verifies that a PreparedQuery returns typed Pony values for columns
+  decoded via binary-format codecs: int4, bool, date, timestamp, time,
+  interval, float8, and text.
+  """
+  fun name(): String =>
+    "integration/PreparedQuery/TypedResults"
+
+  fun apply(h: TestHelper) =>
+    let info = _ConnectionTestConfiguration(h.env.vars)
+
+    let client = _PreparedQueryTypedResultsReceiver(h)
+
+    let session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
+      DatabaseConnectInfo(info.username, info.password, info.database),
+      client)
+
+    h.dispose_when_done(session)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _PreparedQueryTypedResultsReceiver is
+  ( SessionStatusNotify
+  & ResultReceiver )
+  let _h: TestHelper
+
+  new create(h: TestHelper) =>
+    _h = h
+
+  be pg_session_authenticated(session: Session) =>
+    // SELECT literal typed columns — no table needed
+    let q = PreparedQuery(
+      """
+      SELECT 42::int4 AS i,
+             true::bool AS b,
+             '2024-06-15'::date AS d,
+             '2024-06-15 14:30:00'::timestamp AS ts,
+             '14:30:00'::time AS t,
+             '1 year 2 mons 3 days 04:05:06'::interval AS iv,
+             3.14::float8 AS f
+      """,
+      recover val Array[FieldDataTypes] end)
+    session.execute(q, this)
+
+  be pg_session_authentication_failed(
+    s: Session,
+    reason: AuthenticationFailureReason)
+  =>
+    _h.fail("Unable to authenticate.")
+    _h.complete(false)
+
+  be pg_query_result(session: Session, result: Result) =>
+    match result
+    | let r: ResultSet =>
+      if r.rows().size() != 1 then
+        _h.fail("Expected 1 row, got " + r.rows().size().string())
+        _h.complete(false)
+        return
+      end
+      try
+        let row = r.rows()(0)?
+
+        // int4 -> I32
+        match row.fields(0)?.value
+        | let v: I32 => _h.assert_eq[I32](42, v)
+        else
+          _h.fail("Expected I32 for column i")
+          _h.complete(false)
+          return
+        end
+
+        // bool -> Bool
+        match row.fields(1)?.value
+        | let v: Bool => _h.assert_true(v)
+        else
+          _h.fail("Expected Bool for column b")
+          _h.complete(false)
+          return
+        end
+
+        // date -> PgDate
+        match row.fields(2)?.value
+        | let v: PgDate =>
+          _h.assert_eq[String]("2024-06-15", v.string())
+        else
+          _h.fail("Expected PgDate for column d")
+          _h.complete(false)
+          return
+        end
+
+        // timestamp -> PgTimestamp
+        match row.fields(3)?.value
+        | let v: PgTimestamp =>
+          _h.assert_eq[String]("2024-06-15 14:30:00", v.string())
+        else
+          _h.fail("Expected PgTimestamp for column ts")
+          _h.complete(false)
+          return
+        end
+
+        // time -> PgTime
+        match row.fields(4)?.value
+        | let v: PgTime =>
+          _h.assert_eq[String]("14:30:00", v.string())
+        else
+          _h.fail("Expected PgTime for column t")
+          _h.complete(false)
+          return
+        end
+
+        // interval -> PgInterval
+        match row.fields(5)?.value
+        | let v: PgInterval =>
+          _h.assert_eq[I32](14, v.months)
+          _h.assert_eq[I32](3, v.days)
+          _h.assert_eq[I64](14_706_000_000, v.microseconds)
+        else
+          _h.fail("Expected PgInterval for column iv")
+          _h.complete(false)
+          return
+        end
+
+        // float8 -> F64
+        match row.fields(6)?.value
+        | let v: F64 => _h.assert_eq[F64](F64(3.14), v)
+        else
+          _h.fail("Expected F64 for column f")
+          _h.complete(false)
+          return
+        end
+      else
+        _h.fail("Error accessing result row fields.")
+        _h.complete(false)
+        return
+      end
+    else
+      _h.fail("Expected ResultSet.")
+      _h.complete(false)
+      return
+    end
+
+    _h.complete(true)
+
+  be pg_query_failed(session: Session, query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _h.fail("Unexpected query failure.")
+    _h.complete(false)

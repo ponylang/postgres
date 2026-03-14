@@ -79,11 +79,13 @@ class val _CommandCompleteMessage
 class val _DataRowMessage
   """
   Message from the backend that represents a row of data from something like a
-  SELECT.
+  SELECT. Column data is raw bytes; decoding to typed values happens in
+  `_RowsBuilder` using `CodecRegistry` and the format code from
+  `_RowDescriptionMessage`.
   """
-  let columns: Array[(String|None)] val
+  let columns: Array[(Array[U8] val | None)] val
 
-  new val create(columns': Array[(String|None)] val) =>
+  new val create(columns': Array[(Array[U8] val | None)] val) =>
     columns = columns'
 
 primitive _EmptyQueryResponseMessage
@@ -112,12 +114,12 @@ class val _ReadyForQueryMessage
 
 class val _RowDescriptionMessage
   """
-  Message from the backend that contains metadata like field names for any
-  forthcoming DataRowMessages.
+  Message from the backend that contains metadata like field names, type OIDs,
+  and result format codes for any forthcoming DataRowMessages.
   """
-  let columns: Array[(String, U32)] val
+  let columns: Array[(String, U32, U16)] val
 
-  new val create(columns': Array[(String, U32)] val) =>
+  new val create(columns': Array[(String, U32, U16)] val) =>
     columns = columns'
 
 primitive _ParseCompleteMessage

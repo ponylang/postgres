@@ -300,11 +300,12 @@ primitive _ResponseParser
 
   fun _data_row(payload: Array[U8] val): _DataRowMessage ? =>
     """
-    Parse a data row message.
+    Parse a data row message. Column data is kept as raw bytes — decoding
+    to typed values happens later in `_RowsBuilder` using `CodecRegistry`.
     """
     let reader: Reader = Reader.>append(payload)
     let number_of_columns = reader.u16_be()?.usize()
-    let columns: Array[(String| None)] iso = recover iso
+    let columns: Array[(Array[U8] val | None)] iso = recover iso
       columns.create(number_of_columns)
     end
 
@@ -314,11 +315,10 @@ primitive _ResponseParser
       | -1 =>
         columns.push(None)
       | 0 =>
-        columns.push("")
+        columns.push(recover val Array[U8] end)
       else
         let column = reader.block(column_length.usize())?
-        let column_as_string = String.from_array(consume column)
-        columns.push(column_as_string)
+        columns.push(consume column)
       end
     end
 
@@ -326,11 +326,13 @@ primitive _ResponseParser
 
   fun _row_description(payload: Array[U8] val): _RowDescriptionMessage ? =>
     """
-    Parse a row description message.
+    Parse a row description message. Now includes the format code (text=0,
+    binary=1) for each column, used by `_RowsBuilder` to select the right
+    codec for decoding.
     """
     let reader: Reader = Reader.>append(payload)
     let number_of_columns = reader.u16_be()?.usize()
-    let columns: Array[(String, U32)] iso = recover iso
+    let columns: Array[(String, U32, U16)] iso = recover iso
       columns.create(number_of_columns)
     end
 
@@ -342,9 +344,11 @@ primitive _ResponseParser
       reader.skip(6)?
       // column data type
       let column_data_type = reader.u32_be()?
-      // skip remaining 3 fields int16, int32, int16
-      reader.skip(8)?
-      columns.push((column_name, column_data_type))
+      // skip type size (int16), type modifier (int32)
+      reader.skip(6)?
+      // format code (0=text, 1=binary)
+      let format_code = reader.u16_be()?
+      columns.push((column_name, column_data_type, format_code))
     end
 
     _RowDescriptionMessage(consume columns)

@@ -40,7 +40,7 @@ When `close()` was called while the session was between processing an error resp
 
 ## Add parameterized queries via extended query protocol
 
-You can now execute parameterized queries using `PreparedQuery`. Parameters are referenced as `$1`, `$2`, etc. in the query string and passed as an `Array[FieldDataTypes] val`. Typed values (`I16`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Array[U8] val`) use binary wire format; `String` and `None` use text format. Use `None` for SQL NULL.
+You can now execute parameterized queries using `PreparedQuery`. Parameters are referenced as `$1`, `$2`, etc. in the query string and passed as an `Array[FieldDataTypes] val`. Typed values (`I16`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Array[U8] val`, `PgTimestamp`, `PgTime`, `PgDate`, `PgInterval`) use binary wire format; `String` and `None` use text format. Use `None` for SQL NULL.
 
 ```pony
 // Parameterized SELECT with typed parameter
@@ -549,7 +549,7 @@ Only `PreparedQuery` and `NamedPreparedQuery` are supported — pipelining uses 
 
 ## Change PreparedQuery and NamedPreparedQuery parameters to typed FieldDataTypes
 
-`PreparedQuery` and `NamedPreparedQuery` parameters changed from `Array[(String | None)] val` to `Array[FieldDataTypes] val`. Typed values (`I16`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Array[U8] val`) are now sent in binary wire format with explicit type OIDs, while `String` and `None` continue to use text format with server-inferred types.
+`PreparedQuery` and `NamedPreparedQuery` parameters changed from `Array[(String | None)] val` to `Array[FieldDataTypes] val`. Typed values (`I16`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Array[U8] val`, `PgTimestamp`, `PgTime`, `PgDate`, `PgInterval`) are now sent in binary wire format with explicit type OIDs, while `String` and `None` continue to use text format with server-inferred types.
 
 Binary encoding eliminates the text→binary conversion the server previously had to do for every typed parameter. It also removes a class of silent bugs where a string like `"42"` could be interpreted as different types depending on context.
 

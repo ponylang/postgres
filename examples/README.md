@@ -58,6 +58,10 @@ Query pipelining using `Session.pipeline()` with reduced round-trip latency. Cre
 
 Server notice handling using `pg_notice`. Executes `DROP TABLE IF EXISTS` on a nonexistent table, which triggers a PostgreSQL `NoticeResponse`, and prints the notice fields (severity, code, message). Shows how `SessionStatusNotify.pg_notice` delivers non-fatal informational messages from the server.
 
+## temporal
+
+Temporal types using `PreparedQuery` with binary-format results. Executes a SELECT that returns `date`, `time`, `timestamp`, and `interval` literals, then matches each field against its corresponding Pony type (`PgDate`, `PgTime`, `PgTimestamp`, `PgInterval`) and prints the `string()` representation. Shows how the driver automatically decodes PostgreSQL temporal wire formats into typed values.
+
 ## transaction-status
 
 Transaction status tracking using `pg_transaction_status`. Sends `BEGIN` and `COMMIT` and prints the `TransactionStatus` reported at each step. Shows how `SessionStatusNotify.pg_transaction_status` fires on every `ReadyForQuery` with `TransactionIdle`, `TransactionInBlock`, or `TransactionFailed`.

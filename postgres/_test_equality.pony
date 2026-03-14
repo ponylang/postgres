@@ -1,16 +1,17 @@
 use "collections"
+use "constrained_types"
 use "pony_check"
 use "pony_test"
 
 class \nodoc\ iso _TestFieldEqualityReflexive is UnitTest
   """
   Every FieldDataTypes variant produces a Field that is equal to itself.
-  Covers all 9 variants of the FieldDataTypes union to verify each match
+  Covers all 13 variants of the FieldDataTypes union to verify each match
   branch in Field.eq.
   """
   fun name(): String => "Field/Equality/Reflexive"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let fields: Array[Field] val = [
       Field("bytes", recover val [as U8: 1; 2; 3] end)
       Field("b", true)
@@ -20,6 +21,11 @@ class \nodoc\ iso _TestFieldEqualityReflexive is UnitTest
       Field("i32", I32(32))
       Field("i64", I64(64))
       Field("none", None)
+      Field("date", PgDate(8765))
+      Field("interval", PgInterval(3_600_000_000, 1, 2))
+      Field("time",
+        PgTime(MakePgTimeMicroseconds(52_200_000_000) as PgTimeMicroseconds))
+      Field("timestamp", PgTimestamp(788_918_400_000_000))
       Field("str", "hello")
     ]
     for f in fields.values() do
@@ -29,11 +35,11 @@ class \nodoc\ iso _TestFieldEqualityReflexive is UnitTest
 class \nodoc\ iso _TestFieldEqualityStructural is UnitTest
   """
   Two independently constructed Fields with the same name and value are equal.
-  Covers all 9 variants of the FieldDataTypes union.
+  Covers all 13 variants of the FieldDataTypes union.
   """
   fun name(): String => "Field/Equality/Structural"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     h.assert_true(
       Field("a", recover val [as U8: 1; 2] end)
         == Field("a", recover val [as U8: 1; 2] end))
@@ -44,6 +50,17 @@ class \nodoc\ iso _TestFieldEqualityStructural is UnitTest
     h.assert_true(Field("a", I32(32)) == Field("a", I32(32)))
     h.assert_true(Field("a", I64(64)) == Field("a", I64(64)))
     h.assert_true(Field("a", None) == Field("a", None))
+    h.assert_true(Field("a", PgDate(100)) == Field("a", PgDate(100)))
+    h.assert_true(
+      Field("a", PgInterval(1000, 2, 3))
+        == Field("a", PgInterval(1000, 2, 3)))
+    h.assert_true(
+      Field("a",
+        PgTime(MakePgTimeMicroseconds(1000) as PgTimeMicroseconds))
+        == Field("a",
+        PgTime(MakePgTimeMicroseconds(1000) as PgTimeMicroseconds)))
+    h.assert_true(
+      Field("a", PgTimestamp(1000)) == Field("a", PgTimestamp(1000)))
     h.assert_true(Field("a", "hello") == Field("a", "hello"))
 
 class \nodoc\ iso _TestFieldEqualitySymmetric is UnitTest
@@ -82,7 +99,7 @@ class \nodoc\ iso _TestFieldEqualitySymmetric is UnitTest
 class \nodoc\ iso _TestFieldInequality is UnitTest
   fun name(): String => "Field/Inequality"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     // Different names, same value
     h.assert_false(Field("a", I32(42)) == Field("b", I32(42)))
 
@@ -113,6 +130,33 @@ class \nodoc\ iso _TestFieldInequality is UnitTest
     h.assert_false(
       Field("a", recover val [as U8: 1; 2] end)
         == Field("a", "hello"))
+
+    // Temporal type cross-type inequality
+    h.assert_false(Field("a", PgDate(0)) == Field("a", I32(0)))
+    h.assert_false(
+      Field("a",
+        PgTime(MakePgTimeMicroseconds(0) as PgTimeMicroseconds))
+        == Field("a", I64(0)))
+    h.assert_false(Field("a", PgTimestamp(0)) == Field("a", I64(0)))
+    h.assert_false(Field("a", PgDate(0)) == Field("a", PgTimestamp(0)))
+    h.assert_false(
+      Field("a",
+        PgTime(MakePgTimeMicroseconds(0) as PgTimeMicroseconds))
+        == Field("a", PgTimestamp(0)))
+    h.assert_false(
+      Field("a", PgInterval(0, 0, 0)) == Field("a", PgTimestamp(0)))
+
+    // Temporal type same-type inequality
+    h.assert_false(Field("a", PgDate(1)) == Field("a", PgDate(2)))
+    h.assert_false(
+      Field("a",
+        PgTime(MakePgTimeMicroseconds(1) as PgTimeMicroseconds))
+        == Field("a",
+        PgTime(MakePgTimeMicroseconds(2) as PgTimeMicroseconds)))
+    h.assert_false(
+      Field("a", PgTimestamp(1)) == Field("a", PgTimestamp(2)))
+    h.assert_false(
+      Field("a", PgInterval(1, 0, 0)) == Field("a", PgInterval(2, 0, 0)))
 
 
 class \nodoc\ iso _TestRowEquality is UnitTest
@@ -222,6 +266,17 @@ primitive \nodoc\ _FieldDataTypesGen
       (1, Generators.i32().map[FieldDataTypes]({(v) => v }))
       (1, Generators.i64().map[FieldDataTypes]({(v) => v }))
       (1, Generators.unit[None](None).map[FieldDataTypes]({(v) => v }))
+      (1, Generators.i32().map[FieldDataTypes]({(v) => PgDate(v) }))
+      (1, Generators.i64().map[FieldDataTypes](
+        {(v) => PgInterval(v, v.i32(), (v >> 32).i32()) }))
+      (1, Generators.i64().map[FieldDataTypes](
+        {(v) =>
+          try
+            PgTime(MakePgTimeMicroseconds((v.abs() % 86_400_000_000).i64())
+              as PgTimeMicroseconds)
+          else _Unreachable(); I64(0)
+          end }))
+      (1, Generators.i64().map[FieldDataTypes]({(v) => PgTimestamp(v) }))
       (1, Generators.ascii_printable(0, 20)
         .map[FieldDataTypes]({(v) => v }))
     ])
@@ -246,7 +301,7 @@ primitive \nodoc\ _RowGen
         Row(consume fields)
 
       fun _random_field_value(rnd: Randomness): FieldDataTypes =>
-        match rnd.usize(0, 8)
+        match rnd.usize(0, 12)
         | 0 => rnd.bool()
         | 1 => F32.from[I32](rnd.i32())
         | 2 => F64.from[I64](rnd.i64())
@@ -262,6 +317,16 @@ primitive \nodoc\ _RowGen
             end
             arr
           end
+        | 8 => PgDate(rnd.i32())
+        | 9 => PgInterval(rnd.i64(), rnd.i32(), rnd.i32())
+        | 10 =>
+            try
+              PgTime(MakePgTimeMicroseconds(
+                (rnd.i64().abs() % 86_400_000_000).i64())
+                as PgTimeMicroseconds)
+            else _Unreachable(); I64(0)
+            end
+        | 11 => PgTimestamp(rnd.i64())
         else
           "str" + rnd.u32().string()
         end
@@ -285,7 +350,7 @@ primitive \nodoc\ _RowsGen
         Rows(consume rows)
 
       fun _random_field_value(rnd: Randomness): FieldDataTypes =>
-        match rnd.usize(0, 8)
+        match rnd.usize(0, 12)
         | 0 => rnd.bool()
         | 1 => F32.from[I32](rnd.i32())
         | 2 => F64.from[I64](rnd.i64())
@@ -301,6 +366,16 @@ primitive \nodoc\ _RowsGen
             end
             arr
           end
+        | 8 => PgDate(rnd.i32())
+        | 9 => PgInterval(rnd.i64(), rnd.i32(), rnd.i32())
+        | 10 =>
+            try
+              PgTime(MakePgTimeMicroseconds(
+                (rnd.i64().abs() % 86_400_000_000).i64())
+                as PgTimeMicroseconds)
+            else _Unreachable(); I64(0)
+            end
+        | 11 => PgTimestamp(rnd.i64())
         else
           "str" + rnd.u32().string()
         end

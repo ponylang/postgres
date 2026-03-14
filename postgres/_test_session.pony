@@ -394,18 +394,16 @@ actor \nodoc\ _ZeroRowSelectTestServer
     else
       match _reader.read_message()
       | let _: Array[U8] val =>
-        try
-          let columns: Array[(String, String)] val = recover val
-            [("col", "text")]
-          end
-          let row_desc = _IncomingRowDescriptionTestMessage(columns)?.bytes()
-          let cmd_complete =
-            _IncomingCommandCompleteTestMessage("SELECT 0").bytes()
-          let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-          _tcp_connection.send(row_desc)
-          _tcp_connection.send(cmd_complete)
-          _tcp_connection.send(ready)
+        let columns: Array[(String, U32, U16)] val = recover val
+          [("col", U32(25), U16(0))]
         end
+        let row_desc = _IncomingRowDescriptionTestMessage(columns).bytes()
+        let cmd_complete =
+          _IncomingCommandCompleteTestMessage("SELECT 0").bytes()
+        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        _tcp_connection.send(row_desc)
+        _tcp_connection.send(cmd_complete)
+        _tcp_connection.send(ready)
       end
     end
 
@@ -810,23 +808,21 @@ actor \nodoc\ _ByteaTestServer
     else
       match _reader.read_message()
       | let _: Array[U8] val =>
-        try
-          let columns: Array[(String, String)] val = recover val
-            [("col", "bytea")]
-          end
-          let row_desc =
-            _IncomingRowDescriptionTestMessage(columns)?.bytes()
-          let data_row_cols: Array[(String | None)] val = recover val
-            [_hex_data]
-          end
-          let data_row = _IncomingDataRowTestMessage(data_row_cols).bytes()
-          let cmd_complete =
-            _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
-          let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-          _tcp_connection.send(row_desc)
-          _tcp_connection.send(data_row)
-          _tcp_connection.send(cmd_complete)
-          _tcp_connection.send(ready)
+        let columns: Array[(String, U32, U16)] val = recover val
+          [("col", U32(17), U16(0))]
         end
+        let row_desc =
+          _IncomingRowDescriptionTestMessage(columns).bytes()
+        let data_row_cols: Array[(String | None)] val = recover val
+          [_hex_data]
+        end
+        let data_row = _IncomingDataRowTestMessage(data_row_cols).bytes()
+        let cmd_complete =
+          _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
+        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        _tcp_connection.send(row_desc)
+        _tcp_connection.send(data_row)
+        _tcp_connection.send(cmd_complete)
+        _tcp_connection.send(ready)
       end
     end

@@ -787,13 +787,14 @@ class _SessionLoggedIn is _AuthenticatedState
   managed by a sub-state machine (`_QueryState`) that tracks whether a query
   is in flight, what protocol is active, and owns per-query accumulation data.
   """
-  // query_queue, query_state, backend_pid, and backend_secret_key are not
-  // underscore-prefixed because other types in this package need access, and
-  // Pony private fields are type-private.
+  // query_queue, query_state, backend_pid, backend_secret_key, and
+  // codec_registry are not underscore-prefixed because other types in this
+  // package need access, and Pony private fields are type-private.
   let query_queue: Array[_QueueItem] = query_queue.create()
   var query_state: _QueryState
   var backend_pid: I32 = 0
   var backend_secret_key: I32 = 0
+  let codec_registry: CodecRegistry = CodecRegistry
   let _notify: SessionStatusNotify
   let _readbuf: Reader
 
@@ -1294,12 +1295,12 @@ class _SimpleQueryInFlight is _QueryState
   which is created fresh for each query and destroyed when the state
   transitions out.
   """
-  var _data_rows: Array[Array[(String|None)] val] iso
-  var _row_description: (Array[(String, U32)] val | None)
+  var _data_rows: Array[Array[(Array[U8] val | None)] val] iso
+  var _row_description: (Array[(String, U32, U16)] val | None)
   var _error: Bool = false
 
   new create() =>
-    _data_rows = recover iso Array[Array[(String|None)] val] end
+    _data_rows = recover iso Array[Array[(Array[U8] val | None)] val] end
     _row_description = None
 
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
@@ -1330,14 +1331,15 @@ class _SimpleQueryInFlight is _QueryState
       match li.query_queue(0)?
       | let qry: _QueuedQuery =>
         let rows = _data_rows = recover iso
-          Array[Array[(String|None)] val].create()
+          Array[Array[(Array[U8] val | None)] val].create()
         end
         let rd = _row_description = None
 
         match \exhaustive\ rd
-        | let desc: Array[(String, U32)] val =>
+        | let desc: Array[(String, U32, U16)] val =>
           try
-            let rows_object = _RowsBuilder(consume rows, desc)?
+            let rows_object = _RowsBuilder(consume rows, desc,
+              li.codec_registry)?
             qry.receiver.pg_query_result(s,
               ResultSet(qry.query, rows_object, msg.id))
           else
@@ -1365,7 +1367,7 @@ class _SimpleQueryInFlight is _QueryState
       match li.query_queue(0)?
       | let qry: _QueuedQuery =>
         let rows = _data_rows = recover iso
-          Array[Array[(String|None)] val] end
+          Array[Array[(Array[U8] val | None)] val] end
         let rd = _row_description = None
 
         if (rows.size() > 0) or (rd isnt None) then
@@ -1387,7 +1389,7 @@ class _SimpleQueryInFlight is _QueryState
     try
       match li.query_queue(0)?
       | let qry: _QueuedQuery =>
-        _data_rows = recover iso Array[Array[(String|None)] val] end
+        _data_rows = recover iso Array[Array[(Array[U8] val | None)] val] end
         _row_description = None
         qry.receiver.pg_query_failed(s, qry.query, msg)
       else
@@ -1449,12 +1451,12 @@ class _ExtendedQueryInFlight is _QueryState
   have `iso` fields, so the shared `_data_rows` and `_row_description` state
   cannot be factored into a trait.
   """
-  var _data_rows: Array[Array[(String|None)] val] iso
-  var _row_description: (Array[(String, U32)] val | None)
+  var _data_rows: Array[Array[(Array[U8] val | None)] val] iso
+  var _row_description: (Array[(String, U32, U16)] val | None)
   var _error: Bool = false
 
   new create() =>
-    _data_rows = recover iso Array[Array[(String|None)] val] end
+    _data_rows = recover iso Array[Array[(Array[U8] val | None)] val] end
     _row_description = None
 
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
@@ -1485,14 +1487,15 @@ class _ExtendedQueryInFlight is _QueryState
       match li.query_queue(0)?
       | let qry: _QueuedQuery =>
         let rows = _data_rows = recover iso
-          Array[Array[(String|None)] val].create()
+          Array[Array[(Array[U8] val | None)] val].create()
         end
         let rd = _row_description = None
 
         match \exhaustive\ rd
-        | let desc: Array[(String, U32)] val =>
+        | let desc: Array[(String, U32, U16)] val =>
           try
-            let rows_object = _RowsBuilder(consume rows, desc)?
+            let rows_object = _RowsBuilder(consume rows, desc,
+              li.codec_registry)?
             qry.receiver.pg_query_result(s,
               ResultSet(qry.query, rows_object, msg.id))
           else
@@ -1520,7 +1523,7 @@ class _ExtendedQueryInFlight is _QueryState
       match li.query_queue(0)?
       | let qry: _QueuedQuery =>
         let rows = _data_rows = recover iso
-          Array[Array[(String|None)] val] end
+          Array[Array[(Array[U8] val | None)] val] end
         let rd = _row_description = None
 
         if (rows.size() > 0) or (rd isnt None) then
@@ -1542,7 +1545,7 @@ class _ExtendedQueryInFlight is _QueryState
     try
       match li.query_queue(0)?
       | let qry: _QueuedQuery =>
-        _data_rows = recover iso Array[Array[(String|None)] val] end
+        _data_rows = recover iso Array[Array[(Array[U8] val | None)] val] end
         _row_description = None
         qry.receiver.pg_query_failed(s, qry.query, msg)
       else
@@ -2002,13 +2005,13 @@ class _StreamingQueryInFlight is _QueryState
   sent Sync — the receiver may call `fetch_more()` in response to the
   final `pg_stream_batch` before `ReadyForQuery` arrives.
   """
-  var _data_rows: Array[Array[(String|None)] val] iso
-  var _row_description: (Array[(String, U32)] val | None)
+  var _data_rows: Array[Array[(Array[U8] val | None)] val] iso
+  var _row_description: (Array[(String, U32, U16)] val | None)
   var _error: Bool = false
   var _completing: Bool = false
 
   new create() =>
-    _data_rows = recover iso Array[Array[(String|None)] val] end
+    _data_rows = recover iso Array[Array[(Array[U8] val | None)] val] end
     _row_description = None
 
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
@@ -2027,11 +2030,12 @@ class _StreamingQueryInFlight is _QueryState
     try
       let sq = li.query_queue(0)? as _QueuedStreamingQuery
       let rows = _data_rows = recover iso
-        Array[Array[(String|None)] val].create()
+        Array[Array[(Array[U8] val | None)] val].create()
       end
       match _row_description
-      | let desc: Array[(String, U32)] val =>
-        let rows_object = _RowsBuilder(consume rows, desc)?
+      | let desc: Array[(String, U32, U16)] val =>
+        let rows_object = _RowsBuilder(consume rows, desc,
+          li.codec_registry)?
         sq.receiver.pg_stream_batch(s, rows_object)
       else
         _Unreachable()
@@ -2073,12 +2077,13 @@ class _StreamingQueryInFlight is _QueryState
     try
       let sq = li.query_queue(0)? as _QueuedStreamingQuery
       let rows = _data_rows = recover iso
-        Array[Array[(String|None)] val].create()
+        Array[Array[(Array[U8] val | None)] val].create()
       end
       if rows.size() > 0 then
         match _row_description
-        | let desc: Array[(String, U32)] val =>
-          let rows_object = _RowsBuilder(consume rows, desc)?
+        | let desc: Array[(String, U32, U16)] val =>
+          let rows_object = _RowsBuilder(consume rows, desc,
+            li.codec_registry)?
           sq.receiver.pg_stream_batch(s, rows_object)
         else
           _Unreachable()
@@ -2116,7 +2121,7 @@ class _StreamingQueryInFlight is _QueryState
     _error = true
     try
       let sq = li.query_queue(0)? as _QueuedStreamingQuery
-      _data_rows = recover iso Array[Array[(String|None)] val] end
+      _data_rows = recover iso Array[Array[(Array[U8] val | None)] val] end
       _row_description = None
       sq.receiver.pg_stream_failed(s, sq.query, msg)
     else
@@ -2176,13 +2181,13 @@ class _PipelineInFlight is _QueryState
   the server skips to Sync2 and continues with query 3. The `_error` flag
   is per-query, reset on each ReadyForQuery.
   """
-  var _data_rows: Array[Array[(String|None)] val] iso
-  var _row_description: (Array[(String, U32)] val | None)
+  var _data_rows: Array[Array[(Array[U8] val | None)] val] iso
+  var _row_description: (Array[(String, U32, U16)] val | None)
   var _error: Bool = false
   var _current_index: USize = 0
 
   new create() =>
-    _data_rows = recover iso Array[Array[(String|None)] val] end
+    _data_rows = recover iso Array[Array[(Array[U8] val | None)] val] end
     _row_description = None
 
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
@@ -2203,14 +2208,15 @@ class _PipelineInFlight is _QueryState
     try
       let pl = li.query_queue(0)? as _QueuedPipeline
       let rows = _data_rows = recover iso
-        Array[Array[(String|None)] val].create()
+        Array[Array[(Array[U8] val | None)] val].create()
       end
       let rd = _row_description = None
 
       match \exhaustive\ rd
-      | let desc: Array[(String, U32)] val =>
+      | let desc: Array[(String, U32, U16)] val =>
         try
-          let rows_object = _RowsBuilder(consume rows, desc)?
+          let rows_object = _RowsBuilder(consume rows, desc,
+            li.codec_registry)?
           pl.receiver.pg_pipeline_result(s, _current_index,
             ResultSet(pl.queries(_current_index)?, rows_object, msg.id))
         else
@@ -2236,7 +2242,7 @@ class _PipelineInFlight is _QueryState
     try
       let pl = li.query_queue(0)? as _QueuedPipeline
       let rows = _data_rows = recover iso
-        Array[Array[(String|None)] val] end
+        Array[Array[(Array[U8] val | None)] val] end
       let rd = _row_description = None
 
       if (rows.size() > 0) or (rd isnt None) then
@@ -2256,7 +2262,7 @@ class _PipelineInFlight is _QueryState
     _error = true
     try
       let pl = li.query_queue(0)? as _QueuedPipeline
-      _data_rows = recover iso Array[Array[(String|None)] val] end
+      _data_rows = recover iso Array[Array[(Array[U8] val | None)] val] end
       _row_description = None
       pl.receiver.pg_pipeline_failed(s, _current_index,
         pl.queries(_current_index)?, msg)

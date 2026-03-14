@@ -103,10 +103,11 @@ Three query types are available, all executed via `session.execute()`:
 
 * **`PreparedQuery`** — a parameterized single statement using `$1`,
   `$2`, etc. Parameters are `Array[FieldDataTypes] val` — typed values
-  (`I16`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Array[U8] val`) are sent
-  in binary format with explicit OIDs, while `String` and `None` use
-  text format with server-inferred types. Uses an unnamed server-side
-  prepared statement (created and destroyed per execution).
+  (`I16`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Array[U8] val`,
+  `PgTimestamp`, `PgTime`, `PgDate`, `PgInterval`) are sent in binary
+  format with explicit OIDs, while `String` and `None` use text format
+  with server-inferred types. Uses an unnamed server-side prepared
+  statement (created and destroyed per execution).
 
 * **`NamedPreparedQuery`** — executes a previously prepared named
   statement (see `session.prepare()`). Same typed parameter semantics
@@ -144,6 +145,10 @@ be pg_query_result(session: Session, result: Result) =>
         | let b: Bool => _env.out.print(field.name + ": " + b.string())
         | let v: Array[U8] val =>
           _env.out.print(field.name + ": " + v.size().string() + " bytes")
+        | let t: PgTimestamp => _env.out.print(field.name + ": " + t.string())
+        | let t: PgDate => _env.out.print(field.name + ": " + t.string())
+        | let t: PgTime => _env.out.print(field.name + ": " + t.string())
+        | let t: PgInterval => _env.out.print(field.name + ": " + t.string())
         | None => _env.out.print(field.name + ": NULL")
         // Also: I16, I64, F32, F64
         end
@@ -156,8 +161,20 @@ be pg_query_result(session: Session, result: Result) =>
 
 Field values are typed based on the PostgreSQL column OID:
 bytea → `Array[U8] val`, bool → `Bool`, int2 → `I16`, int4 → `I32`,
-int8 → `I64`, float4 → `F32`, float8 → `F64`, NULL → `None`,
-everything else → `String`.
+int8 → `I64`, float4 → `F32`, float8 → `F64`, date → `PgDate`,
+time → `PgTime`, timestamp/timestamptz → `PgTimestamp`,
+interval → `PgInterval`, NULL → `None`. Extended query results use
+binary format — unknown OIDs produce `Array[U8] val`. Simple query
+results use text format — unknown OIDs produce `String`.
+
+**`timestamptz` and query format:** `PreparedQuery` results use binary
+format where `timestamptz` values are always UTC microseconds.
+`SimpleQuery` results use text format where the server renders the
+value in the session's timezone and the driver strips the timezone
+suffix — the resulting `PgTimestamp` microseconds represent
+session-local time, not UTC. If your session timezone is not UTC and
+you use both query types on the same `timestamptz` column, the
+microsecond values will differ for the same row.
 
 ## Named Prepared Statements
 
@@ -313,7 +330,7 @@ supported.
 
 * Simple and extended query protocols
 * Typed parameterized queries with binary encoding for numeric, boolean,
-  and bytea types (unnamed and named prepared statements)
+  bytea, and temporal types (unnamed and named prepared statements)
 * SSL/TLS via `SSLRequired` and `SSLPreferred`
 * MD5 and SCRAM-SHA-256 authentication
 * Transaction status tracking (`TransactionStatus`)

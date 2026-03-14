@@ -35,6 +35,7 @@ All notable changes to this project will be documented in this file. This projec
 - Add SSLPreferred mode ([PR #128](https://github.com/ponylang/postgres/pull/128))
 - Add query pipelining ([PR #138](https://github.com/ponylang/postgres/pull/138))
 - Add custom codec registry ([PR #150](https://github.com/ponylang/postgres/pull/150))
+- Add 1-dimensional array type support ([PR #156](https://github.com/ponylang/postgres/pull/156))
 
 ### Changed
 

@@ -376,6 +376,9 @@ actor \nodoc\ Main is TestList
     test(_TestFieldEqualityCustomVsBuiltin)
     test(_TestFieldEqualityCustomEquatableVsNonEquatable)
     test(_TestCodecRegistryWithCodecCustomText)
+    test(_TestCodecRegistryDecodeErrorPropagatesText)
+    test(_TestCodecRegistryDecodeErrorPropagatesBinary)
+    test(_TestCodecRegistryDecodeErrorPropagatesBuiltin)
     test(Property1UnitTest[(I64, I64)](
       _TestFieldCustomEqualityReflexiveProperty))
     test(_TestArrayOidMapElementOidFor)

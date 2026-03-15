@@ -2063,9 +2063,16 @@ class _StreamingQueryInFlight is _QueryState
       end
       match _row_description
       | let desc: Array[(String, U32, U16)] val =>
-        let rows_object = _RowsBuilder(consume rows, desc,
-          li.codec_registry)?
-        sq.receiver.pg_stream_batch(s, rows_object)
+        try
+          let rows_object = _RowsBuilder(consume rows, desc,
+            li.codec_registry)?
+          sq.receiver.pg_stream_batch(s, rows_object)
+        else
+          _error = true
+          _row_description = None
+          sq.receiver.pg_stream_failed(s, sq.query, DataError)
+          s._connection().send(_FrontendMessage.sync())
+        end
       else
         _Unreachable()
       end
@@ -2111,9 +2118,15 @@ class _StreamingQueryInFlight is _QueryState
       if rows.size() > 0 then
         match _row_description
         | let desc: Array[(String, U32, U16)] val =>
-          let rows_object = _RowsBuilder(consume rows, desc,
-            li.codec_registry)?
-          sq.receiver.pg_stream_batch(s, rows_object)
+          try
+            let rows_object = _RowsBuilder(consume rows, desc,
+              li.codec_registry)?
+            sq.receiver.pg_stream_batch(s, rows_object)
+          else
+            _error = true
+            _row_description = None
+            sq.receiver.pg_stream_failed(s, sq.query, DataError)
+          end
         else
           _Unreachable()
         end

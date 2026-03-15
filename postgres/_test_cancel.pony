@@ -31,7 +31,9 @@ actor \nodoc\ _CancelTestClient is (SessionStatusNotify & ResultReceiver)
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 

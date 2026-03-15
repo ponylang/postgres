@@ -39,7 +39,9 @@ actor \nodoc\ _SSLRefusedTestNotify is SessionStatusNotify
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.complete(true)
 
   be pg_session_connected(s: Session) =>
@@ -148,7 +150,9 @@ actor \nodoc\ _SSLJunkTestNotify is SessionStatusNotify
     _h.fail("Should not have connected")
     _h.complete(false)
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Should not have gotten connection_failed for junk")
     _h.complete(false)
 
@@ -267,7 +271,9 @@ actor \nodoc\ _SSLSuccessTestNotify is SessionStatusNotify
     session.close()
     _h.complete(true)
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Connection failed during SSL negotiation")
     _h.complete(false)
 
@@ -525,7 +531,9 @@ actor \nodoc\ _SSLPreferredFallbackTestNotify is SessionStatusNotify
       _h.complete(false)
     end
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Should not have gotten connection_failed with SSLPreferred")
     _h.complete(false)
 
@@ -674,7 +682,9 @@ actor \nodoc\ _SSLPreferredSuccessTestNotify is SessionStatusNotify
     session.close()
     _h.complete(true)
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Connection failed during SSL negotiation")
     _h.complete(false)
 
@@ -782,7 +792,9 @@ actor \nodoc\ _SSLPreferredTLSFailureTestNotify is SessionStatusNotify
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.complete(true)
 
   be pg_session_connected(s: Session) =>

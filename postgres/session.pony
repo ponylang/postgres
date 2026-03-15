@@ -179,8 +179,13 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   fun ref _on_connected() =>
     state.on_connected(this)
 
-  fun ref _on_connection_failure() =>
-    state.on_failure(this)
+  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
+    let r: ConnectionFailureReason = match \exhaustive\ reason
+    | let _: lori.ConnectionFailedDNS => ConnectionFailedDNS
+    | let _: lori.ConnectionFailedTCP => ConnectionFailedTCP
+    | let _: lori.ConnectionFailedSSL => TLSHandshakeFailed
+    end
+    state.on_failure(this, r)
 
   fun ref _on_received(data: Array[U8] iso) =>
     state.on_received(this, consume data)
@@ -193,8 +198,12 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   fun ref _on_tls_ready() =>
     state.on_tls_ready(this)
 
-  fun ref _on_tls_failure() =>
-    state.on_tls_failure(this)
+  fun ref _on_tls_failure(reason: lori.TLSFailureReason) =>
+    let r: ConnectionFailureReason = match \exhaustive\ reason
+    | let _: lori.TLSAuthFailed => TLSAuthFailed
+    | let _: lori.TLSGeneralError => TLSHandshakeFailed
+    end
+    state.on_tls_failure(this, r)
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
@@ -365,13 +374,13 @@ class ref _SessionSSLNegotiating
         | None =>
           _handshake_started = true
         | let _: lori.StartTLSError =>
-          _connection_failed(s)
+          _connection_failed(s, TLSHandshakeFailed)
         end
       elseif response == 'N' then
         if _fallback_on_refusal then
           _proceed_to_connected(s)
         else
-          _connection_failed(s)
+          _connection_failed(s, SSLServerRefused)
         end
       else
         _shutdown(s)
@@ -388,7 +397,7 @@ class ref _SessionSSLNegotiating
     // bytes). Critical: lori preserves the expect(1) value across start_tls()
     // via _ssl_expect. Without this reset, decrypted data would be delivered
     // 1 byte at a time, breaking _ResponseParser.
-    try s._connection().expect(0)? end
+    s._connection().expect(None)
     s.state = _SessionConnected(_notify, _database_connect_info,
       _codec_registry)
     _notify.pg_session_connected(s)
@@ -396,8 +405,10 @@ class ref _SessionSSLNegotiating
       _database_connect_info.user, _database_connect_info.database)
     s._connection().send(msg)
 
-  fun ref on_tls_failure(s: Session ref) =>
-    _notify.pg_session_connection_failed(s)
+  fun ref on_tls_failure(s: Session ref,
+    reason: ConnectionFailureReason)
+  =>
+    _notify.pg_session_connection_failed(s, reason)
     s.state = _SessionClosed
 
   fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
@@ -471,9 +482,11 @@ class ref _SessionSSLNegotiating
   fun ref shutdown(s: Session ref) =>
     _shutdown(s)
 
-  fun ref _connection_failed(s: Session ref) =>
+  fun ref _connection_failed(s: Session ref,
+    reason: ConnectionFailureReason)
+  =>
     s._connection().close()
-    _notify.pg_session_connection_failed(s)
+    _notify.pg_session_connection_failed(s, reason)
     s.state = _SessionClosed
 
   fun ref _shutdown(s: Session ref) =>
@@ -2380,7 +2393,7 @@ interface _SessionState
     """
     Called when a connection is established with the server.
     """
-  fun on_failure(s: Session ref)
+  fun on_failure(s: Session ref, reason: ConnectionFailureReason)
     """
     Called if we fail to establish a connection with the server.
     """
@@ -2388,7 +2401,7 @@ interface _SessionState
     """
     Called when a TLS handshake initiated by start_tls() completes.
     """
-  fun ref on_tls_failure(s: Session ref)
+  fun ref on_tls_failure(s: Session ref, reason: ConnectionFailureReason)
     """
     Called when a TLS handshake initiated by start_tls() fails.
     """
@@ -2642,16 +2655,20 @@ trait _ConnectableState is _UnconnectedState
     // one byte per _on_received call. Any MITM-injected bytes stay in
     // lori's internal buffer, causing start_tls() to return
     // StartTLSNotReady (CVE-2021-23222 mitigation).
-    try s._connection().expect(1)? end
+    match \exhaustive\ lori.MakeExpect(1)
+    | let e: lori.Expect => s._connection().expect(e)
+    else
+      _Unreachable()
+    end
     let st = _SessionSSLNegotiating(
       notify(), database_connect_info(), ctx, host(),
       fallback_on_refusal, codec_registry())
     s.state = st
     st.send_ssl_request(s)
 
-  fun on_failure(s: Session ref) =>
+  fun on_failure(s: Session ref, reason: ConnectionFailureReason) =>
     s.state = _SessionClosed
-    notify().pg_session_connection_failed(s)
+    notify().pg_session_connection_failed(s, reason)
 
   fun _send_startup_message(s: Session ref) =>
     let dci = database_connect_info()
@@ -2672,7 +2689,7 @@ trait _NotConnectableState
   fun on_connected(s: Session ref) =>
     _IllegalState()
 
-  fun on_failure(s: Session ref) =>
+  fun on_failure(s: Session ref, reason: ConnectionFailureReason) =>
     _IllegalState()
 
 trait _ConnectedState is _NotConnectableState
@@ -2692,7 +2709,9 @@ trait _ConnectedState is _NotConnectableState
   fun ref on_tls_ready(s: Session ref) =>
     _IllegalState()
 
-  fun ref on_tls_failure(s: Session ref) =>
+  fun ref on_tls_failure(s: Session ref,
+    reason: ConnectionFailureReason)
+  =>
     _IllegalState()
   fun ref on_received(s: Session ref, data: Array[U8] iso) =>
     readbuf().append(consume data)
@@ -2755,7 +2774,9 @@ trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
   fun ref on_tls_ready(s: Session ref) =>
     _IllegalState()
 
-  fun ref on_tls_failure(s: Session ref) =>
+  fun ref on_tls_failure(s: Session ref,
+    reason: ConnectionFailureReason)
+  =>
     _IllegalState()
   fun ref on_received(s: Session ref, data: Array[U8] iso) =>
     // It is possible we will continue to receive data after we have closed

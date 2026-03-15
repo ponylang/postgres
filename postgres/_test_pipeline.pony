@@ -32,7 +32,9 @@ actor \nodoc\ _PipelineSuccessTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -213,7 +215,9 @@ actor \nodoc\ _PipelineWithFailureTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -402,7 +406,9 @@ actor \nodoc\ _PipelineEmptyTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -536,7 +542,9 @@ actor \nodoc\ _PipelineSingleQueryTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -652,7 +660,9 @@ actor \nodoc\ _PipelineShutdownDrainsQueueTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -767,7 +777,9 @@ actor \nodoc\ _PipelineShutdownInFlightTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -949,7 +961,9 @@ actor \nodoc\ _PipelineRowModifyingTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -1115,7 +1129,9 @@ actor \nodoc\ _PipelineMixedQueryTypesTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -1229,7 +1245,9 @@ actor \nodoc\ _PipelineAllFailTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 

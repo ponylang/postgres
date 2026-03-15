@@ -32,7 +32,9 @@ actor \nodoc\ _CopyInSuccessTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -203,7 +205,9 @@ actor \nodoc\ _CopyInAbortTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -366,7 +370,9 @@ actor \nodoc\ _CopyInServerErrorTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -563,7 +569,9 @@ actor \nodoc\ _CopyInShutdownTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 

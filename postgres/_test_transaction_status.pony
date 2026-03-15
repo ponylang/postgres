@@ -40,7 +40,9 @@ actor \nodoc\ _TxnStatusOnAuthClient is SessionStatusNotify
       _h.complete(true)
     end
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -128,7 +130,9 @@ actor \nodoc\ _TxnStatusDuringTxnClient is (SessionStatusNotify & ResultReceiver
     session.close()
     _h.complete(false)
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -226,7 +230,9 @@ actor \nodoc\ _TxnStatusFailedClient is (SessionStatusNotify & ResultReceiver)
     // Expected — the invalid query should fail
     None
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 

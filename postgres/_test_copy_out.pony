@@ -32,7 +32,9 @@ actor \nodoc\ _CopyOutSuccessTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -195,7 +197,9 @@ actor \nodoc\ _CopyOutEmptyTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -351,7 +355,9 @@ actor \nodoc\ _CopyOutServerErrorTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -545,7 +551,9 @@ actor \nodoc\ _CopyOutShutdownTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -706,7 +714,9 @@ actor \nodoc\ _CopyOutExportTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 

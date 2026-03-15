@@ -47,7 +47,9 @@ actor Client is (SessionStatusNotify & ResultReceiver)
   be pg_session_connected(session: Session) =>
     _out.print("Connected (TLS handshake complete).")
 
-  be pg_session_connection_failed(session: Session) =>
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
+  =>
     _out.print("Connection failed (server may not support SSL).")
 
   be pg_session_authenticated(session: Session) =>

@@ -31,7 +31,9 @@ actor \nodoc\ _HandlingJunkTestNotify is SessionStatusNotify
   be pg_session_shutdown(s: Session) =>
     _h.complete(true)
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection")
     _h.complete(false)
 
@@ -87,11 +89,13 @@ actor \nodoc\ _JunkSendingTestServer
 
   new create(auth: lori.TCPServerAuth, fd: U32) =>
     _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
-    let junk = _IncomingJunkTestMessage.bytes()
-    _tcp_connection.send(junk)
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_started() =>
+    let junk = _IncomingJunkTestMessage.bytes()
+    _tcp_connection.send(junk)
 
   fun ref _on_received(data: Array[U8] iso) =>
     let junk = _IncomingJunkTestMessage.bytes()
@@ -130,7 +134,9 @@ actor \nodoc\ _DoesntAnswerClient is (SessionStatusNotify & ResultReceiver)
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -277,7 +283,9 @@ actor \nodoc\ _ZeroRowSelectTestClient is (SessionStatusNotify & ResultReceiver)
     _h = h
     _query = SimpleQuery("SELECT * FROM empty_table")
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -446,7 +454,9 @@ actor \nodoc\ _PrepareShutdownTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -550,7 +560,9 @@ actor \nodoc\ _TerminateSentTestNotify is SessionStatusNotify
   be pg_session_authenticated(session: Session) =>
     session.close()
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -700,7 +712,9 @@ actor \nodoc\ _ByteaTestClient is (SessionStatusNotify & ResultReceiver)
     _expected = expected
     _query = SimpleQuery("SELECT col")
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 

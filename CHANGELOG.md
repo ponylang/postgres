@@ -47,6 +47,7 @@ All notable changes to this project will be documented in this file. This projec
 - Change Result and ClientQueryError from traits to union types ([PR #143](https://github.com/ponylang/postgres/pull/143))
 - Change extended query results to binary format with typed temporal values ([PR #144](https://github.com/ponylang/postgres/pull/144))
 - Change result field values from closed union to open interface ([PR #150](https://github.com/ponylang/postgres/pull/150))
+- Change pg_session_connection_failed to include a failure reason ([PR #163](https://github.com/ponylang/postgres/pull/163))
 
 ## [0.2.2] - 2025-07-16
 

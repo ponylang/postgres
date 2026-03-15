@@ -179,40 +179,34 @@ class val CodecRegistry
     to the caller. This surfaces malformed data from the server (built-in
     codecs) and broken custom codecs instead of silently returning fallback
     values.
+
+    For arrays, structural parsing errors (malformed wire format) fall back,
+    but element codec errors propagate. This distinguishes between an
+    unrecognized array format (which might be a new PostgreSQL feature) and
+    corrupt element data (which should be surfaced).
     """
     // Check built-in array OIDs
     if _ArrayOidMap.is_array_oid(oid) then
-      try
-        if format == 0 then
-          return _decode_text_array(oid, data)?
-        else
-          return _decode_binary_array(data)?
-        end
+      let parsed = try
+        if format == 0 then _parse_text_array(oid, data)?
+        else _parse_binary_array(data)? end
       else
-        // Malformed array data falls through to fallback
-        if format == 0 then
-          return String.from_array(data)
-        else
-          return RawBytes(data)
-        end
+        if format == 0 then return String.from_array(data)
+        else return RawBytes(data) end
       end
+      return _decode_array_elements(parsed._1, format, parsed._2)?
     end
 
     // Check custom array OIDs
     if _custom_array_element_oids.contains(oid) then
-      try
-        if format == 0 then
-          return _decode_text_array(oid, data)?
-        else
-          return _decode_binary_array(data)?
-        end
+      let parsed = try
+        if format == 0 then _parse_text_array(oid, data)?
+        else _parse_binary_array(data)? end
       else
-        if format == 0 then
-          return String.from_array(data)
-        else
-          return RawBytes(data)
-        end
+        if format == 0 then return String.from_array(data)
+        else return RawBytes(data) end
       end
+      return _decode_array_elements(parsed._1, format, parsed._2)?
     end
 
     if format == 0 then
@@ -240,9 +234,13 @@ class val CodecRegistry
       or _ArrayOidMap.is_array_oid(oid)
       or _custom_array_element_oids.contains(oid)
 
-  fun _decode_binary_array(data: Array[U8] val): PgArray ? =>
+  fun _parse_binary_array(data: Array[U8] val)
+    : (U32, Array[(Array[U8] val | None)] val) ?
+  =>
     """
-    Decode binary array wire format into PgArray.
+    Parse binary array wire format, extracting the element OID and raw element
+    byte slices without decoding them. Structural validation errors (truncated
+    data, multi-dimensional, bad offsets) raise `error`.
     """
     if data.size() < 12 then error end
     let ndim = ifdef bigendian then
@@ -267,8 +265,8 @@ class val CodecRegistry
     end
 
     if ndim == 0 then
-      return PgArray(element_oid,
-        recover val Array[(FieldData | None)] end)
+      return (element_oid,
+        recover val Array[(Array[U8] val | None)] end)
     end
 
     if data.size() < 20 then error end
@@ -285,8 +283,8 @@ class val CodecRegistry
       dim_size.usize().mul_partial(4)?
     if (20 + min_element_bytes) > data.size() then error end
 
-    let elements = recover iso
-      let elems = Array[(FieldData | None)](dim_size.usize())
+    let raw_elements = recover val
+      let elems = Array[(Array[U8] val | None)](dim_size.usize())
       var offset: USize = 20
       var i: I32 = 0
       while i < dim_size do
@@ -304,8 +302,7 @@ class val CodecRegistry
         else
           let len = elem_len.usize()
           if (offset + len) > data.size() then error end
-          let elem_data: Array[U8] val = recover val data.trim(offset, offset + len) end
-          elems.push(decode(element_oid, 1, elem_data)?)
+          elems.push(recover val data.trim(offset, offset + len) end)
           offset = offset + len
         end
         i = i + 1
@@ -313,13 +310,16 @@ class val CodecRegistry
       if offset != data.size() then error end
       elems
     end
-    PgArray(element_oid, consume elements)
+    (element_oid, raw_elements)
 
-  fun _decode_text_array(array_oid: U32, data: Array[U8] val): PgArray ? =>
+  fun _parse_text_array(array_oid: U32, data: Array[U8] val)
+    : (U32, Array[(Array[U8] val | None)] val) ?
+  =>
     """
-    Decode text array format into PgArray. Handles simple elements, quoted
-    elements with backslash escaping, NULL, and empty arrays. Rejects
-    multi-dimensional arrays.
+    Parse text array format, extracting the element OID and raw element byte
+    arrays without decoding them. Handles simple elements, quoted elements with
+    backslash escaping, NULL, and empty arrays. Rejects multi-dimensional
+    arrays.
     """
     let s: String val = String.from_array(data)
     if s.size() < 2 then error end
@@ -338,15 +338,15 @@ class val CodecRegistry
 
     // Empty array
     if s.size() == 2 then
-      return PgArray(element_oid,
-        recover val Array[(FieldData | None)] end)
+      return (element_oid,
+        recover val Array[(Array[U8] val | None)] end)
     end
 
     // Check for multi-dimensional array
     if s(1)? == '{' then error end
 
-    let elements: Array[(FieldData | None)] val = recover val
-      let elems = Array[(FieldData | None)]
+    let raw_elements: Array[(Array[U8] val | None)] val = recover val
+      let elems = Array[(Array[U8] val | None)]
       var pos: USize = 1  // skip opening '{'
       let end_pos = s.size() - 1  // before closing '}'
 
@@ -370,8 +370,7 @@ class val CodecRegistry
           end
           if pos >= end_pos then error end
           pos = pos + 1  // skip closing '"'
-          let raw: Array[U8] val = consume buf
-          elems.push(decode(element_oid, 0, raw)?)
+          elems.push(consume buf)
         else
           // Unquoted element — read until ',' or end
           let start = pos
@@ -388,8 +387,7 @@ class val CodecRegistry
           then
             elems.push(None)
           else
-            let raw: Array[U8] val = token.array()
-            elems.push(decode(element_oid, 0, raw)?)
+            elems.push(token.array())
           end
         end
 
@@ -400,4 +398,25 @@ class val CodecRegistry
       end
       elems
     end
-    PgArray(element_oid, elements)
+    (element_oid, raw_elements)
+
+  fun _decode_array_elements(element_oid: U32, format: U16,
+    raw_elements: Array[(Array[U8] val | None)] val): PgArray ?
+  =>
+    """
+    Decode raw element byte arrays into typed `FieldData` values using the
+    registered codec for the element OID. Errors from element codec `decode()`
+    propagate to the caller.
+    """
+    let elements = recover iso
+      let elems = Array[(FieldData | None)](raw_elements.size())
+      for raw in raw_elements.values() do
+        match raw
+        | None => elems.push(None)
+        | let bytes: Array[U8] val =>
+          elems.push(decode(element_oid, format, bytes)?)
+        end
+      end
+      elems
+    end
+    PgArray(element_oid, consume elements)

@@ -371,9 +371,43 @@ class \nodoc\ iso _TestBinaryDecodeValidationErrors is UnitTest
       h.fail("Expected fallback for truncated data")
     end
 
+class \nodoc\ iso _TestBinaryArrayElementCodecErrorPropagates is UnitTest
+  """
+  A structurally valid binary int4 array where one element has only 2 bytes
+  (int4 expects 4). The structural parse succeeds but the element codec
+  errors — that error must propagate rather than falling back to RawBytes.
+  """
+  fun name(): String =>
+    "Codec/Binary/Array/ElementCodecErrorPropagates"
+
+  fun apply(h: TestHelper) =>
+    let registry = CodecRegistry
+    // Build a binary int4[] with a 2-byte element (int4 requires 4 bytes)
+    let elems: Array[(Array[U8] val | None)] val = recover val
+      [as (Array[U8] val | None):
+        _TestArrayBinaryBuilder.int4_bytes(1)
+        recover val [as U8: 0xAB; 0xCD] end]  // only 2 bytes — int4 codec error
+    end
+    let data = _TestArrayBinaryBuilder(23, elems)
+    h.assert_error({()? => registry.decode(1007, 1, data)? })
+
 // ============================================================
 // Text decode tests
 // ============================================================
+
+class \nodoc\ iso _TestTextArrayElementCodecErrorPropagates is UnitTest
+  """
+  A text int4 array containing "abc" — structurally valid but the int4 text
+  codec cannot parse "abc". The error must propagate rather than falling back
+  to String.
+  """
+  fun name(): String =>
+    "Codec/Text/Array/ElementCodecErrorPropagates"
+
+  fun apply(h: TestHelper) =>
+    let registry = CodecRegistry
+    let data: Array[U8] val = recover val "{abc}".array() end
+    h.assert_error({()? => registry.decode(1007, 0, data)? })
 
 class \nodoc\ iso _TestTextDecodeSimpleArray is UnitTest
   fun name(): String =>

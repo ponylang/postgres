@@ -418,6 +418,8 @@ actor \nodoc\ Main is TestList
     test(_TestBinaryDecodeWithNulls)
     test(_TestBinaryDecodeEmptyArray)
     test(_TestBinaryDecodeValidationErrors)
+    test(_TestBinaryArrayElementCodecErrorPropagates)
+    test(_TestTextArrayElementCodecErrorPropagates)
     test(_TestTextDecodeSimpleArray)
     test(_TestTextDecodeNullArray)
     test(_TestTextDecodeQuotedArray)

@@ -35,6 +35,7 @@ class val Rows is Equatable[Rows]
       end
       true
     else
+      _Unreachable()
       false
     end
 

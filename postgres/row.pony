@@ -23,5 +23,6 @@ class val Row is Equatable[Row]
       end
       true
     else
+      _Unreachable()
       false
     end

@@ -93,13 +93,16 @@ actor \nodoc\ _CopyOutSuccessTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _CopyOutSuccessTestServer =>
-    _CopyOutSuccessTestServer(_server_auth, fd)
+    let server = _CopyOutSuccessTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _CopyOutSuccessTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -253,13 +256,16 @@ actor \nodoc\ _CopyOutEmptyTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _CopyOutEmptyTestServer =>
-    _CopyOutEmptyTestServer(_server_auth, fd)
+    let server = _CopyOutEmptyTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _CopyOutEmptyTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -416,13 +422,16 @@ actor \nodoc\ _CopyOutServerErrorTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _CopyOutServerErrorTestServer =>
-    _CopyOutServerErrorTestServer(_server_auth, fd)
+    let server = _CopyOutServerErrorTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _CopyOutServerErrorTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -597,13 +606,16 @@ actor \nodoc\ _CopyOutShutdownTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _DoesntAnswerTestServer =>
-    _DoesntAnswerTestServer(_server_auth, fd)
+    let server = _DoesntAnswerTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _CopyOutShutdownTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")

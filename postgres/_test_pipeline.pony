@@ -103,13 +103,16 @@ actor \nodoc\ _PipelineSuccessTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PipelineSuccessTestServer =>
-    _PipelineSuccessTestServer(_server_auth, fd)
+    let server = _PipelineSuccessTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PipelineSuccessTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -283,13 +286,16 @@ actor \nodoc\ _PipelineWithFailureTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PipelineWithFailureTestServer =>
-    _PipelineWithFailureTestServer(_server_auth, fd)
+    let server = _PipelineWithFailureTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PipelineWithFailureTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -461,13 +467,16 @@ actor \nodoc\ _PipelineEmptyTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PipelineEmptyTestServer =>
-    _PipelineEmptyTestServer(_server_auth, fd)
+    let server = _PipelineEmptyTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PipelineEmptyTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -597,13 +606,16 @@ actor \nodoc\ _PipelineSingleQueryTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PipelineSuccessTestServer =>
-    _PipelineSuccessTestServer(_server_auth, fd)
+    let server = _PipelineSuccessTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PipelineSingleQueryTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -709,13 +721,16 @@ actor \nodoc\ _PipelineShutdownDrainsQueueTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _DoesntAnswerTestServer =>
-    _DoesntAnswerTestServer(_server_auth, fd)
+    let server = _DoesntAnswerTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PipelineShutdownDrainsQueueTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -826,13 +841,16 @@ actor \nodoc\ _PipelineShutdownInFlightTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PipelineShutdownInFlightTestServer =>
-    _PipelineShutdownInFlightTestServer(_server_auth, fd)
+    let server = _PipelineShutdownInFlightTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PipelineShutdownInFlightTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -1006,13 +1024,16 @@ actor \nodoc\ _PipelineRowModifyingTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PipelineRowModifyingTestServer =>
-    _PipelineRowModifyingTestServer(_server_auth, fd)
+    let server = _PipelineRowModifyingTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PipelineRowModifyingTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -1163,13 +1184,16 @@ actor \nodoc\ _PipelineMixedQueryTypesTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PipelineSuccessTestServer =>
-    _PipelineSuccessTestServer(_server_auth, fd)
+    let server = _PipelineSuccessTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PipelineMixedQueryTypesTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -1274,13 +1298,16 @@ actor \nodoc\ _PipelineAllFailTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PipelineAllFailTestServer =>
-    _PipelineAllFailTestServer(_server_auth, fd)
+    let server = _PipelineAllFailTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PipelineAllFailTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")

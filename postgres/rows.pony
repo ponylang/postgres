@@ -80,7 +80,7 @@ primitive _RowsBuilder
         let oid = desc._2
         let format_code = desc._3
         let field_value: FieldData = match v
-        | let data: Array[U8] val => registry.decode(oid, format_code, data)
+        | let data: Array[U8] val => registry.decode(oid, format_code, data)?
         | None => None
         end
         fields.push(Field(field_name, field_value))

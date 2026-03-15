@@ -157,7 +157,7 @@ class \nodoc\ iso _TestBinaryDecodeInt4Array is UnitTest
   fun name(): String =>
     "Codec/Binary/Array/Int4/Roundtrip"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let elems: Array[(Array[U8] val | None)] val = recover val
       [as (Array[U8] val | None):
         _TestArrayBinaryBuilder.int4_bytes(1)
@@ -166,7 +166,7 @@ class \nodoc\ iso _TestBinaryDecodeInt4Array is UnitTest
     end
     let data = _TestArrayBinaryBuilder(23, elems)
     let registry = CodecRegistry
-    let result = registry.decode(1007, 1, data)
+    let result = registry.decode(1007, 1, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](3, arr.size())
@@ -195,14 +195,14 @@ class \nodoc\ iso _TestBinaryDecodeInt2Array is UnitTest
   fun name(): String =>
     "Codec/Binary/Array/Int2/Roundtrip"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let elems: Array[(Array[U8] val | None)] val = recover val
       [as (Array[U8] val | None):
         _TestArrayBinaryBuilder.int2_bytes(10)
         _TestArrayBinaryBuilder.int2_bytes(-5)]
     end
     let data = _TestArrayBinaryBuilder(21, elems)
-    let result = CodecRegistry.decode(1005, 1, data)
+    let result = CodecRegistry.decode(1005, 1, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](2, arr.size())
@@ -226,14 +226,14 @@ class \nodoc\ iso _TestBinaryDecodeBoolArray is UnitTest
   fun name(): String =>
     "Codec/Binary/Array/Bool/Roundtrip"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let elems: Array[(Array[U8] val | None)] val = recover val
       [as (Array[U8] val | None):
         _TestArrayBinaryBuilder.bool_bytes(true)
         _TestArrayBinaryBuilder.bool_bytes(false)]
     end
     let data = _TestArrayBinaryBuilder(16, elems)
-    let result = CodecRegistry.decode(1000, 1, data)
+    let result = CodecRegistry.decode(1000, 1, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](2, arr.size())
@@ -257,14 +257,14 @@ class \nodoc\ iso _TestBinaryDecodeTextArray is UnitTest
   fun name(): String =>
     "Codec/Binary/Array/Text/Roundtrip"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let elems: Array[(Array[U8] val | None)] val = recover val
       [as (Array[U8] val | None):
         recover val "hello".array() end
         recover val "world".array() end]
     end
     let data = _TestArrayBinaryBuilder(25, elems)
-    let result = CodecRegistry.decode(1009, 1, data)
+    let result = CodecRegistry.decode(1009, 1, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](2, arr.size())
@@ -288,7 +288,7 @@ class \nodoc\ iso _TestBinaryDecodeWithNulls is UnitTest
   fun name(): String =>
     "Codec/Binary/Array/NullElements"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let elems: Array[(Array[U8] val | None)] val = recover val
       [as (Array[U8] val | None):
         _TestArrayBinaryBuilder.int4_bytes(1)
@@ -296,7 +296,7 @@ class \nodoc\ iso _TestBinaryDecodeWithNulls is UnitTest
         _TestArrayBinaryBuilder.int4_bytes(3)]
     end
     let data = _TestArrayBinaryBuilder(23, elems)
-    let result = CodecRegistry.decode(1007, 1, data)
+    let result = CodecRegistry.decode(1007, 1, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](3, arr.size())
@@ -324,11 +324,11 @@ class \nodoc\ iso _TestBinaryDecodeEmptyArray is UnitTest
   fun name(): String =>
     "Codec/Binary/Array/Empty"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     // ndim=0 empty array
     let data = _TestArrayBinaryBuilder(23,
       recover val Array[(Array[U8] val | None)] end)
-    let result = CodecRegistry.decode(1007, 1, data)
+    let result = CodecRegistry.decode(1007, 1, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](0, arr.size())
@@ -341,7 +341,7 @@ class \nodoc\ iso _TestBinaryDecodeValidationErrors is UnitTest
   fun name(): String =>
     "Codec/Binary/Array/ValidationErrors"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let registry = CodecRegistry
     // ndim > 1 (multi-dimensional)
     let multidim = try
@@ -358,14 +358,14 @@ class \nodoc\ iso _TestBinaryDecodeValidationErrors is UnitTest
       _Unreachable()
       recover val Array[U8] end
     end
-    match registry.decode(1007, 1, multidim)
+    match registry.decode(1007, 1, multidim)?
     | let _: RawBytes => None  // Falls back to RawBytes on error
     else
       h.fail("Expected fallback for multi-dimensional array")
     end
 
     // Truncated data (< 12 bytes)
-    match registry.decode(1007, 1, recover val [as U8: 0; 0; 0] end)
+    match registry.decode(1007, 1, recover val [as U8: 0; 0; 0] end)?
     | let _: RawBytes => None
     else
       h.fail("Expected fallback for truncated data")
@@ -379,9 +379,9 @@ class \nodoc\ iso _TestTextDecodeSimpleArray is UnitTest
   fun name(): String =>
     "Codec/Text/Array/Simple"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let data: Array[U8] val = recover val "{1,2,3}".array() end
-    let result = CodecRegistry.decode(1007, 0, data)
+    let result = CodecRegistry.decode(1007, 0, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](3, arr.size())
@@ -406,9 +406,9 @@ class \nodoc\ iso _TestTextDecodeNullArray is UnitTest
   fun name(): String =>
     "Codec/Text/Array/Null"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let data: Array[U8] val = recover val "{1,NULL,3}".array() end
-    let result = CodecRegistry.decode(1007, 0, data)
+    let result = CodecRegistry.decode(1007, 0, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](3, arr.size())
@@ -428,10 +428,10 @@ class \nodoc\ iso _TestTextDecodeQuotedArray is UnitTest
   fun name(): String =>
     "Codec/Text/Array/Quoted"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let data: Array[U8] val =
       recover val "{\"hello, world\",\"simple\"}".array() end
-    let result = CodecRegistry.decode(1009, 0, data)
+    let result = CodecRegistry.decode(1009, 0, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](2, arr.size())
@@ -455,11 +455,11 @@ class \nodoc\ iso _TestTextDecodeEscapedArray is UnitTest
   fun name(): String =>
     "Codec/Text/Array/Escaped"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     // Element with escaped quotes: {"with \"quotes\""}
     let data: Array[U8] val =
       recover val "{\"with \\\"quotes\\\"\"}".array() end
-    let result = CodecRegistry.decode(1009, 0, data)
+    let result = CodecRegistry.decode(1009, 0, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](1, arr.size())
@@ -480,10 +480,10 @@ class \nodoc\ iso _TestTextDecodeEmptyStringArray is UnitTest
   fun name(): String =>
     "Codec/Text/Array/EmptyString"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     // Empty string element: {""}
     let data: Array[U8] val = recover val "{\"\"}".array() end
-    let result = CodecRegistry.decode(1009, 0, data)
+    let result = CodecRegistry.decode(1009, 0, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](1, arr.size())
@@ -503,9 +503,9 @@ class \nodoc\ iso _TestTextDecodeEmptyArray is UnitTest
   fun name(): String =>
     "Codec/Text/Array/Empty"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let data: Array[U8] val = recover val "{}".array() end
-    let result = CodecRegistry.decode(1007, 0, data)
+    let result = CodecRegistry.decode(1007, 0, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](0, arr.size())
@@ -518,10 +518,10 @@ class \nodoc\ iso _TestTextDecodeMultiDimensionalRejected is UnitTest
   fun name(): String =>
     "Codec/Text/Array/MultiDimensionalRejected"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let data: Array[U8] val = recover val "{{1,2},{3,4}}".array() end
     // Multi-dimensional arrays are rejected — falls back to String
-    let result = CodecRegistry.decode(1007, 0, data)
+    let result = CodecRegistry.decode(1007, 0, data)?
     match result
     | let _: String => None
     else
@@ -532,9 +532,9 @@ class \nodoc\ iso _TestTextDecodeBoolArray is UnitTest
   fun name(): String =>
     "Codec/Text/Array/Bool"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let data: Array[U8] val = recover val "{t,f,t}".array() end
-    let result = CodecRegistry.decode(1000, 0, data)
+    let result = CodecRegistry.decode(1000, 0, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](3, arr.size())
@@ -558,9 +558,9 @@ class \nodoc\ iso _TestTextDecodeCaseInsensitiveNull is UnitTest
   fun name(): String =>
     "Codec/Text/Array/CaseInsensitiveNull"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let data: Array[U8] val = recover val "{1,null,Null,NULL}".array() end
-    let result = CodecRegistry.decode(1007, 0, data)
+    let result = CodecRegistry.decode(1007, 0, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](4, arr.size())
@@ -677,7 +677,7 @@ class \nodoc\ iso _TestArrayEncoderRoundtrip is UnitTest
     let original = PgArray(23,
       recover val [as (FieldData | None): I32(10); None; I32(30)] end)
     let encoded = _ArrayEncoder(original)?
-    let decoded = CodecRegistry.decode(1007, 1, encoded)
+    let decoded = CodecRegistry.decode(1007, 1, encoded)?
     match decoded
     | let arr: PgArray =>
       h.assert_eq[USize](3, arr.size())
@@ -710,7 +710,7 @@ class \nodoc\ iso _TestArrayEncoderEmptyRoundtrip is UnitTest
     let original = PgArray(23,
       recover val Array[(FieldData | None)] end)
     let encoded = _ArrayEncoder(original)?
-    let decoded = CodecRegistry.decode(1007, 1, encoded)
+    let decoded = CodecRegistry.decode(1007, 1, encoded)?
     match decoded
     | let arr: PgArray =>
       h.assert_eq[USize](0, arr.size())
@@ -726,7 +726,7 @@ class \nodoc\ iso _TestArrayEncoderBoolRoundtrip is UnitTest
     let original = PgArray(16,
       recover val [as (FieldData | None): true; false; true] end)
     let encoded = _ArrayEncoder(original)?
-    let decoded = CodecRegistry.decode(1000, 1, encoded)
+    let decoded = CodecRegistry.decode(1000, 1, encoded)?
     match decoded
     | let arr: PgArray =>
       h.assert_eq[USize](3, arr.size())
@@ -754,7 +754,7 @@ class \nodoc\ iso _TestArrayEncoderStringRoundtrip is UnitTest
     let original = PgArray(25,
       recover val [as (FieldData | None): "hello"; "world"] end)
     let encoded = _ArrayEncoder(original)?
-    let decoded = CodecRegistry.decode(1009, 1, encoded)
+    let decoded = CodecRegistry.decode(1009, 1, encoded)?
     match decoded
     | let arr: PgArray =>
       h.assert_eq[USize](2, arr.size())
@@ -1500,7 +1500,7 @@ class \nodoc\ iso _TestArrayBinaryRoundtripProperty
   fun ref property(arg1: (PgArray, U32), h: PropertyHelper) ? =>
     (let arr, let array_oid) = arg1
     let encoded = _ArrayEncoder(arr)?
-    let decoded = CodecRegistry.decode(array_oid, 1, encoded)
+    let decoded = CodecRegistry.decode(array_oid, 1, encoded)?
     match decoded
     | let result: PgArray =>
       h.assert_eq[USize](arr.size(), result.size())
@@ -1538,7 +1538,7 @@ class \nodoc\ iso _TestArrayEncoderI16Roundtrip is UnitTest
   fun apply(h: TestHelper) ? =>
     let arr = PgArray(21,
       recover val [as (FieldData | None): I16(10); None; I16(-5)] end)
-    let decoded = CodecRegistry.decode(1005, 1, _ArrayEncoder(arr)?)
+    let decoded = CodecRegistry.decode(1005, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray =>
       h.assert_eq[USize](3, r.size())
@@ -1554,7 +1554,7 @@ class \nodoc\ iso _TestArrayEncoderI64Roundtrip is UnitTest
     let arr = PgArray(20,
       recover val [as (FieldData | None):
         I64(1000000); None; I64(-999)] end)
-    let decoded = CodecRegistry.decode(1016, 1, _ArrayEncoder(arr)?)
+    let decoded = CodecRegistry.decode(1016, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
     else h.fail("Expected PgArray")
@@ -1567,7 +1567,7 @@ class \nodoc\ iso _TestArrayEncoderF32Roundtrip is UnitTest
   fun apply(h: TestHelper) ? =>
     let arr = PgArray(700,
       recover val [as (FieldData | None): F32(1.5); F32(-2.5)] end)
-    let decoded = CodecRegistry.decode(1021, 1, _ArrayEncoder(arr)?)
+    let decoded = CodecRegistry.decode(1021, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
     else h.fail("Expected PgArray")
@@ -1580,7 +1580,7 @@ class \nodoc\ iso _TestArrayEncoderF64Roundtrip is UnitTest
   fun apply(h: TestHelper) ? =>
     let arr = PgArray(701,
       recover val [as (FieldData | None): F64(3.14); None; F64(-1.0)] end)
-    let decoded = CodecRegistry.decode(1022, 1, _ArrayEncoder(arr)?)
+    let decoded = CodecRegistry.decode(1022, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
     else h.fail("Expected PgArray")
@@ -1596,7 +1596,7 @@ class \nodoc\ iso _TestArrayEncoderByteaRoundtrip is UnitTest
         Bytea(recover val [as U8: 1; 2; 3] end)
         None
         Bytea(recover val Array[U8] end)] end)
-    let decoded = CodecRegistry.decode(1001, 1, _ArrayEncoder(arr)?)
+    let decoded = CodecRegistry.decode(1001, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
     else h.fail("Expected PgArray")
@@ -1610,7 +1610,7 @@ class \nodoc\ iso _TestArrayEncoderDateRoundtrip is UnitTest
     let arr = PgArray(1082,
       recover val [as (FieldData | None):
         PgDate(0); PgDate(365); PgDate(-365)] end)
-    let decoded = CodecRegistry.decode(1182, 1, _ArrayEncoder(arr)?)
+    let decoded = CodecRegistry.decode(1182, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
     else h.fail("Expected PgArray")
@@ -1626,7 +1626,7 @@ class \nodoc\ iso _TestArrayEncoderTimeRoundtrip is UnitTest
       MakePgTimeMicroseconds(43_200_000_000) as PgTimeMicroseconds)
     let arr = PgArray(1083,
       recover val [as (FieldData | None): t1; t2] end)
-    let decoded = CodecRegistry.decode(1183, 1, _ArrayEncoder(arr)?)
+    let decoded = CodecRegistry.decode(1183, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
     else h.fail("Expected PgArray")
@@ -1641,7 +1641,7 @@ class \nodoc\ iso _TestArrayEncoderTimestampRoundtrip is UnitTest
       recover val [as (FieldData | None):
         PgTimestamp(0); PgTimestamp(I64.max_value())
         PgTimestamp(I64.min_value())] end)
-    let decoded = CodecRegistry.decode(1115, 1, _ArrayEncoder(arr)?)
+    let decoded = CodecRegistry.decode(1115, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
     else h.fail("Expected PgArray")
@@ -1657,7 +1657,7 @@ class \nodoc\ iso _TestArrayEncoderIntervalRoundtrip is UnitTest
         PgInterval(1_000_000, 30, 12)
         None
         PgInterval(0, 0, 0)] end)
-    let decoded = CodecRegistry.decode(1187, 1, _ArrayEncoder(arr)?)
+    let decoded = CodecRegistry.decode(1187, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
     else h.fail("Expected PgArray")
@@ -1671,7 +1671,7 @@ class \nodoc\ iso _TestArrayEncoderUuidRoundtrip is UnitTest
     let arr = PgArray(2950,
       recover val [as (FieldData | None):
         "550e8400-e29b-41d4-a716-446655440000"] end)
-    let decoded = CodecRegistry.decode(2951, 1, _ArrayEncoder(arr)?)
+    let decoded = CodecRegistry.decode(2951, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray =>
       h.assert_eq[USize](1, r.size())
@@ -1695,7 +1695,7 @@ class \nodoc\ iso _TestArrayEncoderJsonbRoundtrip is UnitTest
     let arr = PgArray(3802,
       recover val [as (FieldData | None):
         "{\"key\": \"value\"}"; "42"] end)
-    let decoded = CodecRegistry.decode(3807, 1, _ArrayEncoder(arr)?)
+    let decoded = CodecRegistry.decode(3807, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
     else h.fail("Expected PgArray")
@@ -1708,7 +1708,7 @@ class \nodoc\ iso _TestArrayEncoderOidRoundtrip is UnitTest
   fun apply(h: TestHelper) ? =>
     let arr = PgArray(26,
       recover val [as (FieldData | None): "12345"; "0"] end)
-    let decoded = CodecRegistry.decode(1028, 1, _ArrayEncoder(arr)?)
+    let decoded = CodecRegistry.decode(1028, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
     else h.fail("Expected PgArray")
@@ -1722,7 +1722,7 @@ class \nodoc\ iso _TestArrayEncoderNumericRoundtrip is UnitTest
     let arr = PgArray(1700,
       recover val [as (FieldData | None):
         "42"; "-99.99"; "0"; "NaN"] end)
-    let decoded = CodecRegistry.decode(1231, 1, _ArrayEncoder(arr)?)
+    let decoded = CodecRegistry.decode(1231, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
     else h.fail("Expected PgArray")
@@ -1736,9 +1736,9 @@ class \nodoc\ iso _TestTextDecodeInt8Array is UnitTest
   fun name(): String =>
     "Codec/Text/Array/Int8"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let data: Array[U8] val = recover val "{100,-200}".array() end
-    let result = CodecRegistry.decode(1016, 0, data)
+    let result = CodecRegistry.decode(1016, 0, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](2, arr.size())
@@ -1761,9 +1761,9 @@ class \nodoc\ iso _TestTextDecodeFloat8Array is UnitTest
   fun name(): String =>
     "Codec/Text/Array/Float8"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let data: Array[U8] val = recover val "{1.5,-2.5}".array() end
-    let result = CodecRegistry.decode(1022, 0, data)
+    let result = CodecRegistry.decode(1022, 0, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](2, arr.size())
@@ -1785,10 +1785,10 @@ class \nodoc\ iso _TestTextDecodeDateArray is UnitTest
   fun name(): String =>
     "Codec/Text/Array/Date"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let data: Array[U8] val =
       recover val "{2000-01-01,2001-01-01}".array() end
-    let result = CodecRegistry.decode(1182, 0, data)
+    let result = CodecRegistry.decode(1182, 0, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](2, arr.size())
@@ -1812,13 +1812,13 @@ class \nodoc\ iso _TestTextDecodeTimestampArray is UnitTest
   fun name(): String =>
     "Codec/Text/Array/Timestamp"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     // PostgreSQL quotes timestamps in arrays because they contain spaces
     let data: Array[U8] val =
       recover val
         "{\"2000-01-01 00:00:00\",\"2000-01-01 00:00:01\"}".array()
       end
-    let result = CodecRegistry.decode(1115, 0, data)
+    let result = CodecRegistry.decode(1115, 0, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](2, arr.size())
@@ -1841,11 +1841,11 @@ class \nodoc\ iso _TestTextDecodeUuidArray is UnitTest
   fun name(): String =>
     "Codec/Text/Array/Uuid"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let data: Array[U8] val = recover val
       "{550e8400-e29b-41d4-a716-446655440000}".array()
     end
-    let result = CodecRegistry.decode(2951, 0, data)
+    let result = CodecRegistry.decode(2951, 0, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](1, arr.size())
@@ -1869,11 +1869,11 @@ class \nodoc\ iso _TestTextDecodeEscapedBackslash is UnitTest
   fun name(): String =>
     "Codec/Text/Array/EscapedBackslash"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     // Element with literal backslash: {"with \\backslash"}
     let data: Array[U8] val =
       recover val "{\"with \\\\backslash\"}".array() end
-    let result = CodecRegistry.decode(1009, 0, data)
+    let result = CodecRegistry.decode(1009, 0, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](1, arr.size())
@@ -1892,11 +1892,11 @@ class \nodoc\ iso _TestTextDecodeQuotedNullString is UnitTest
   fun name(): String =>
     "Codec/Text/Array/QuotedNullString"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     // Quoted "NULL" decodes as string, not SQL NULL
     let data: Array[U8] val =
       recover val "{\"NULL\",NULL}".array() end
-    let result = CodecRegistry.decode(1009, 0, data)
+    let result = CodecRegistry.decode(1009, 0, data)?
     match result
     | let arr: PgArray =>
       h.assert_eq[USize](2, arr.size())

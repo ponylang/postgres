@@ -164,15 +164,21 @@ class val CodecRegistry
       U32(0)
     end
 
-  fun decode(oid: U32, format: U16, data: Array[U8] val): FieldData =>
+  fun decode(oid: U32, format: U16, data: Array[U8] val): FieldData ? =>
     """
     Decode result column data using the registered codec. Array OIDs are
     intercepted and decoded as `PgArray` before falling through to per-OID
     codec lookup.
 
     Format 0 uses the text codec, format 1 uses the binary codec.
-    Text fallback for unknown OIDs: `String.from_array(data)`.
-    Binary fallback for unknown OIDs: `RawBytes(data)`.
+
+    If no codec is registered for the OID, returns a fallback value:
+    `String.from_array(data)` for text format, `RawBytes(data)` for binary.
+
+    If a codec IS registered but its `decode()` errors, the error propagates
+    to the caller. This surfaces malformed data from the server (built-in
+    codecs) and broken custom codecs instead of silently returning fallback
+    values.
     """
     // Check built-in array OIDs
     if _ArrayOidMap.is_array_oid(oid) then
@@ -210,17 +216,19 @@ class val CodecRegistry
     end
 
     if format == 0 then
-      try
-        _text_codecs(oid)?.decode(data)?
+      let codec = try
+        _text_codecs(oid)?
       else
-        String.from_array(data)
+        return String.from_array(data)
       end
+      codec.decode(data)?
     else
-      try
-        _binary_codecs(oid)?.decode(data)?
+      let codec = try
+        _binary_codecs(oid)?
       else
-        RawBytes(data)
+        return RawBytes(data)
       end
+      codec.decode(data)?
     end
 
   fun has_binary_codec(oid: U32): Bool =>
@@ -297,7 +305,7 @@ class val CodecRegistry
           let len = elem_len.usize()
           if (offset + len) > data.size() then error end
           let elem_data: Array[U8] val = recover val data.trim(offset, offset + len) end
-          elems.push(decode(element_oid, 1, elem_data))
+          elems.push(decode(element_oid, 1, elem_data)?)
           offset = offset + len
         end
         i = i + 1
@@ -363,7 +371,7 @@ class val CodecRegistry
           if pos >= end_pos then error end
           pos = pos + 1  // skip closing '"'
           let raw: Array[U8] val = consume buf
-          elems.push(decode(element_oid, 0, raw))
+          elems.push(decode(element_oid, 0, raw)?)
         else
           // Unquoted element — read until ',' or end
           let start = pos
@@ -381,7 +389,7 @@ class val CodecRegistry
             elems.push(None)
           else
             let raw: Array[U8] val = token.array()
-            elems.push(decode(element_oid, 0, raw))
+            elems.push(decode(element_oid, 0, raw)?)
           end
         end
 

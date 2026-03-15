@@ -310,11 +310,11 @@ class \nodoc\ iso _TestCodecRegistryDecodeUnknownText is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/UnknownText"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
     // Unknown OID in text format should fall back to String
     let data: Array[U8] val = "hello".array()
-    match reg.decode(99999, 0, data)
+    match reg.decode(99999, 0, data)?
     | let s: String => h.assert_eq[String]("hello", s)
     else h.fail("Expected String fallback for unknown text OID")
     end
@@ -323,11 +323,11 @@ class \nodoc\ iso _TestCodecRegistryDecodeUnknownBinary is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/UnknownBinary"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
     // Unknown OID in binary format should fall back to raw bytes
     let data: Array[U8] val = recover val [1; 2; 3] end
-    match reg.decode(99999, 1, data)
+    match reg.decode(99999, 1, data)?
     | let a: RawBytes => h.assert_array_eq[U8](data, a.data)
     else h.fail("Expected RawBytes fallback for unknown binary OID")
     end
@@ -336,11 +336,11 @@ class \nodoc\ iso _TestCodecRegistryDecodeKnown is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/Known"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
     // OID 16 (bool) text format, "t" -> true
     let data: Array[U8] val = "t".array()
-    h.assert_is[FieldData](true, reg.decode(16, 0, data))
+    h.assert_is[FieldData](true, reg.decode(16, 0, data)?)
 
 class \nodoc\ iso _TestCodecRegistryHasBinaryCodec is UnitTest
   fun name(): String =>
@@ -2116,11 +2116,11 @@ class \nodoc\ iso _TestCodecRegistryDecodeBinaryDate is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/BinaryDate"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
     // OID 1082 (date), binary format, 0 days = epoch
     let data: Array[U8] val = recover val [0; 0; 0; 0] end
-    match reg.decode(1082, 1, data)
+    match reg.decode(1082, 1, data)?
     | let d: PgDate => h.assert_eq[I32](0, d.days)
     else h.fail("Expected PgDate from binary date decode")
     end
@@ -2129,11 +2129,11 @@ class \nodoc\ iso _TestCodecRegistryDecodeBinaryTimestamp is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/BinaryTimestamp"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
     // OID 1114 (timestamp), binary format, 0 us = epoch
     let data: Array[U8] val = recover val Array[U8].init(0, 8) end
-    match reg.decode(1114, 1, data)
+    match reg.decode(1114, 1, data)?
     | let t: PgTimestamp => h.assert_eq[I64](0, t.microseconds)
     else h.fail("Expected PgTimestamp from binary timestamp decode")
     end
@@ -2142,11 +2142,11 @@ class \nodoc\ iso _TestCodecRegistryDecodeBinaryTimestamptz is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/BinaryTimestamptz"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
     // OID 1184 (timestamptz) uses same binary codec as timestamp
     let data: Array[U8] val = recover val Array[U8].init(0, 8) end
-    match reg.decode(1184, 1, data)
+    match reg.decode(1184, 1, data)?
     | let t: PgTimestamp => h.assert_eq[I64](0, t.microseconds)
     else h.fail("Expected PgTimestamp from binary timestamptz decode")
     end
@@ -2155,11 +2155,11 @@ class \nodoc\ iso _TestCodecRegistryDecodeTextDate is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/TextDate"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
     // OID 1082 (date), text format
     let data: Array[U8] val = "2000-01-01".array()
-    match reg.decode(1082, 0, data)
+    match reg.decode(1082, 0, data)?
     | let d: PgDate => h.assert_eq[I32](0, d.days)
     else h.fail("Expected PgDate from text date decode")
     end
@@ -2168,11 +2168,11 @@ class \nodoc\ iso _TestCodecRegistryDecodeTextTimestamptz is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/TextTimestamptz"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
     // OID 1184 (timestamptz), text format with timezone
     let data: Array[U8] val = "2000-01-01 00:00:00+00".array()
-    match reg.decode(1184, 0, data)
+    match reg.decode(1184, 0, data)?
     | let t: PgTimestamp => h.assert_eq[I64](0, t.microseconds)
     else h.fail("Expected PgTimestamp from text timestamptz decode")
     end
@@ -2181,11 +2181,11 @@ class \nodoc\ iso _TestCodecRegistryDecodeTextInterval is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/TextInterval"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
     // OID 1186 (interval), text format
     let data: Array[U8] val = "1 day".array()
-    match reg.decode(1186, 0, data)
+    match reg.decode(1186, 0, data)?
     | let i: PgInterval =>
       h.assert_eq[I32](1, i.days)
       h.assert_eq[I32](0, i.months)
@@ -2197,11 +2197,11 @@ class \nodoc\ iso _TestCodecRegistryDecodeBinaryUuid is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/BinaryUuid"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
     // OID 2950 (uuid), binary format
     let data: Array[U8] val = recover val Array[U8].init(0, 16) end
-    match reg.decode(2950, 1, data)
+    match reg.decode(2950, 1, data)?
     | let s: String =>
       h.assert_eq[String]("00000000-0000-0000-0000-000000000000", s)
     else h.fail("Expected String from binary uuid decode")
@@ -2211,7 +2211,7 @@ class \nodoc\ iso _TestCodecRegistryDecodeBinaryJsonb is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/BinaryJsonb"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
     // OID 3802 (jsonb), binary format: version byte + JSON
     let data: Array[U8] val = recover val
@@ -2220,7 +2220,7 @@ class \nodoc\ iso _TestCodecRegistryDecodeBinaryJsonb is UnitTest
       a.append("{}".array())
       a
     end
-    match reg.decode(3802, 1, data)
+    match reg.decode(3802, 1, data)?
     | let s: String => h.assert_eq[String]("{}", s)
     else h.fail("Expected String from binary jsonb decode")
     end
@@ -2229,11 +2229,11 @@ class \nodoc\ iso _TestCodecRegistryDecodeBinaryOid is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/BinaryOid"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
     // OID 26 (oid), binary format: 4 bytes big-endian for value 12345
     let data: Array[U8] val = recover val [0; 0; 0x30; 0x39] end
-    match reg.decode(26, 1, data)
+    match reg.decode(26, 1, data)?
     | let s: String => h.assert_eq[String]("12345", s)
     else h.fail("Expected String from binary oid decode")
     end
@@ -2242,18 +2242,18 @@ class \nodoc\ iso _TestCodecRegistryDecodeBinaryTextPassthrough is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/BinaryTextPassthrough"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
     // OID 25 (text), binary format: raw UTF-8
     let data: Array[U8] val = "hello".array()
-    match reg.decode(25, 1, data)
+    match reg.decode(25, 1, data)?
     | let s: String => h.assert_eq[String]("hello", s)
     else h.fail("Expected String from binary text decode")
     end
 
     // OID 1043 (varchar), binary format
     let varchar_data: Array[U8] val = "world".array()
-    match reg.decode(1043, 1, varchar_data)
+    match reg.decode(1043, 1, varchar_data)?
     | let s: String => h.assert_eq[String]("world", s)
     else h.fail("Expected String from binary varchar decode")
     end
@@ -2540,11 +2540,11 @@ class \nodoc\ iso _TestCodecRegistryDecodeBinaryTime is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/BinaryTime"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
     // OID 1083 (time), binary format, 0 us = midnight
     let data: Array[U8] val = recover val Array[U8].init(0, 8) end
-    match reg.decode(1083, 1, data)
+    match reg.decode(1083, 1, data)?
     | let t: PgTime => h.assert_eq[I64](0, t.microseconds)
     else h.fail("Expected PgTime from binary time decode")
     end
@@ -2553,11 +2553,11 @@ class \nodoc\ iso _TestCodecRegistryDecodeBinaryInterval is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/BinaryInterval"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
     // OID 1186 (interval), binary format, all zeros
     let data: Array[U8] val = recover val Array[U8].init(0, 16) end
-    match reg.decode(1186, 1, data)
+    match reg.decode(1186, 1, data)?
     | let i: PgInterval =>
       h.assert_eq[I64](0, i.microseconds)
       h.assert_eq[I32](0, i.days)
@@ -2569,11 +2569,11 @@ class \nodoc\ iso _TestCodecRegistryDecodeTextTimestamp is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/TextTimestamp"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
     // OID 1114 (timestamp), text format
     let data: Array[U8] val = "2000-01-01 00:00:00".array()
-    match reg.decode(1114, 0, data)
+    match reg.decode(1114, 0, data)?
     | let t: PgTimestamp => h.assert_eq[I64](0, t.microseconds)
     else h.fail("Expected PgTimestamp from text timestamp decode")
     end
@@ -2582,11 +2582,11 @@ class \nodoc\ iso _TestCodecRegistryDecodeTextTime is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/TextTime"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
     // OID 1083 (time), text format
     let data: Array[U8] val = "00:00:00".array()
-    match reg.decode(1083, 0, data)
+    match reg.decode(1083, 0, data)?
     | let t: PgTime => h.assert_eq[I64](0, t.microseconds)
     else h.fail("Expected PgTime from text time decode")
     end
@@ -2870,10 +2870,10 @@ class \nodoc\ iso _TestCodecRegistryWithCodecBinary is UnitTest
   fun name(): String =>
     "CodecRegistry/WithCodec/Binary"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry.with_codec(600, _TestPointCodec)
     let data: Array[U8] val = recover val Array[U8].init(0, 16) end
-    match reg.decode(600, 1, data)
+    match reg.decode(600, 1, data)?
     | let p: _TestPoint =>
       h.assert_eq[F64](0, p.x)
       h.assert_eq[F64](0, p.y)
@@ -2884,11 +2884,11 @@ class \nodoc\ iso _TestCodecRegistryWithCodecText is UnitTest
   fun name(): String =>
     "CodecRegistry/WithCodec/Text"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     // Text codec for same OID should fall back to String
     let reg = CodecRegistry.with_codec(600, _TestPointCodec)
     let data: Array[U8] val = "(1,2)".array()
-    match reg.decode(600, 0, data)
+    match reg.decode(600, 0, data)?
     | let s: String => h.assert_eq[String]("(1,2)", s)
     else h.fail("Expected String fallback for text format of custom binary codec")
     end
@@ -2900,15 +2900,10 @@ class \nodoc\ iso _TestCodecRegistryWithCodecOverride is UnitTest
   fun apply(h: TestHelper) =>
     // Override built-in bool codec with point codec
     let reg = CodecRegistry.with_codec(16, _TestPointCodec)
-    // OID 16 is normally bool; with override, it should try point codec
-    // which expects 16 bytes, not 1 — so it should error and fall back
-    // to RawBytes (unknown binary fallback)
+    // OID 16 is normally bool; with override, the point codec expects
+    // 16 bytes, not 1 — decode error propagates to the caller
     let data: Array[U8] val = recover val [1] end
-    match reg.decode(16, 1, data)
-    | let r: RawBytes =>
-      h.assert_array_eq[U8](data, r.data)
-    else h.fail("Expected RawBytes fallback when overridden codec errors")
-    end
+    h.assert_error({()? => reg.decode(16, 1, data)? })
 
 class \nodoc\ iso _TestCodecRegistryWithCodecChaining is UnitTest
   fun name(): String =>
@@ -2927,11 +2922,11 @@ class \nodoc\ iso _TestCodecRegistryWithCodecPreservesBuiltins is UnitTest
   fun name(): String =>
     "CodecRegistry/WithCodec/PreservesBuiltins"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry.with_codec(600, _TestPointCodec)
     // Verify built-in codecs still work
     let bool_data: Array[U8] val = recover val [1] end
-    match reg.decode(16, 1, bool_data)
+    match reg.decode(16, 1, bool_data)?
     | let v: Bool => h.assert_true(v)
     else h.fail("Expected Bool from built-in codec after adding custom codec")
     end
@@ -3059,21 +3054,75 @@ primitive \nodoc\ _TestUppercaseTextCodec is Codec
     let s = String.from_array(data)
     recover val s.upper() end
 
+primitive \nodoc\ _TestFailingTextCodec is Codec
+  """
+  Text codec that always errors on decode. Used to test that decode errors
+  from registered text codecs propagate through `CodecRegistry.decode()`.
+  """
+  fun format(): U16 => 0
+
+  fun encode(value: FieldDataTypes): Array[U8] val ? =>
+    error
+
+  fun decode(data: Array[U8] val): FieldData ? =>
+    error
+
 class \nodoc\ iso _TestCodecRegistryWithCodecCustomText is UnitTest
   fun name(): String =>
     "CodecRegistry/WithCodec/CustomTextCodec"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry.with_codec(99900, _TestUppercaseTextCodec)
     // Custom text codec should decode via the text codec map
     let data: Array[U8] val = "hello".array()
-    match reg.decode(99900, 0, data)
+    match reg.decode(99900, 0, data)?
     | let s: String => h.assert_eq[String]("HELLO", s)
     else h.fail("Expected String from custom text codec")
     end
     // Binary format for same OID should fall back to RawBytes
     // (no binary codec registered)
-    match reg.decode(99900, 1, data)
+    match reg.decode(99900, 1, data)?
     | let r: RawBytes => h.assert_array_eq[U8](data, r.data)
     else h.fail("Expected RawBytes fallback for binary format of text-only codec")
     end
+
+class \nodoc\ iso _TestCodecRegistryDecodeErrorPropagatesText is UnitTest
+  """
+  A registered text codec whose `decode()` errors propagates the error
+  through `CodecRegistry.decode()` instead of falling back to `String`.
+  """
+  fun name(): String =>
+    "CodecRegistry/Decode/ErrorPropagates/Text"
+
+  fun apply(h: TestHelper) =>
+    let reg = CodecRegistry.with_codec(99901, _TestFailingTextCodec)
+    let data: Array[U8] val = "hello".array()
+    h.assert_error({()? => reg.decode(99901, 0, data)? })
+
+class \nodoc\ iso _TestCodecRegistryDecodeErrorPropagatesBinary is UnitTest
+  """
+  A registered binary codec whose `decode()` errors propagates the error
+  through `CodecRegistry.decode()` instead of falling back to `RawBytes`.
+  """
+  fun name(): String =>
+    "CodecRegistry/Decode/ErrorPropagates/Binary"
+
+  fun apply(h: TestHelper) =>
+    let reg = CodecRegistry.with_codec(600, _TestPointCodec)
+    // _TestPointCodec expects 16 bytes; 1 byte triggers decode error
+    let data: Array[U8] val = recover val [1] end
+    h.assert_error({()? => reg.decode(600, 1, data)? })
+
+class \nodoc\ iso _TestCodecRegistryDecodeErrorPropagatesBuiltin is UnitTest
+  """
+  A built-in codec whose `decode()` errors (malformed server data)
+  propagates through `CodecRegistry.decode()`.
+  """
+  fun name(): String =>
+    "CodecRegistry/Decode/ErrorPropagates/Builtin"
+
+  fun apply(h: TestHelper) =>
+    let reg = CodecRegistry
+    // OID 23 (int4) expects 4 bytes; 2 bytes triggers decode error
+    let data: Array[U8] val = recover val [0; 0] end
+    h.assert_error({()? => reg.decode(23, 1, data)? })

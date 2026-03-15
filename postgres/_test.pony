@@ -565,7 +565,9 @@ actor \nodoc\ _ConnectTestNotify is SessionStatusNotify
   be pg_session_connected(session: Session) =>
     _h.complete(_success_expected == true)
 
-  be pg_session_connection_failed(session: Session) =>
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.complete(_success_expected == false)
 
 class \nodoc\ val _ConnectionTestConfiguration

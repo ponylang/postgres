@@ -171,7 +171,9 @@ actor \nodoc\ _QueryAfterConnectionFailureNotify is
     _h.fail("Unexpected successful connection")
     _h.complete(false)
 
-  be pg_session_connection_failed(session: Session) =>
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
+  =>
     session.execute(_query, this)
 
   be pg_query_result(session: Session, result: Result) =>

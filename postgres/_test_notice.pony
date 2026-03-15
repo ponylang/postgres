@@ -83,7 +83,9 @@ actor \nodoc\ _NoticeDeliveryClient
       _h.complete(true)
     end
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -173,7 +175,9 @@ actor \nodoc\ _NoticeDuringDataRowsClient
       _h.complete(true)
     end
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 

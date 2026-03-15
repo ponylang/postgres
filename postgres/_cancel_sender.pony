@@ -37,7 +37,11 @@ actor _CancelSender is (lori.TCPConnectionActor & lori.ClientLifecycleEventRecei
       _send_cancel_and_close()
     | let _: (SSLRequired | SSLPreferred) =>
       // CVE-2021-23222 mitigation: expect exactly 1 byte for SSL response.
-      try _tcp_connection.expect(1)? end
+      match \exhaustive\ lori.MakeExpect(1)
+      | let e: lori.Expect => _tcp_connection.expect(e)
+      else
+        _Unreachable()
+      end
       _tcp_connection.send(_FrontendMessage.ssl_request())
     end
 
@@ -61,7 +65,7 @@ actor _CancelSender is (lori.TCPConnectionActor & lori.ClientLifecycleEventRecei
         match _info.ssl_mode
         | let _: SSLPreferred =>
           // SSLPreferred: fall back to plaintext cancel
-          try _tcp_connection.expect(0)? end
+          _tcp_connection.expect(None)
           _send_cancel_and_close()
         else
           // SSLRequired or unexpected: silently give up
@@ -76,10 +80,10 @@ actor _CancelSender is (lori.TCPConnectionActor & lori.ClientLifecycleEventRecei
 
   fun ref _on_tls_ready() =>
     // Reset expect from 1 back to 0 (same pattern as _SessionSSLNegotiating)
-    try _tcp_connection.expect(0)? end
+    _tcp_connection.expect(None)
     _send_cancel_and_close()
 
-  fun ref _on_tls_failure() =>
+  fun ref _on_tls_failure(reason: lori.TLSFailureReason) =>
     // Fire-and-forget: TLS handshake failed, silently give up.
     // Lori follows this with _on_closed() (default no-op), so no
     // additional cleanup needed.

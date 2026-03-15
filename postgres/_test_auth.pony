@@ -185,7 +185,9 @@ actor \nodoc\ _SCRAMSuccessTestNotify is SessionStatusNotify
     session.close()
     _h.complete(true)
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
@@ -208,7 +210,9 @@ actor \nodoc\ _SCRAMFailureTestNotify is SessionStatusNotify
     _h.fail("Should not have authenticated.")
     _h.complete(false)
 
-  be pg_session_connection_failed(s: Session) =>
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 

@@ -435,9 +435,15 @@ primitive _TimestamptzTextCodec is Codec
 primitive _IntervalTextCodec is Codec
   """
   Text codec for PostgreSQL `interval` (OID 1186).
-  Parses PostgreSQL `postgres` output style:
-  `1 year 2 mons 3 days 04:05:06.789`
-  Components are optional; time part is always last.
+  Supports all four `intervalstyle` settings:
+
+  - `postgres` (default): `1 year 2 mons 3 days 04:05:06.789`
+  - `postgres_verbose`: `@ 1 year 2 mons 3 days 4 hours 5 mins 6.789 secs`
+  - `iso_8601`: `P1Y2M3DT4H5M6.789S`
+  - `sql_standard`: `+1-2 +3 +4:05:06.789`
+
+  Detection heuristic: leading `P` → iso_8601, leading `@` → postgres_verbose,
+  any ASCII letter → postgres, otherwise sql_standard.
   """
   fun format(): U16 => 0
 
@@ -450,11 +456,22 @@ primitive _IntervalTextCodec is Codec
 
   fun decode(data: Array[U8] val): FieldData ? =>
     let s = String.from_array(data)
+    if s.at("P") then _decode_iso8601(s)?
+    elseif s.at("@") then _decode_postgres_verbose(s)?
+    elseif _has_alpha(s) then _decode_postgres(s)?
+    else _decode_sql_standard(s)?
+    end
+
+  fun _decode_postgres(s: String): PgInterval ? =>
+    """
+    Parse the default `postgres` interval style.
+    `1 year 2 mons 3 days 04:05:06.789`
+    Mixed-sign intervals use `+` prefix: `-1 years -2 mons +3 days -04:05:06`.
+    """
     var total_months: I32 = 0
     var total_days: I32 = 0
     var total_us: I64 = 0
 
-    // Split into tokens
     let tokens = s.split(" ")
     var ti: USize = 0
     while ti < tokens.size() do
@@ -464,15 +481,9 @@ primitive _IntervalTextCodec is Codec
         continue
       end
 
-      // Check if this token contains ':' — it's the time part
       if tok.contains(":") then
-        // Parse [-]HH:MM:SS[.ffffff]
-        let negative = tok.at("-")
-        let time_str = if negative then
-          tok.substring(1)
-        else
-          tok
-        end
+        // Parse [+|-]HH:MM:SS[.ffffff]
+        (let negative, let time_str) = _strip_sign(tok)
         (let h, let m, let sec, let frac) =
           _TimeTextCodec._parse_time(consume time_str)?
         let us = (h * 3_600_000_000) + (m * 60_000_000)
@@ -481,19 +492,283 @@ primitive _IntervalTextCodec is Codec
         ti = ti + 1
       else
         // Number + unit pair
-        let num = tok.i64()?
+        (let negative, let num_str) = _strip_sign(tok)
+        let num = num_str.i64()?
+        let signed_num: I64 = if negative then -num else num end
         ti = ti + 1
         if ti >= tokens.size() then error end
         let unit = tokens(ti)?
         if unit.at("year") then
-          total_months = total_months + (num.i32() * 12)
+          total_months = total_months + (signed_num.i32() * 12)
         elseif unit.at("mon") then
-          total_months = total_months + num.i32()
+          total_months = total_months + signed_num.i32()
         elseif unit.at("day") then
-          total_days = total_days + num.i32()
+          total_days = total_days + signed_num.i32()
         end
         ti = ti + 1
       end
     end
 
     PgInterval(total_us, total_days, total_months)
+
+  fun _decode_iso8601(s: String): PgInterval ? =>
+    """
+    Parse ISO 8601 interval: `P[nY][nM][nD][T[nH][nM][n[.f]S]]`.
+    Per-component signs are allowed: `P-1Y-2M3DT-4H-5M-6S`.
+    """
+    if s.size() < 2 then error end // At least "P" + something
+    var total_months: I32 = 0
+    var total_days: I32 = 0
+    var total_us: I64 = 0
+    var in_time: Bool = false
+    var buf = String
+    var has_component: Bool = false
+    var i: USize = 1 // Skip 'P'
+
+    while i < s.size() do
+      let c = s(i)?
+      if c == 'T' then
+        in_time = true
+        i = i + 1
+        continue
+      end
+
+      if ((c >= '0') and (c <= '9')) or (c == '-') or (c == '.') then
+        buf.push(c)
+        i = i + 1
+        continue
+      end
+
+      // Designator letter — consume accumulated buffer
+      let current: String val = buf.clone()
+      buf.clear()
+      has_component = true
+      if c == 'Y' then
+        (let neg, let r) = _strip_sign(current)
+        let v = r.i64()?
+        total_months = total_months
+          + ((if neg then -v else v end).i32() * 12)
+      elseif (c == 'M') and not in_time then
+        (let neg, let r) = _strip_sign(current)
+        let v = r.i64()?
+        total_months = total_months + (if neg then -v else v end).i32()
+      elseif c == 'D' then
+        (let neg, let r) = _strip_sign(current)
+        let v = r.i64()?
+        total_days = total_days + (if neg then -v else v end).i32()
+      elseif c == 'H' then
+        (let neg, let r) = _strip_sign(current)
+        let v = r.i64()?
+        let signed_v: I64 = if neg then -v else v end
+        total_us = total_us + (signed_v * 3_600_000_000)
+      elseif (c == 'M') and in_time then
+        (let neg, let r) = _strip_sign(current)
+        let v = r.i64()?
+        let signed_v: I64 = if neg then -v else v end
+        total_us = total_us + (signed_v * 60_000_000)
+      elseif c == 'S' then
+        (let neg, let raw) = _strip_sign(current)
+        let dot_parts = raw.split(".")
+        let sec_val = dot_parts(0)?.i64()?
+        let frac_us: I64 = if dot_parts.size() > 1 then
+          _TimeTextCodec._parse_fractional(dot_parts(1)?)?
+        else
+          0
+        end
+        let signed_sec: I64 = if neg then -sec_val else sec_val end
+        let signed_frac: I64 = if neg then -frac_us else frac_us end
+        total_us = total_us + (signed_sec * 1_000_000) + signed_frac
+      end
+      i = i + 1
+    end
+
+    if not has_component then error end
+    PgInterval(total_us, total_days, total_months)
+
+  fun _decode_postgres_verbose(s: String): PgInterval ? =>
+    """
+    Parse `postgres_verbose` interval style.
+    `@ 1 year 2 mons 3 days 4 hours 5 mins 6.789 secs`
+    Trailing `ago` negates all components.
+    """
+    // Strip "@ " prefix
+    let body = s.substring(2)
+    let tokens = body.split(" ")
+
+    // Remove empty tokens
+    let clean = Array[String]
+    for tok in (consume tokens).values() do
+      if tok.size() > 0 then clean.push(tok) end
+    end
+
+    if clean.size() == 0 then error end
+
+    // Check for "ago" suffix
+    let negate = try clean(clean.size() - 1)?.eq("ago") else false end
+    let token_count = if negate then clean.size() - 1 else clean.size() end
+
+    // Special case: "0"
+    if (token_count == 1) and (try clean(0)?.eq("0") else false end) then
+      return PgInterval(0, 0, 0)
+    end
+
+    var total_months: I32 = 0
+    var total_days: I32 = 0
+    var total_us: I64 = 0
+    var ti: USize = 0
+
+    while ti < token_count do
+      let num_tok = clean(ti)?
+      ti = ti + 1
+      if ti >= token_count then error end
+      let unit = clean(ti)?
+      ti = ti + 1
+
+      if unit.at("year") then
+        (let neg, let r) = _strip_sign(num_tok)
+        let v = r.i64()?
+        let sv: I64 = if neg then -v else v end
+        total_months = total_months + (sv.i32() * 12)
+      elseif unit.at("mon") then
+        (let neg, let r) = _strip_sign(num_tok)
+        let v = r.i64()?
+        let sv: I64 = if neg then -v else v end
+        total_months = total_months + sv.i32()
+      elseif unit.at("day") then
+        (let neg, let r) = _strip_sign(num_tok)
+        let v = r.i64()?
+        let sv: I64 = if neg then -v else v end
+        total_days = total_days + sv.i32()
+      elseif unit.at("hour") then
+        (let neg, let r) = _strip_sign(num_tok)
+        let v = r.i64()?
+        let sv: I64 = if neg then -v else v end
+        total_us = total_us + (sv * 3_600_000_000)
+      elseif unit.at("min") then
+        (let neg, let r) = _strip_sign(num_tok)
+        let v = r.i64()?
+        let sv: I64 = if neg then -v else v end
+        total_us = total_us + (sv * 60_000_000)
+      elseif unit.at("sec") then
+        (let neg, let raw) = _strip_sign(num_tok)
+        let dot_parts = raw.split(".")
+        let sec_val = dot_parts(0)?.i64()?
+        let frac_us: I64 = if dot_parts.size() > 1 then
+          _TimeTextCodec._parse_fractional(dot_parts(1)?)?
+        else
+          0
+        end
+        let signed_sec: I64 = if neg then -sec_val else sec_val end
+        let signed_frac: I64 = if neg then -frac_us else frac_us end
+        total_us = total_us + (signed_sec * 1_000_000) + signed_frac
+      else
+        error
+      end
+    end
+
+    if negate then
+      PgInterval(-total_us, -total_days, -total_months)
+    else
+      PgInterval(total_us, total_days, total_months)
+    end
+
+  fun _decode_sql_standard(s: String): PgInterval ? =>
+    """
+    Parse `sql_standard` interval style. Group-count dispatch:
+    - `"0"` → zero
+    - 1 group: time (`H:MM:SS`) or year-month (`Y-M`)
+    - 2 groups: day + time
+    - 3 groups: year-month + day + time
+    """
+    let groups = s.split(" ")
+
+    // Remove empty groups
+    let clean = Array[String]
+    for g in (consume groups).values() do
+      if g.size() > 0 then clean.push(g) end
+    end
+
+    match clean.size()
+    | 1 =>
+      let g = clean(0)?
+      if g.eq("0") then
+        return PgInterval(0, 0, 0)
+      end
+      if g.contains(":") then
+        // Time only
+        let us = _parse_sql_time(g)?
+        return PgInterval(us, 0, 0)
+      end
+      // Year-month only (after stripping sign, must contain '-')
+      (let neg, let r) = _strip_sign(g)
+      if r.contains("-") then
+        let months = _parse_sql_year_month(g)?
+        return PgInterval(0, 0, months)
+      end
+      error
+    | 2 =>
+      // Day + time
+      let days = _parse_sql_day(clean(0)?)?
+      let us = _parse_sql_time(clean(1)?)?
+      return PgInterval(us, days, 0)
+    | 3 =>
+      // Year-month + day + time
+      let months = _parse_sql_year_month(clean(0)?)?
+      let days = _parse_sql_day(clean(1)?)?
+      let us = _parse_sql_time(clean(2)?)?
+      return PgInterval(us, days, months)
+    end
+    error
+
+  fun _parse_sql_year_month(s: String): I32 ? =>
+    """Parse `[+|-]Y-M` into total months."""
+    (let neg, let r) = _strip_sign(s)
+    let parts = r.split("-")
+    if parts.size() != 2 then error end
+    let years = parts(0)?.i64()?
+    let months = parts(1)?.i64()?
+    let total = (years * 12) + months
+    (if neg then -total else total end).i32()
+
+  fun _parse_sql_day(s: String): I32 ? =>
+    """Parse `[+|-]D` into days."""
+    (let neg, let r) = _strip_sign(s)
+    let v = r.i64()?
+    (if neg then -v else v end).i32()
+
+  fun _parse_sql_time(s: String): I64 ? =>
+    """Parse `[+|-]H:MM:SS[.ffffff]` into microseconds."""
+    (let neg, let time_str) = _strip_sign(s)
+    (let h, let m, let sec, let frac) =
+      _TimeTextCodec._parse_time(consume time_str)?
+    let us = (h * 3_600_000_000) + (m * 60_000_000)
+      + (sec * 1_000_000) + frac
+    if neg then -us else us end
+
+  fun _has_alpha(s: String box): Bool =>
+    """Scan for any ASCII letter."""
+    try
+      var i: USize = 0
+      while i < s.size() do
+        let c = s(i)?
+        if ((c >= 'A') and (c <= 'Z')) or ((c >= 'a') and (c <= 'z')) then
+          return true
+        end
+        i = i + 1
+      end
+    end
+    false
+
+  fun _strip_sign(s: String): (Bool, String) =>
+    """
+    Strip leading `+` or `-`, returning `(is_negative, remainder)`.
+    Pony's `String.i64()` doesn't handle `+` prefix, so all parsers use this
+    before integer parsing.
+    """
+    if s.at("-") then
+      (true, s.substring(1))
+    elseif s.at("+") then
+      (false, s.substring(1))
+    else
+      (false, s)
+    end

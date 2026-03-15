@@ -1692,6 +1692,372 @@ class \nodoc\ iso _TestIntervalTextCodecEncode is UnitTest
     h.assert_eq[String]("1 year 2 mons 5 days 01:00:00",
       String.from_array(encoded))
 
+class \nodoc\ iso _TestIntervalTextCodecPostgresMixedSign is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/Postgres/MixedSign"
+
+  fun apply(h: TestHelper) ? =>
+    // Mixed signs: -1 years -2 mons +3 days -04:05:06
+    match _IntervalTextCodec.decode(
+      "-1 years -2 mons +3 days -04:05:06".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](-14, i.months)
+      h.assert_eq[I32](3, i.days)
+      h.assert_eq[I64](-14_706_000_000, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+// ---------------------------------------------------------------------------
+// ISO 8601 intervalstyle tests
+// ---------------------------------------------------------------------------
+
+class \nodoc\ iso _TestIntervalTextCodecISO8601Full is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/ISO8601/Full"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("P1Y2M3DT4H5M6S".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](14, i.months)
+      h.assert_eq[I32](3, i.days)
+      h.assert_eq[I64](14_706_000_000, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecISO8601YearOnly is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/ISO8601/YearOnly"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("P1Y".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](12, i.months)
+      h.assert_eq[I32](0, i.days)
+      h.assert_eq[I64](0, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecISO8601TimeOnly is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/ISO8601/TimeOnly"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("PT1H".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](0, i.months)
+      h.assert_eq[I32](0, i.days)
+      h.assert_eq[I64](3_600_000_000, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecISO8601DaysOnly is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/ISO8601/DaysOnly"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("P3D".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](0, i.months)
+      h.assert_eq[I32](3, i.days)
+      h.assert_eq[I64](0, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecISO8601Negative is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/ISO8601/Negative"
+
+  fun apply(h: TestHelper) ? =>
+    // P-1Y-2M3DT-4H-5M-6S: -1Y=-12, -2M=-2 => -14 months, 3 days,
+    // -4H-5M-6S => -14706 seconds => -14706000000 us
+    match _IntervalTextCodec.decode("P-1Y-2M3DT-4H-5M-6S".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](-14, i.months)
+      h.assert_eq[I32](3, i.days)
+      h.assert_eq[I64](-14_706_000_000, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecISO8601Fractional is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/ISO8601/Fractional"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("PT1.5S".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I64](1_500_000, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecISO8601Zero is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/ISO8601/Zero"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("PT0S".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](0, i.months)
+      h.assert_eq[I32](0, i.days)
+      h.assert_eq[I64](0, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecISO8601FullFractional is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/ISO8601/FullFractional"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("P1Y2M3DT4H5M6.789S".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](14, i.months)
+      h.assert_eq[I32](3, i.days)
+      // 4*3600 + 5*60 + 6 = 14706 seconds, + 0.789 = 14706789000 us
+      h.assert_eq[I64](14_706_789_000, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecISO8601NegativeFractional is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/ISO8601/NegativeFractional"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("PT-1.5S".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I64](-1_500_000, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+// ---------------------------------------------------------------------------
+// postgres_verbose intervalstyle tests
+// ---------------------------------------------------------------------------
+
+class \nodoc\ iso _TestIntervalTextCodecVerboseFull is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/Verbose/Full"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode(
+      "@ 1 year 2 mons 3 days 4 hours 5 mins 6 secs".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](14, i.months)
+      h.assert_eq[I32](3, i.days)
+      h.assert_eq[I64](14_706_000_000, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecVerboseAgo is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/Verbose/Ago"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("@ 3 days ago".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](0, i.months)
+      h.assert_eq[I32](-3, i.days)
+      h.assert_eq[I64](0, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecVerboseMixedAgo is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/Verbose/MixedAgo"
+
+  fun apply(h: TestHelper) ? =>
+    // "@ 1 year 2 mons -3 days 4 hours 5 mins 6 secs ago"
+    // Before ago: months=14, days=-3, us=14706000000
+    // After ago negate: months=-14, days=3, us=-14706000000
+    match _IntervalTextCodec.decode(
+      "@ 1 year 2 mons -3 days 4 hours 5 mins 6 secs ago".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](-14, i.months)
+      h.assert_eq[I32](3, i.days)
+      h.assert_eq[I64](-14_706_000_000, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecVerboseZero is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/Verbose/Zero"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("@ 0".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](0, i.months)
+      h.assert_eq[I32](0, i.days)
+      h.assert_eq[I64](0, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecVerboseFractional is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/Verbose/Fractional"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("@ 1.5 secs".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I64](1_500_000, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecVerboseDaysOnly is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/Verbose/DaysOnly"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("@ 5 days".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](0, i.months)
+      h.assert_eq[I32](5, i.days)
+      h.assert_eq[I64](0, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecVerboseNegNoAgo is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/Verbose/NegNoAgo"
+
+  fun apply(h: TestHelper) ? =>
+    // "@ 1 day -1 hours" — mixed signs without ago
+    match _IntervalTextCodec.decode("@ 1 day -1 hours".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](0, i.months)
+      h.assert_eq[I32](1, i.days)
+      h.assert_eq[I64](-3_600_000_000, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecVerboseNegFractional is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/Verbose/NegFractional"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("@ -1.5 secs".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I64](-1_500_000, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+// ---------------------------------------------------------------------------
+// sql_standard intervalstyle tests
+// ---------------------------------------------------------------------------
+
+class \nodoc\ iso _TestIntervalTextCodecSQLFullMixed is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/SQL/FullMixed"
+
+  fun apply(h: TestHelper) ? =>
+    // "-1-2 +3 -4:05:06"
+    match _IntervalTextCodec.decode("-1-2 +3 -4:05:06".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](-14, i.months)
+      h.assert_eq[I32](3, i.days)
+      h.assert_eq[I64](-14_706_000_000, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecSQLYearMonthOnly is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/SQL/YearMonthOnly"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("1-2".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](14, i.months)
+      h.assert_eq[I32](0, i.days)
+      h.assert_eq[I64](0, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecSQLNegYearMonth is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/SQL/NegYearMonth"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("-1-2".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](-14, i.months)
+      h.assert_eq[I32](0, i.days)
+      h.assert_eq[I64](0, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecSQLDayTime is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/SQL/DayTime"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("3 4:05:06".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](0, i.months)
+      h.assert_eq[I32](3, i.days)
+      h.assert_eq[I64](14_706_000_000, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecSQLTimeOnly is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/SQL/TimeOnly"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("4:05:06".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](0, i.months)
+      h.assert_eq[I32](0, i.days)
+      h.assert_eq[I64](14_706_000_000, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecSQLZero is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/SQL/Zero"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("0".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](0, i.months)
+      h.assert_eq[I32](0, i.days)
+      h.assert_eq[I64](0, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecSQLNegDayTime is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/SQL/NegDayTime"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("-3 -4:05:06".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](0, i.months)
+      h.assert_eq[I32](-3, i.days)
+      h.assert_eq[I64](-14_706_000_000, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecSQLFractional is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/SQL/Fractional"
+
+  fun apply(h: TestHelper) ? =>
+    match _IntervalTextCodec.decode("0:00:01.5".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I64](1_500_000, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
+class \nodoc\ iso _TestIntervalTextCodecSQLZeroYM is UnitTest
+  fun name(): String =>
+    "Codec/Text/Interval/SQL/ZeroYM"
+
+  fun apply(h: TestHelper) ? =>
+    // "+0-0 +1 -1:00:00"
+    match _IntervalTextCodec.decode("+0-0 +1 -1:00:00".array())?
+    | let i: PgInterval =>
+      h.assert_eq[I32](0, i.months)
+      h.assert_eq[I32](1, i.days)
+      h.assert_eq[I64](-3_600_000_000, i.microseconds)
+    else h.fail("Expected PgInterval from decode")
+    end
+
 // ---------------------------------------------------------------------------
 // Temporal type string() tests
 // ---------------------------------------------------------------------------
@@ -2529,8 +2895,30 @@ class \nodoc\ iso _TestIntervalTextCodecBadInput is UnitTest
     "Codec/Text/Interval/BadInput"
 
   fun apply(h: TestHelper) =>
-    // Number without unit pair
+    // Number without unit pair (routes to sql_standard)
     h.assert_error({()? => _IntervalTextCodec.decode("5".array())? })
+
+    // ISO 8601: bare "P" with no components
+    h.assert_error({()? => _IntervalTextCodec.decode("P".array())? })
+    // ISO 8601: "PT" with no time components
+    h.assert_error({()? => _IntervalTextCodec.decode("PT".array())? })
+
+    // Verbose: "@ " with nothing after prefix
+    h.assert_error({()? => _IntervalTextCodec.decode("@ ".array())? })
+    // Verbose: number without unit pair
+    h.assert_error({()? => _IntervalTextCodec.decode("@ 5".array())? })
+    // Verbose: unrecognized unit
+    h.assert_error(
+      {()? => _IntervalTextCodec.decode("@ 1 foobar".array())? })
+
+    // SQL standard: empty string
+    h.assert_error({()? => _IntervalTextCodec.decode("".array())? })
+    // Too many groups (routes to postgres due to alpha, fails on parse)
+    h.assert_error(
+      {()? => _IntervalTextCodec.decode("1-2 3 4:05:06 extra".array())? })
+    // SQL standard: too many groups
+    h.assert_error(
+      {()? => _IntervalTextCodec.decode("1-2 3 4:05:06 7".array())? })
 
 // ---------------------------------------------------------------------------
 // CodecRegistry dispatch tests for remaining temporal types

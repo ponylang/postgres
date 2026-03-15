@@ -104,13 +104,16 @@ actor \nodoc\ _StreamingSuccessTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _StreamingSuccessTestServer =>
-    _StreamingSuccessTestServer(_server_auth, fd)
+    let server = _StreamingSuccessTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _StreamingSuccessTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -323,13 +326,16 @@ actor \nodoc\ _StreamingEmptyTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _StreamingEmptyTestServer =>
-    _StreamingEmptyTestServer(_server_auth, fd)
+    let server = _StreamingEmptyTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _StreamingEmptyTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -498,13 +504,16 @@ actor \nodoc\ _StreamingEarlyStopTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _StreamingEarlyStopTestServer =>
-    _StreamingEarlyStopTestServer(_server_auth, fd)
+    let server = _StreamingEarlyStopTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _StreamingEarlyStopTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -692,13 +701,16 @@ actor \nodoc\ _StreamingServerErrorTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _StreamingServerErrorTestServer =>
-    _StreamingServerErrorTestServer(_server_auth, fd)
+    let server = _StreamingServerErrorTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _StreamingServerErrorTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -891,13 +903,16 @@ actor \nodoc\ _StreamingShutdownTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _DoesntAnswerTestServer =>
-    _DoesntAnswerTestServer(_server_auth, fd)
+    let server = _DoesntAnswerTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _StreamingShutdownTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")

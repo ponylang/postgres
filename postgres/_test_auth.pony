@@ -138,13 +138,16 @@ actor \nodoc\ _UnsupportedAuthenticationTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _UnsupportedAuthenticationTestServer =>
-    _UnsupportedAuthenticationTestServer(_server_auth, fd)
+    let server = _UnsupportedAuthenticationTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _SCRAMFailureTestNotify(_h, UnsupportedAuthenticationMethod))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -250,7 +253,9 @@ actor \nodoc\ _SCRAMTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMTestServer =>
-    _SCRAMTestServer(_server_auth, fd, _h, _send_wrong_signature)
+    let server = _SCRAMTestServer(_server_auth, fd, _h, _send_wrong_signature)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
     let notify: SessionStatusNotify = if _send_wrong_signature then
@@ -258,10 +263,11 @@ actor \nodoc\ _SCRAMTestListener is lori.TCPListenerActor
     else
       _SCRAMSuccessTestNotify(_h)
     end
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       notify)
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -427,13 +433,16 @@ actor \nodoc\ _SCRAMUnsupportedTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMUnsupportedTestServer =>
-    _SCRAMUnsupportedTestServer(_server_auth, fd)
+    let server = _SCRAMUnsupportedTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _SCRAMFailureTestNotify(_h, UnsupportedAuthenticationMethod))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -484,13 +493,16 @@ actor \nodoc\ _SCRAMErrorTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMErrorTestServer =>
-    _SCRAMErrorTestServer(_server_auth, fd)
+    let server = _SCRAMErrorTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _SCRAMFailureTestNotify(_h, InvalidPassword))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")

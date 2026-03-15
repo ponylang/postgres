@@ -78,7 +78,9 @@ actor \nodoc\ _CancelTestListener is lori.TCPListenerActor
 
   fun ref _on_accept(fd: U32): _CancelTestServer =>
     _connection_count = _connection_count + 1
-    _CancelTestServer(_server_auth, fd, _h, _connection_count > 1)
+    let server = _CancelTestServer(_server_auth, fd, _h, _connection_count > 1)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
     let session = Session(
@@ -266,8 +268,10 @@ actor \nodoc\ _SSLCancelTestListener is lori.TCPListenerActor
 
   fun ref _on_accept(fd: U32): _SSLCancelTestServer =>
     _connection_count = _connection_count + 1
-    _SSLCancelTestServer(_server_auth, _server_sslctx, fd, _h,
+    let server = _SSLCancelTestServer(_server_auth, _server_sslctx, fd, _h,
       _connection_count > 1)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
     let session = Session(

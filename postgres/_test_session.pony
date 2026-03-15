@@ -61,14 +61,17 @@ actor \nodoc\ _JunkSendingTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _JunkSendingTestServer =>
-    _JunkSendingTestServer(_server_auth, fd)
+    let server = _JunkSendingTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
     // Now that we are listening, start a client session
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _HandlingJunkTestNotify(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -196,14 +199,17 @@ actor \nodoc\ _DoesntAnswerTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _DoesntAnswerTestServer =>
-    _DoesntAnswerTestServer(_server_auth, fd)
+    let server = _DoesntAnswerTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
     // Now that we are listening, start a client session
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _DoesntAnswerClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -347,13 +353,16 @@ actor \nodoc\ _ZeroRowSelectTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _ZeroRowSelectTestServer =>
-    _ZeroRowSelectTestServer(_server_auth, fd)
+    let server = _ZeroRowSelectTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _ZeroRowSelectTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -494,13 +503,16 @@ actor \nodoc\ _PrepareShutdownTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _DoesntAnswerTestServer =>
-    _DoesntAnswerTestServer(_server_auth, fd)
+    let server = _DoesntAnswerTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PrepareShutdownTestClient(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -571,13 +583,16 @@ actor \nodoc\ _TerminateSentTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _TerminateSentTestServer =>
-    _TerminateSentTestServer(_server_auth, fd, _h)
+    let server = _TerminateSentTestServer(_server_auth, fd, _h)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _TerminateSentTestNotify(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -759,13 +774,16 @@ actor \nodoc\ _ByteaTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _ByteaTestServer =>
-    _ByteaTestServer(_server_auth, fd, _hex_data)
+    let server = _ByteaTestServer(_server_auth, fd, _hex_data)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _ByteaTestClient(_h, _expected))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")

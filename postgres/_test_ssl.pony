@@ -75,13 +75,16 @@ actor \nodoc\ _SSLRefusedTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SSLRefusedTestServer =>
-    _SSLRefusedTestServer(_server_auth, fd)
+    let server = _SSLRefusedTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port, SSLRequired(_sslctx)),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _SSLRefusedTestNotify(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -174,13 +177,16 @@ actor \nodoc\ _SSLJunkTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SSLJunkTestServer =>
-    _SSLJunkTestServer(_server_auth, fd)
+    let server = _SSLJunkTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port, SSLRequired(_sslctx)),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _SSLJunkTestNotify(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -299,13 +305,16 @@ actor \nodoc\ _SSLSuccessTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SSLSuccessTestServer =>
-    _SSLSuccessTestServer(_server_auth, _server_sslctx, fd)
+    let server = _SSLSuccessTestServer(_server_auth, _server_sslctx, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port, SSLRequired(_client_sslctx)),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _SSLSuccessTestNotify(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -551,14 +560,17 @@ actor \nodoc\ _SSLPreferredFallbackTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SSLPreferredFallbackTestServer =>
-    _SSLPreferredFallbackTestServer(_server_auth, fd)
+    let server = _SSLPreferredFallbackTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port,
         SSLPreferred(_sslctx)),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _SSLPreferredFallbackTestNotify(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -700,14 +712,17 @@ actor \nodoc\ _SSLPreferredSuccessTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SSLSuccessTestServer =>
-    _SSLSuccessTestServer(_server_auth, _server_sslctx, fd)
+    let server = _SSLSuccessTestServer(_server_auth, _server_sslctx, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port,
         SSLPreferred(_client_sslctx)),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _SSLPreferredSuccessTestNotify(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -808,14 +823,17 @@ actor \nodoc\ _SSLPreferredTLSFailureTestListener is lori.TCPListenerActor
   fun ref _on_accept(fd: U32): _SSLSuccessTestServer =>
     // Reuses _SSLSuccessTestServer — it responds 'S' and attempts TLS.
     // The incompatible TLS configs cause the handshake to fail.
-    _SSLSuccessTestServer(_server_auth, _server_sslctx, fd)
+    let server = _SSLSuccessTestServer(_server_auth, _server_sslctx, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port,
         SSLPreferred(_client_sslctx)),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _SSLPreferredTLSFailureTestNotify(_h))
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -894,8 +912,10 @@ actor \nodoc\ _SSLPreferredCancelTestListener is lori.TCPListenerActor
 
   fun ref _on_accept(fd: U32): _SSLPreferredCancelTestServer =>
     _connection_count = _connection_count + 1
-    _SSLPreferredCancelTestServer(_server_auth, _server_sslctx, fd, _h,
-      _connection_count > 1)
+    let server = _SSLPreferredCancelTestServer(_server_auth, _server_sslctx,
+      fd, _h, _connection_count > 1)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
     let session = Session(

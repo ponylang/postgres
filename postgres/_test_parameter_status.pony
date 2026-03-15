@@ -208,13 +208,16 @@ actor \nodoc\ _ParameterStatusTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _ParameterStatusTestServer =>
-    _ParameterStatusTestServer(_server_auth, fd)
+    let server = _ParameterStatusTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _notify)
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")
@@ -292,13 +295,16 @@ actor \nodoc\ _ParameterStatusMidQueryTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _ParameterStatusMidQueryTestServer =>
-    _ParameterStatusMidQueryTestServer(_server_auth, fd)
+    let server = _ParameterStatusMidQueryTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
 
   fun ref _on_listening() =>
-    Session(
+    let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _notify)
+    _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
     _h.fail("Unable to listen")

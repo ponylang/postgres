@@ -695,8 +695,16 @@ primitive PointBinaryCodec is Codec
 
   fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 16 then error end
-    let x = F64.from_bits(data.read_u64(0)?.bswap())
-    let y = F64.from_bits(data.read_u64(8)?.bswap())
+    let x = ifdef bigendian then
+      F64.from_bits(data.read_u64(0)?)
+    else
+      F64.from_bits(data.read_u64(0)?.bswap())
+    end
+    let y = ifdef bigendian then
+      F64.from_bits(data.read_u64(8)?)
+    else
+      F64.from_bits(data.read_u64(8)?.bswap())
+    end
     Point(x, y)
 
 // Register and pass to Session

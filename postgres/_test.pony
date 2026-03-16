@@ -446,6 +446,7 @@ actor \nodoc\ Main is TestList
     test(_TestNumericBinaryCodecEncodeRoundtrip)
     test(_TestCodecRegistryHasBinaryCodecArray)
     test(_TestCodecRegistryWithArrayType)
+    test(_TestCodecRegistryWithArrayTypeRejectsInvalid)
     test(_TestCodecRegistryArrayOidFor)
     test(_TestIntegrationArraySelectBinary)
     test(_TestIntegrationArraySelectText)

@@ -12,7 +12,7 @@ class val CodecRegistry
   ```pony
   let registry = CodecRegistry
     .with_codec(600, PointBinaryCodec)
-    .with_array_type(1017, 600)
+    .with_array_type(1017, 600)?
   let session = Session(server_info, db_info, notify where registry = registry)
   ```
   """
@@ -124,13 +124,41 @@ class val CodecRegistry
       end
     end
 
-  fun val with_array_type(array_oid: U32, element_oid: U32): CodecRegistry =>
+  fun val with_array_type(array_oid: U32, element_oid: U32)
+    : CodecRegistry ?
+  =>
     """
     Returns a new registry with a custom array type mapping. This enables
     decode of arrays whose element type is a custom codec-registered OID.
     Supports chaining with `with_codec`:
-    `CodecRegistry.with_codec(600, PointCodec).with_array_type(1017, 600)`.
+    `CodecRegistry.with_codec(600, PointCodec).with_array_type(1017, 600)?`.
+
+    Errors if:
+    - `element_oid` is itself an array OID (built-in or custom), which would
+      cause unbounded recursion during decode
+    - `array_oid` collides with a registered scalar or built-in array OID
+    - `array_oid` is already registered as a custom element OID
+    - `array_oid == element_oid`
     """
+    // Reject self-referential mapping
+    if array_oid == element_oid then error end
+
+    // Reject element OIDs that are themselves array OIDs (recursion)
+    if _ArrayOidMap.is_array_oid(element_oid) then error end
+    if _custom_array_element_oids.contains(element_oid) then error end
+
+    // Reject array OIDs that collide with registered scalar codecs
+    if _text_codecs.contains(array_oid) then error end
+    if _binary_codecs.contains(array_oid) then error end
+
+    // Reject array OIDs that collide with built-in array OIDs
+    if _ArrayOidMap.is_array_oid(array_oid) then error end
+
+    // Reject array OIDs that are already registered as custom element OIDs
+    for elem_oid in _custom_array_element_oids.values() do
+      if elem_oid == array_oid then error end
+    end
+
     CodecRegistry._with_array_type(this, array_oid, element_oid)
 
   new val _with_array_type(base: CodecRegistry, array_oid: U32,

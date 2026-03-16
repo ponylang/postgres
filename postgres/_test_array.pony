@@ -946,10 +946,55 @@ class \nodoc\ iso _TestCodecRegistryWithArrayType is UnitTest
   fun name(): String =>
     "CodecRegistry/WithArrayType"
 
-  fun apply(h: TestHelper) =>
-    let registry = CodecRegistry.with_array_type(1017, 600)
+  fun apply(h: TestHelper) ? =>
+    let registry = CodecRegistry.with_array_type(1017, 600)?
     h.assert_true(registry.has_binary_codec(1017))
     h.assert_eq[U32](1017, registry.array_oid_for(600))
+
+class \nodoc\ iso _TestCodecRegistryWithArrayTypeRejectsInvalid
+  is UnitTest
+  fun name(): String =>
+    "CodecRegistry/WithArrayType/RejectsInvalid"
+
+  fun apply(h: TestHelper) =>
+    // Built-in array OID as element_oid (would cause recursion)
+    h.assert_error({()? => CodecRegistry.with_array_type(9999, 1007)? })
+
+    // Custom array OID as element_oid (would cause recursion)
+    h.assert_error({()? =>
+      CodecRegistry.with_array_type(9998, 600)?
+        .with_array_type(9999, 9998)?
+    })
+
+    // Self-referential mapping
+    h.assert_error({()? => CodecRegistry.with_array_type(600, 600)? })
+
+    // array_oid collides with built-in scalar codec (int4 = OID 23)
+    h.assert_error({()? => CodecRegistry.with_array_type(23, 600)? })
+
+    // array_oid collides with built-in array OID (int4[] = OID 1007)
+    h.assert_error({()? => CodecRegistry.with_array_type(1007, 600)? })
+
+    // array_oid collides with custom binary-only codec
+    h.assert_error({()? =>
+      CodecRegistry
+        .with_codec(9000, _TestPointCodec)
+        .with_array_type(9000, 600)?
+    })
+
+    // array_oid collides with custom text-only codec
+    h.assert_error({()? =>
+      CodecRegistry
+        .with_codec(9001, _TestUppercaseTextCodec)
+        .with_array_type(9001, 600)?
+    })
+
+    // array_oid is already a custom element OID (would cause decode
+    // to misinterpret element data as array structure)
+    h.assert_error({()? =>
+      CodecRegistry.with_array_type(9998, 600)?
+        .with_array_type(600, 500)?
+    })
 
 class \nodoc\ iso _TestCodecRegistryArrayOidFor is UnitTest
   fun name(): String =>

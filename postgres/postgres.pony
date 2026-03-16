@@ -344,7 +344,7 @@ For custom array types (arrays of custom codec-registered OIDs), use
 ```pony
 let registry = CodecRegistry
   .with_codec(600, PointBinaryCodec)
-  .with_array_type(1017, 600)
+  .with_array_type(1017, 600)?
 ```
 
 ## Custom Codecs

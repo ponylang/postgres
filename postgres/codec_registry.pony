@@ -449,7 +449,15 @@ class val CodecRegistry
     Decode raw element byte arrays into typed `FieldData` values using the
     registered codec for the element OID. Errors from element codec `decode()`
     propagate to the caller.
+
+    Rejects array OIDs as `element_oid` to prevent recursive decoding. The
+    binary path extracts `element_oid` from untrusted wire data, so a malicious
+    server could embed an array OID to cause `decode` to re-enter array
+    decoding. The text path is not affected (it looks up `element_oid` from the
+    registry), but the guard applies uniformly.
     """
+    if _ArrayOidMap.is_array_oid(element_oid) then error end
+    if _custom_array_element_oids.contains(element_oid) then error end
     let elements = recover iso
       let elems = Array[(FieldData | None)](raw_elements.size())
       for raw in raw_elements.values() do

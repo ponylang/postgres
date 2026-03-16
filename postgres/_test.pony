@@ -395,6 +395,7 @@ actor \nodoc\ Main is TestList
     test(_TestCodecRegistryWithCodecText)
     test(_TestCodecRegistryWithCodecRejectsBuiltinOverride)
     test(_TestCodecRegistryWithCodecRejectsDuplicate)
+    test(_TestCodecRegistryWithCodecRejectsArrayOid)
     test(_TestCodecRegistryWithCodecChaining)
     test(_TestCodecRegistryWithCodecPreservesBuiltins)
     test(_TestRowsBuilderWithCustomCodec)

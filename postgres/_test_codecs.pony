@@ -3320,6 +3320,27 @@ class \nodoc\ iso _TestCodecRegistryWithCodecRejectsDuplicate is UnitTest
         .with_codec(99900, _TestUppercaseTextCodec)?
     })
 
+class \nodoc\ iso _TestCodecRegistryWithCodecRejectsArrayOid is UnitTest
+  """
+  Registering a custom codec for an OID that is a built-in or custom array
+  OID is rejected — `decode()` always takes the array path first for array
+  OIDs, so a scalar codec would be silently unreachable.
+  """
+  fun name(): String =>
+    "CodecRegistry/WithCodec/RejectsArrayOid"
+
+  fun apply(h: TestHelper) =>
+    // Built-in array OID (1007 = int4[])
+    h.assert_error({()? =>
+      CodecRegistry.with_codec(1007, _TestPointCodec)?
+    })
+    // Custom array OID
+    h.assert_error({()? =>
+      CodecRegistry
+        .with_array_type(9000, 600)?
+        .with_codec(9000, _TestPointCodec)?
+    })
+
 class \nodoc\ iso _TestCodecRegistryWithCodecChaining is UnitTest
   fun name(): String =>
     "CodecRegistry/WithCodec/Chaining"

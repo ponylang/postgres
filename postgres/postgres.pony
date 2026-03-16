@@ -343,7 +343,7 @@ For custom array types (arrays of custom codec-registered OIDs), use
 
 ```pony
 let registry = CodecRegistry
-  .with_codec(600, PointBinaryCodec)
+  .with_codec(600, PointBinaryCodec)?
   .with_array_type(1017, 600)?
 ```
 
@@ -385,7 +385,7 @@ primitive PointBinaryCodec is Codec
     Point(x, y)
 
 // Register and pass to Session
-let registry = CodecRegistry.with_codec(600, PointBinaryCodec)
+let registry = CodecRegistry.with_codec(600, PointBinaryCodec)?
 let session = Session(server_info, db_info, notify where registry = registry)
 ```
 

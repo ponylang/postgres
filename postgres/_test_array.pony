@@ -978,15 +978,21 @@ class \nodoc\ iso _TestCodecRegistryWithArrayTypeRejectsInvalid
     // array_oid collides with custom binary-only codec
     h.assert_error({()? =>
       CodecRegistry
-        .with_codec(9000, _TestPointCodec)
+        .with_codec(9000, _TestPointCodec)?
         .with_array_type(9000, 600)?
     })
 
     // array_oid collides with custom text-only codec
     h.assert_error({()? =>
       CodecRegistry
-        .with_codec(9001, _TestUppercaseTextCodec)
+        .with_codec(9001, _TestUppercaseTextCodec)?
         .with_array_type(9001, 600)?
+    })
+
+    // Duplicate custom array OID
+    h.assert_error({()? =>
+      CodecRegistry.with_array_type(9998, 600)?
+        .with_array_type(9998, 700)?
     })
 
     // array_oid is already a custom element OID (would cause decode

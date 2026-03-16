@@ -709,7 +709,7 @@ primitive PointBinaryCodec is Codec
 
 // Register and pass to Session
 let registry = CodecRegistry
-  .with_codec(600, PointBinaryCodec)
+  .with_codec(600, PointBinaryCodec)?
 let session = Session(server_info, db_info, notify where registry = registry)
 
 // Match on the custom type in results
@@ -762,7 +762,7 @@ end
 let session = Session(server_info, db_info, notify)
 
 // With custom codecs
-let registry = CodecRegistry.with_codec(600, PointBinaryCodec)
+let registry = CodecRegistry.with_codec(600, PointBinaryCodec)?
 let session = Session(server_info, db_info, notify where registry = registry)
 ```
 
@@ -793,7 +793,7 @@ session.execute(PreparedQuery("SELECT $1::int4[]",
 
 ```pony
 let registry = CodecRegistry
-  .with_codec(600, PointBinaryCodec)
+  .with_codec(600, PointBinaryCodec)?
   .with_array_type(1017, 600)?
 ```
 

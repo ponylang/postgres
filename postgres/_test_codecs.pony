@@ -3259,7 +3259,7 @@ class \nodoc\ iso _TestCodecRegistryWithCodecBinary is UnitTest
     "CodecRegistry/WithCodec/Binary"
 
   fun apply(h: TestHelper) ? =>
-    let reg = CodecRegistry.with_codec(600, _TestPointCodec)
+    let reg = CodecRegistry.with_codec(600, _TestPointCodec)?
     let data: Array[U8] val = recover val Array[U8].init(0, 16) end
     match reg.decode(600, 1, data)?
     | let p: _TestPoint =>
@@ -3274,33 +3274,60 @@ class \nodoc\ iso _TestCodecRegistryWithCodecText is UnitTest
 
   fun apply(h: TestHelper) ? =>
     // Text codec for same OID should fall back to String
-    let reg = CodecRegistry.with_codec(600, _TestPointCodec)
+    let reg = CodecRegistry.with_codec(600, _TestPointCodec)?
     let data: Array[U8] val = "(1,2)".array()
     match reg.decode(600, 0, data)?
     | let s: String => h.assert_eq[String]("(1,2)", s)
     else h.fail("Expected String fallback for text format of custom binary codec")
     end
 
-class \nodoc\ iso _TestCodecRegistryWithCodecOverride is UnitTest
+class \nodoc\ iso _TestCodecRegistryWithCodecRejectsBuiltinOverride
+  is UnitTest
+  """
+  Registering a custom codec for an OID that already has a built-in codec
+  is rejected.
+  """
   fun name(): String =>
-    "CodecRegistry/WithCodec/Override"
+    "CodecRegistry/WithCodec/RejectsBuiltinOverride"
 
   fun apply(h: TestHelper) =>
-    // Override built-in bool codec with point codec
-    let reg = CodecRegistry.with_codec(16, _TestPointCodec)
-    // OID 16 is normally bool; with override, the point codec expects
-    // 16 bytes, not 1 — decode error propagates to the caller
-    let data: Array[U8] val = recover val [1] end
-    h.assert_error({()? => reg.decode(16, 1, data)? })
+    // OID 16 (bool) has a built-in binary codec
+    h.assert_error({()? => CodecRegistry.with_codec(16, _TestPointCodec)? })
+    // OID 25 (text) has a built-in text codec
+    h.assert_error({()? =>
+      CodecRegistry.with_codec(25, _TestUppercaseTextCodec)?
+    })
+
+class \nodoc\ iso _TestCodecRegistryWithCodecRejectsDuplicate is UnitTest
+  """
+  Registering a custom codec for an OID that already has a custom codec
+  is rejected.
+  """
+  fun name(): String =>
+    "CodecRegistry/WithCodec/RejectsDuplicate"
+
+  fun apply(h: TestHelper) =>
+    // Same custom OID registered twice (binary)
+    h.assert_error({()? =>
+      CodecRegistry
+        .with_codec(600, _TestPointCodec)?
+        .with_codec(600, _TestPointCodec)?
+    })
+    // Same custom OID registered twice (text)
+    h.assert_error({()? =>
+      CodecRegistry
+        .with_codec(99900, _TestUppercaseTextCodec)?
+        .with_codec(99900, _TestUppercaseTextCodec)?
+    })
 
 class \nodoc\ iso _TestCodecRegistryWithCodecChaining is UnitTest
   fun name(): String =>
     "CodecRegistry/WithCodec/Chaining"
 
-  fun apply(h: TestHelper) =>
+  fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
-      .with_codec(600, _TestPointCodec)
-      .with_codec(601, _TestPointCodec)
+      .with_codec(600, _TestPointCodec)?
+      .with_codec(601, _TestPointCodec)?
     h.assert_true(reg.has_binary_codec(600))
     h.assert_true(reg.has_binary_codec(601))
     // Built-in codecs should still be present
@@ -3311,7 +3338,7 @@ class \nodoc\ iso _TestCodecRegistryWithCodecPreservesBuiltins is UnitTest
     "CodecRegistry/WithCodec/PreservesBuiltins"
 
   fun apply(h: TestHelper) ? =>
-    let reg = CodecRegistry.with_codec(600, _TestPointCodec)
+    let reg = CodecRegistry.with_codec(600, _TestPointCodec)?
     // Verify built-in codecs still work
     let bool_data: Array[U8] val = recover val [1] end
     match reg.decode(16, 1, bool_data)?
@@ -3324,7 +3351,7 @@ class \nodoc\ iso _TestRowsBuilderWithCustomCodec is UnitTest
     "RowsBuilder/WithCustomCodec"
 
   fun apply(h: TestHelper) ? =>
-    let reg = CodecRegistry.with_codec(600, _TestPointCodec)
+    let reg = CodecRegistry.with_codec(600, _TestPointCodec)?
 
     let row_descs: Array[(String, U32, U16)] val = recover val
       [("pt", 600, 1)]
@@ -3460,7 +3487,7 @@ class \nodoc\ iso _TestCodecRegistryWithCodecCustomText is UnitTest
     "CodecRegistry/WithCodec/CustomTextCodec"
 
   fun apply(h: TestHelper) ? =>
-    let reg = CodecRegistry.with_codec(99900, _TestUppercaseTextCodec)
+    let reg = CodecRegistry.with_codec(99900, _TestUppercaseTextCodec)?
     // Custom text codec should decode via the text codec map
     let data: Array[U8] val = "hello".array()
     match reg.decode(99900, 0, data)?
@@ -3482,8 +3509,8 @@ class \nodoc\ iso _TestCodecRegistryDecodeErrorPropagatesText is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/ErrorPropagates/Text"
 
-  fun apply(h: TestHelper) =>
-    let reg = CodecRegistry.with_codec(99901, _TestFailingTextCodec)
+  fun apply(h: TestHelper) ? =>
+    let reg = CodecRegistry.with_codec(99901, _TestFailingTextCodec)?
     let data: Array[U8] val = "hello".array()
     h.assert_error({()? => reg.decode(99901, 0, data)? })
 
@@ -3495,8 +3522,8 @@ class \nodoc\ iso _TestCodecRegistryDecodeErrorPropagatesBinary is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/ErrorPropagates/Binary"
 
-  fun apply(h: TestHelper) =>
-    let reg = CodecRegistry.with_codec(600, _TestPointCodec)
+  fun apply(h: TestHelper) ? =>
+    let reg = CodecRegistry.with_codec(600, _TestPointCodec)?
     // _TestPointCodec expects 16 bytes; 1 byte triggers decode error
     let data: Array[U8] val = recover val [1] end
     h.assert_error({()? => reg.decode(600, 1, data)? })

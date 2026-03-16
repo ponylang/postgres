@@ -74,8 +74,10 @@ actor Client is (SessionStatusNotify & ResultReceiver)
 
   new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
-    // Register the custom codec for point (OID 600) and pass it to Session
-    let registry = CodecRegistry.with_codec(600, PointBinaryCodec)
+    // Register the custom codec for point (OID 600) and pass it to Session.
+    // The fallback can't execute — OID 600 is not a built-in.
+    let registry = try CodecRegistry.with_codec(600, PointBinaryCodec)?
+    else CodecRegistry end
     _session = Session(
       ServerConnectInfo(auth, info.host, info.port),
       DatabaseConnectInfo(info.username, info.password, info.database),

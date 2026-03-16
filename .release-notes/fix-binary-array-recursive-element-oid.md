@@ -1,3 +1,0 @@
-## Reject recursive element OID in binary array decode
-
-Binary array wire data embeds the element type OID directly in the message. A malicious or buggy server could set this to an array OID, causing the decoder to re-enter array decoding recursively. The recursion depth was bounded by message size (each level consumes header bytes), but it was uncontrolled recursion driven by untrusted input. The decoder now rejects array OIDs as element OIDs before decoding elements. The text array path was already safe — it looks up the element OID from the registry's validated mappings rather than from wire data.

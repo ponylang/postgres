@@ -11,7 +11,7 @@ class val CodecRegistry
 
   ```pony
   let registry = CodecRegistry
-    .with_codec(600, PointBinaryCodec)
+    .with_codec(600, PointBinaryCodec)?
     .with_array_type(1017, 600)?
   let session = Session(server_info, db_info, notify where registry = registry)
   ```
@@ -88,17 +88,25 @@ class val CodecRegistry
     end
     _custom_array_element_oids = recover val Map[U32, U32] end
 
-  fun val with_codec(oid: U32, codec: Codec): CodecRegistry =>
+  fun val with_codec(oid: U32, codec: Codec): CodecRegistry ? =>
     """
-    Returns a new registry with the given codec added or replacing an existing
-    one for the given OID. Supports chaining:
-    `CodecRegistry.with_codec(600, A).with_codec(790, B)`.
+    Returns a new registry with the given codec registered for the given OID.
+    Supports chaining:
+    `CodecRegistry.with_codec(600, A)?.with_codec(790, B)?`.
+
+    Errors if the OID is already registered (built-in or custom). Use distinct
+    OIDs for each codec.
     """
+    if codec.format() == 0 then
+      if _text_codecs.contains(oid) then error end
+    else
+      if _binary_codecs.contains(oid) then error end
+    end
     CodecRegistry._with_codec(this, oid, codec)
 
   new val _with_codec(base: CodecRegistry, oid: U32, codec: Codec) =>
     """
-    New registry that adds or replaces the codec for the given OID.
+    New registry that adds the codec for the given OID.
     """
     _custom_array_element_oids = base._custom_array_element_oids
     let fmt = codec.format()
@@ -131,12 +139,13 @@ class val CodecRegistry
     Returns a new registry with a custom array type mapping. This enables
     decode of arrays whose element type is a custom codec-registered OID.
     Supports chaining with `with_codec`:
-    `CodecRegistry.with_codec(600, PointCodec).with_array_type(1017, 600)?`.
+    `CodecRegistry.with_codec(600, PointCodec)?.with_array_type(1017, 600)?`.
 
     Errors if:
     - `element_oid` is itself an array OID (built-in or custom), which would
       cause unbounded recursion during decode
     - `array_oid` collides with a registered scalar or built-in array OID
+    - `array_oid` is already registered as a custom array OID
     - `array_oid` is already registered as a custom element OID
     - `array_oid == element_oid`
     """
@@ -153,6 +162,9 @@ class val CodecRegistry
 
     // Reject array OIDs that collide with built-in array OIDs
     if _ArrayOidMap.is_array_oid(array_oid) then error end
+
+    // Reject duplicate custom array OID registrations
+    if _custom_array_element_oids.contains(array_oid) then error end
 
     // Reject array OIDs that are already registered as custom element OIDs
     for elem_oid in _custom_array_element_oids.values() do

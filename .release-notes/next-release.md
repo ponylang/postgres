@@ -794,7 +794,7 @@ session.execute(PreparedQuery("SELECT $1::int4[]",
 ```pony
 let registry = CodecRegistry
   .with_codec(600, PointBinaryCodec)
-  .with_array_type(1017, 600)
+  .with_array_type(1017, 600)?
 ```
 
 Multi-dimensional arrays are not supported and will fall back to `String` (text format) or `RawBytes` (binary format).

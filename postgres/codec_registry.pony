@@ -94,9 +94,11 @@ class val CodecRegistry
     Supports chaining:
     `CodecRegistry.with_codec(600, A)?.with_codec(790, B)?`.
 
-    Errors if the OID is already registered (built-in or custom). Use distinct
-    OIDs for each codec.
+    Errors if the OID is already registered (built-in or custom) or collides
+    with a built-in or custom array OID. Use distinct OIDs for each codec.
     """
+    if _ArrayOidMap.is_array_oid(oid) then error end
+    if _custom_array_element_oids.contains(oid) then error end
     if codec.format() == 0 then
       if _text_codecs.contains(oid) then error end
     else

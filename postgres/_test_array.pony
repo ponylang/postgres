@@ -391,6 +391,48 @@ class \nodoc\ iso _TestBinaryArrayElementCodecErrorPropagates is UnitTest
     let data = _TestArrayBinaryBuilder(23, elems)
     h.assert_error({()? => registry.decode(1007, 1, data)? })
 
+class \nodoc\ iso _TestBinaryArrayRejectsRecursiveElementOid is UnitTest
+  """
+  Binary array wire data with element_oid set to a built-in array OID (1007,
+  int4[]). A malicious server could embed this to cause recursive array
+  decoding. The guard in `_decode_array_elements` must reject it.
+  """
+  fun name(): String =>
+    "Codec/Binary/Array/RejectsRecursiveElementOid"
+
+  fun apply(h: TestHelper) =>
+    // Build binary array wire data where element_oid = 1007 (int4[])
+    // The element bytes are valid int4 data, but the element_oid is an
+    // array OID which would cause decode to re-enter array decoding.
+    let elems: Array[(Array[U8] val | None)] val = recover val
+      [as (Array[U8] val | None):
+        _TestArrayBinaryBuilder.int4_bytes(1)]
+    end
+    let data = _TestArrayBinaryBuilder(1007, elems)
+    // Decode as int4[] (OID 1007) — structural parse succeeds, but
+    // _decode_array_elements rejects element_oid=1007
+    h.assert_error({()? => CodecRegistry.decode(1007, 1, data)? })
+
+class \nodoc\ iso _TestBinaryArrayRejectsCustomArrayElementOid is UnitTest
+  """
+  Binary array wire data with element_oid set to a custom array OID.
+  The guard must reject custom array OIDs too, not just built-in ones.
+  """
+  fun name(): String =>
+    "Codec/Binary/Array/RejectsCustomArrayElementOid"
+
+  fun apply(h: TestHelper) ? =>
+    // Register custom array type: array OID 9998 -> element OID 600
+    let registry = CodecRegistry.with_array_type(9998, 600)?
+    // Build binary array wire data where element_oid = 9998 (the custom
+    // array OID). A malicious server embeds this to trigger recursion.
+    let elems: Array[(Array[U8] val | None)] val = recover val
+      [as (Array[U8] val | None):
+        _TestArrayBinaryBuilder.int4_bytes(1)]
+    end
+    let data = _TestArrayBinaryBuilder(9998, elems)
+    h.assert_error({()? => registry.decode(9998, 1, data)? })
+
 // ============================================================
 // Text decode tests
 // ============================================================

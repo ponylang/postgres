@@ -123,6 +123,7 @@ actor \nodoc\ Main is TestList
     test(_TestSSLCancelQueryInFlight)
     test(_TestCancelPgSleep)
     test(_TestCancelSSLPgSleep)
+    test(_TestConnectionTimeoutFires)
     test(_TestStatementTimeoutFires)
     test(_TestStatementTimeoutCancelledOnCompletion)
     test(_TestStatementTimeoutPgSleep)

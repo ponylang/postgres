@@ -18,8 +18,8 @@ SSL version is mandatory. Tests run with `--sequential`. Integration tests requi
 
 ## Dependencies
 
-- `ponylang/ssl` 2.0.0 (MD5 password hashing, SCRAM-SHA-256 crypto primitives via `ssl/crypto`, SSL/TLS via `ssl/net`)
-- `ponylang/lori` 0.11.0 (TCP networking, STARTTLS support)
+- `ponylang/ssl` 2.0.1 (MD5 password hashing, SCRAM-SHA-256 crypto primitives via `ssl/crypto`, SSL/TLS via `ssl/net`)
+- `ponylang/lori` 0.12.0 (TCP networking, STARTTLS support)
 
 Managed via `corral`.
 
@@ -138,7 +138,7 @@ Only one operation is in-flight at a time. The queue serializes execution. `quer
 - `SSLMode` — union type `(SSLDisabled | SSLPreferred | SSLRequired)`. `SSLDisabled` is the default (plaintext). `SSLPreferred` wraps an `SSLContext val` and attempts SSL with plaintext fallback on server refusal (`sslmode=prefer`). `SSLRequired` wraps an `SSLContext val` and aborts on server refusal.
 - `ErrorResponseMessage` — full PostgreSQL error with all standard fields
 - `AuthenticationFailureReason` = `(InvalidAuthenticationSpecification | InvalidPassword | ServerVerificationFailed | UnsupportedAuthenticationMethod)`
-- `ConnectionFailureReason` = `(ConnectionFailedDNS | ConnectionFailedTCP | SSLServerRefused | TLSAuthFailed | TLSHandshakeFailed)`. Delivered via `pg_session_connection_failed` callback
+- `ConnectionFailureReason` = `(ConnectionFailedDNS | ConnectionFailedTCP | SSLServerRefused | TLSAuthFailed | TLSHandshakeFailed | ConnectionFailedTimeout)`. Delivered via `pg_session_connection_failed` callback
 
 ### Type Conversion (PostgreSQL OID → Pony)
 
@@ -193,7 +193,7 @@ Tests live in the main `postgres/` package (private test classes), organized acr
 
 ## Supported PostgreSQL Features
 
-**SSL/TLS:** Optional SSL negotiation via `SSLRequired` (mandatory) or `SSLPreferred` (fallback to plaintext on server refusal). CVE-2021-23222 mitigated via `expect(1)` before SSLRequest. Design: [discussion #76](https://github.com/ponylang/postgres/discussions/76).
+**SSL/TLS:** Optional SSL negotiation via `SSLRequired` (mandatory) or `SSLPreferred` (fallback to plaintext on server refusal). CVE-2021-23222 mitigated via `buffer_until(BufferSize)` before SSLRequest. Design: [discussion #76](https://github.com/ponylang/postgres/discussions/76).
 
 **Authentication:** MD5 password and SCRAM-SHA-256. No SCRAM-SHA-256-PLUS (channel binding), Kerberos, GSS, or certificate auth. Design: [discussion #83](https://github.com/ponylang/postgres/discussions/83).
 

@@ -822,6 +822,7 @@ be pg_session_connection_failed(session: Session,
   | SSLServerRefused => _env.out.print("Server refused SSL")
   | TLSAuthFailed => _env.out.print("TLS certificate error")
   | TLSHandshakeFailed => _env.out.print("TLS handshake failed")
+  | ConnectionFailedTimeout => _env.out.print("Connection timed out")
   end
 ```
 

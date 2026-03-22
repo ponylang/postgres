@@ -66,6 +66,10 @@ Query pipelining using `Session.pipeline()` with reduced round-trip latency. Cre
 
 Server notice handling using `pg_notice`. Executes `DROP TABLE IF EXISTS` on a nonexistent table, which triggers a PostgreSQL `NoticeResponse`, and prints the notice fields (severity, code, message). Shows how `SessionStatusNotify.pg_notice` delivers non-fatal informational messages from the server.
 
+## statement-timeout
+
+Statement timeout using the `statement_timeout` parameter on `session.execute()`. Executes a long-running query (`SELECT pg_sleep(10)`) with a 2-second timeout via `lori.MakeTimerDuration(2000)`, and handles the resulting `ErrorResponseMessage` with SQLSTATE `57014` (query_canceled). Shows how the driver automatically cancels a query that exceeds the timeout, using the same CancelRequest mechanism as `session.cancel()`.
+
 ## temporal
 
 Temporal types using `PreparedQuery` with binary-format results. Executes a SELECT that returns `date`, `time`, `timestamp`, and `interval` literals, then matches each field against its corresponding Pony type (`PgDate`, `PgTime`, `PgTimestamp`, `PgInterval`) and prints the `string()` representation. Shows how the driver automatically decodes PostgreSQL temporal wire formats into typed values.

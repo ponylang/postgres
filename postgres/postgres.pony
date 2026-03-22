@@ -422,6 +422,7 @@ supported.
 * Row streaming (windowed batch delivery)
 * Query pipelining (batched multi-query execution)
 * Query cancellation
+* Statement timeout (automatic cancellation after a deadline)
 * ParameterStatus tracking (server runtime parameters)
 * 1-dimensional array types (decode and encode via `PgArray`)
 * Custom codecs via `CodecRegistry.with_codec()`

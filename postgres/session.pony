@@ -184,6 +184,7 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     | let _: lori.ConnectionFailedDNS => ConnectionFailedDNS
     | let _: lori.ConnectionFailedTCP => ConnectionFailedTCP
     | let _: lori.ConnectionFailedSSL => TLSHandshakeFailed
+    | let _: lori.ConnectionFailedTimeout => ConnectionFailedTimeout
     end
     state.on_failure(this, r)
 
@@ -393,11 +394,11 @@ class ref _SessionSSLNegotiating
     _proceed_to_connected(s)
 
   fun ref _proceed_to_connected(s: Session ref) =>
-    // Reset expect from 1 (set during SSLRequest) to 0 (deliver all available
-    // bytes). Critical: lori preserves the expect(1) value across start_tls()
-    // via _ssl_expect. Without this reset, decrypted data would be delivered
+    // Reset buffer_until from 1 (set during SSLRequest) to streaming (deliver
+    // all available bytes). Critical: lori preserves the buffer_until value
+    // across start_tls(). Without this reset, decrypted data would be delivered
     // 1 byte at a time, breaking _ResponseParser.
-    s._connection().expect(None)
+    s._connection().buffer_until(lori.Streaming)
     s.state = _SessionConnected(_notify, _database_connect_info,
       _codec_registry)
     _notify.pg_session_connected(s)
@@ -2651,12 +2652,12 @@ trait _ConnectableState is _UnconnectedState
   fun _start_ssl_negotiation(s: Session ref, ctx: SSLContext val,
     fallback_on_refusal: Bool)
   =>
-    // Set expect(1) BEFORE sending SSLRequest so lori delivers exactly
+    // Set buffer_until(1) BEFORE sending SSLRequest so lori delivers exactly
     // one byte per _on_received call. Any MITM-injected bytes stay in
     // lori's internal buffer, causing start_tls() to return
     // StartTLSNotReady (CVE-2021-23222 mitigation).
-    match \exhaustive\ lori.MakeExpect(1)
-    | let e: lori.Expect => s._connection().expect(e)
+    match \exhaustive\ lori.MakeBufferSize(1)
+    | let e: lori.BufferSize => s._connection().buffer_until(e)
     else
       _Unreachable()
     end

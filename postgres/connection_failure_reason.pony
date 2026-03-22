@@ -23,6 +23,13 @@ primitive TLSHandshakeFailed
   The TLS handshake failed.
   """
 
+primitive ConnectionFailedTimeout
+  """
+  The connection attempt timed out before a TCP or TLS connection was
+  established.
+  """
+
 type ConnectionFailureReason is
   (ConnectionFailedDNS | ConnectionFailedTCP |
-   SSLServerRefused | TLSAuthFailed | TLSHandshakeFailed)
+   SSLServerRefused | TLSAuthFailed | TLSHandshakeFailed |
+   ConnectionFailedTimeout)

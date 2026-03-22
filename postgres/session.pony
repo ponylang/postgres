@@ -20,6 +20,10 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   multiple queries are sent to the server in a single write and processed
   sequentially, reducing round-trip latency.
 
+  An optional connection timeout can be set via `ServerConnectInfo`. If the
+  TCP connection is not established within the given duration,
+  `pg_session_connection_failed` is called with `ConnectionFailedTimeout`.
+
   Most operations accept an optional `statement_timeout` parameter. When
   provided, the driver automatically sends a CancelRequest if the operation
   does not complete within the given duration. Construct the timeout with
@@ -45,7 +49,8 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
       server_connect_info'.service,
       "",
       this,
-      this)
+      this
+      where connection_timeout = server_connect_info'.connection_timeout)
 
   be execute(query: Query, receiver: ResultReceiver,
     statement_timeout: (lori.TimerDuration | None) = None)

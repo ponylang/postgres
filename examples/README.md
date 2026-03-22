@@ -81,3 +81,7 @@ Temporal types using `PreparedQuery` with binary-format results. Executes a SELE
 ## transaction-status
 
 Transaction status tracking using `pg_transaction_status`. Sends `BEGIN` and `COMMIT` and prints the `TransactionStatus` reported at each step. Shows how `SessionStatusNotify.pg_transaction_status` fires on every `ReadyForQuery` with `TransactionIdle`, `TransactionInBlock`, or `TransactionFailed`.
+
+## failover
+
+Multi-host connection failover as a user-space pattern. Creates sessions to three hosts in parallel (two intentionally unreachable, one from environment variables) and uses the first to authenticate as the winner. Remaining sessions are closed; late arrivals (sessions that authenticate after a winner is chosen) are also closed. Demonstrates how to build multi-host failover on top of the driver's single-host `Session` without any driver modifications.

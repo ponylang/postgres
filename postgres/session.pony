@@ -19,6 +19,11 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   or `pipeline` are queued and dispatched in order. Within a `pipeline` call,
   multiple queries are sent to the server in a single write and processed
   sequentially, reducing round-trip latency.
+
+  Most operations accept an optional `statement_timeout` parameter. When
+  provided, the driver automatically sends a CancelRequest if the operation
+  does not complete within the given duration. Construct the timeout with
+  `lori.MakeTimerDuration(milliseconds)`.
   """
   var state: _SessionState
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
@@ -42,19 +47,27 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
       this,
       this)
 
-  be execute(query: Query, receiver: ResultReceiver) =>
+  be execute(query: Query, receiver: ResultReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
+  =>
     """
-    Execute a query.
+    Execute a query. If `statement_timeout` is provided, the query will be
+    cancelled via CancelRequest if it does not complete within the given
+    duration.
     """
-    state.execute(this, query, receiver)
+    state.execute(this, query, receiver, statement_timeout)
 
-  be prepare(name: String, sql: String, receiver: PrepareReceiver) =>
+  be prepare(name: String, sql: String, receiver: PrepareReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
+  =>
     """
     Prepare a named server-side statement. The SQL string must contain a single
     statement. On success, `receiver.pg_statement_prepared(session, name)` is called.
     The statement can then be executed with `NamedPreparedQuery(name, params)`.
+    If `statement_timeout` is provided, the prepare will be cancelled if it does
+    not complete within the given duration.
     """
-    state.prepare(this, name, sql, receiver)
+    state.prepare(this, name, sql, receiver, statement_timeout)
 
   be close_statement(name: String) =>
     """
@@ -75,14 +88,18 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     """
     state.cancel(this)
 
-  be copy_in(sql: String, receiver: CopyInReceiver) =>
+  be copy_in(sql: String, receiver: CopyInReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
+  =>
     """
     Start a COPY ... FROM STDIN operation. The SQL string should be a COPY
     command with FROM STDIN. On success, the receiver's `pg_copy_ready()` is
     called, and the caller should then send data via `send_copy_data()`,
-    finishing with `finish_copy()` or `abort_copy()`.
+    finishing with `finish_copy()` or `abort_copy()`. If `statement_timeout`
+    is provided, the entire COPY operation (including client data transfer)
+    will be cancelled if it does not complete within the given duration.
     """
-    state.copy_in(this, sql, receiver)
+    state.copy_in(this, sql, receiver, statement_timeout)
 
   be send_copy_data(data: Array[U8] val) =>
     """
@@ -107,17 +124,22 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     """
     state.abort_copy(this, reason)
 
-  be copy_out(sql: String, receiver: CopyOutReceiver) =>
+  be copy_out(sql: String, receiver: CopyOutReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
+  =>
     """
     Start a COPY ... TO STDOUT operation. The SQL string should be a COPY
     command with TO STDOUT. Data arrives via the receiver's `pg_copy_data()`
     callback. The operation completes with `pg_copy_complete()` or fails
-    with `pg_copy_failed()`.
+    with `pg_copy_failed()`. If `statement_timeout` is provided, the COPY
+    operation will be cancelled if it does not complete within the given
+    duration.
     """
-    state.copy_out(this, sql, receiver)
+    state.copy_out(this, sql, receiver, statement_timeout)
 
   be stream(query: (PreparedQuery | NamedPreparedQuery),
-    window_size: U32, receiver: StreamingResultReceiver)
+    window_size: U32, receiver: StreamingResultReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     """
     Start a streaming query that delivers rows in windowed batches via
@@ -128,8 +150,12 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     Only `PreparedQuery` and `NamedPreparedQuery` are supported — streaming
     uses the extended query protocol's `Execute(max_rows)` + `PortalSuspended`
     mechanism which requires a prepared statement.
+
+    If `statement_timeout` is provided, the entire streaming operation (from
+    initial Execute to final ReadyForQuery) will be cancelled if it does not
+    complete within the given duration.
     """
-    state.stream(this, query, window_size, receiver)
+    state.stream(this, query, window_size, receiver, statement_timeout)
 
   be fetch_more() =>
     """
@@ -150,7 +176,8 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     state.close_stream(this)
 
   be pipeline(queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
-    receiver: PipelineReceiver)
+    receiver: PipelineReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     """
     Execute multiple queries in a single pipeline. All queries are sent to the
@@ -162,8 +189,11 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     each query's position in the array. `pg_pipeline_complete` always fires
     last. Only `PreparedQuery` and `NamedPreparedQuery` are supported —
     pipelining uses the extended query protocol.
+
+    If `statement_timeout` is provided, the entire pipeline will be cancelled
+    if it does not complete within the given duration.
     """
-    state.pipeline(this, queries, receiver)
+    state.pipeline(this, queries, receiver, statement_timeout)
 
   be close() =>
     """
@@ -175,6 +205,9 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
 
   be _process_again() =>
     state.process_responses(this)
+
+  fun ref _on_timer(token: lori.TimerToken) =>
+    state.on_timer(this, token)
 
   fun ref _on_connected() =>
     state.on_connected(this)
@@ -232,33 +265,40 @@ class ref _SessionUnopened is _ConnectableState
     _host = host'
     _codec_registry = codec_registry'
 
-  fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
+  fun ref execute(s: Session ref, q: Query, r: ResultReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
+  =>
     r.pg_query_failed(s, q, SessionNeverOpened)
 
   fun ref prepare(s: Session ref, name: String, sql: String,
-    receiver: PrepareReceiver)
+    receiver: PrepareReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_prepare_failed(s, name, SessionNeverOpened)
 
   fun ref copy_in(s: Session ref, sql: String,
-    receiver: CopyInReceiver)
+    receiver: CopyInReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionNeverOpened)
 
   fun ref copy_out(s: Session ref, sql: String,
-    receiver: CopyOutReceiver)
+    receiver: CopyOutReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionNeverOpened)
 
   fun ref stream(s: Session ref,
     query: (PreparedQuery | NamedPreparedQuery),
-    window_size: U32, receiver: StreamingResultReceiver)
+    window_size: U32, receiver: StreamingResultReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_stream_failed(s, query, SessionNeverOpened)
 
   fun ref pipeline(s: Session ref,
     queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
-    receiver: PipelineReceiver)
+    receiver: PipelineReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     for (i, q) in queries.pairs() do
       receiver.pg_pipeline_failed(s, i, q, SessionNeverOpened)
@@ -284,33 +324,40 @@ class ref _SessionUnopened is _ConnectableState
     _codec_registry
 
 class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
-  fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
+  fun ref execute(s: Session ref, q: Query, r: ResultReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
+  =>
     r.pg_query_failed(s, q, SessionClosed)
 
   fun ref prepare(s: Session ref, name: String, sql: String,
-    receiver: PrepareReceiver)
+    receiver: PrepareReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_prepare_failed(s, name, SessionClosed)
 
   fun ref copy_in(s: Session ref, sql: String,
-    receiver: CopyInReceiver)
+    receiver: CopyInReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionClosed)
 
   fun ref copy_out(s: Session ref, sql: String,
-    receiver: CopyOutReceiver)
+    receiver: CopyOutReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionClosed)
 
   fun ref stream(s: Session ref,
     query: (PreparedQuery | NamedPreparedQuery),
-    window_size: U32, receiver: StreamingResultReceiver)
+    window_size: U32, receiver: StreamingResultReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_stream_failed(s, query, SessionClosed)
 
   fun ref pipeline(s: Session ref,
     queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
-    receiver: PipelineReceiver)
+    receiver: PipelineReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     for (i, q) in queries.pairs() do
       receiver.pg_pipeline_failed(s, i, q, SessionClosed)
@@ -412,33 +459,40 @@ class ref _SessionSSLNegotiating
     _notify.pg_session_connection_failed(s, reason)
     s.state = _SessionClosed
 
-  fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
+  fun ref execute(s: Session ref, q: Query, r: ResultReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
+  =>
     r.pg_query_failed(s, q, SessionNotAuthenticated)
 
   fun ref prepare(s: Session ref, name: String, sql: String,
-    receiver: PrepareReceiver)
+    receiver: PrepareReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_prepare_failed(s, name, SessionNotAuthenticated)
 
   fun ref copy_in(s: Session ref, sql: String,
-    receiver: CopyInReceiver)
+    receiver: CopyInReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionNotAuthenticated)
 
   fun ref copy_out(s: Session ref, sql: String,
-    receiver: CopyOutReceiver)
+    receiver: CopyOutReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionNotAuthenticated)
 
   fun ref stream(s: Session ref,
     query: (PreparedQuery | NamedPreparedQuery),
-    window_size: U32, receiver: StreamingResultReceiver)
+    window_size: U32, receiver: StreamingResultReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_stream_failed(s, query, SessionNotAuthenticated)
 
   fun ref pipeline(s: Session ref,
     queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
-    receiver: PipelineReceiver)
+    receiver: PipelineReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     for (i, q) in queries.pairs() do
       receiver.pg_pipeline_failed(s, i, q, SessionNotAuthenticated)
@@ -477,6 +531,9 @@ class ref _SessionSSLNegotiating
   fun ref cancel(s: Session ref) =>
     None
 
+  fun ref on_timer(s: Session ref, token: lori.TimerToken) =>
+    None
+
   fun ref close(s: Session ref) =>
     _shutdown(s)
 
@@ -513,33 +570,40 @@ class ref _SessionConnected is _AuthenticableState
     _database_connect_info = database_connect_info'
     _codec_registry = codec_registry'
 
-  fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
+  fun ref execute(s: Session ref, q: Query, r: ResultReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
+  =>
     r.pg_query_failed(s, q, SessionNotAuthenticated)
 
   fun ref prepare(s: Session ref, name: String, sql: String,
-    receiver: PrepareReceiver)
+    receiver: PrepareReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_prepare_failed(s, name, SessionNotAuthenticated)
 
   fun ref copy_in(s: Session ref, sql: String,
-    receiver: CopyInReceiver)
+    receiver: CopyInReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionNotAuthenticated)
 
   fun ref copy_out(s: Session ref, sql: String,
-    receiver: CopyOutReceiver)
+    receiver: CopyOutReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionNotAuthenticated)
 
   fun ref stream(s: Session ref,
     query: (PreparedQuery | NamedPreparedQuery),
-    window_size: U32, receiver: StreamingResultReceiver)
+    window_size: U32, receiver: StreamingResultReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_stream_failed(s, query, SessionNotAuthenticated)
 
   fun ref pipeline(s: Session ref,
     queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
-    receiver: PipelineReceiver)
+    receiver: PipelineReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     for (i, q) in queries.pairs() do
       receiver.pg_pipeline_failed(s, i, q, SessionNotAuthenticated)
@@ -693,33 +757,40 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
       shutdown(s)
     end
 
-  fun ref execute(s: Session ref, q: Query, r: ResultReceiver) =>
+  fun ref execute(s: Session ref, q: Query, r: ResultReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
+  =>
     r.pg_query_failed(s, q, SessionNotAuthenticated)
 
   fun ref prepare(s: Session ref, name: String, sql: String,
-    receiver: PrepareReceiver)
+    receiver: PrepareReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_prepare_failed(s, name, SessionNotAuthenticated)
 
   fun ref copy_in(s: Session ref, sql: String,
-    receiver: CopyInReceiver)
+    receiver: CopyInReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionNotAuthenticated)
 
   fun ref copy_out(s: Session ref, sql: String,
-    receiver: CopyOutReceiver)
+    receiver: CopyOutReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionNotAuthenticated)
 
   fun ref stream(s: Session ref,
     query: (PreparedQuery | NamedPreparedQuery),
-    window_size: U32, receiver: StreamingResultReceiver)
+    window_size: U32, receiver: StreamingResultReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     receiver.pg_stream_failed(s, query, SessionNotAuthenticated)
 
   fun ref pipeline(s: Session ref,
     queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
-    receiver: PipelineReceiver)
+    receiver: PipelineReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
     for (i, q) in queries.pairs() do
       receiver.pg_pipeline_failed(s, i, q, SessionNotAuthenticated)
@@ -741,20 +812,28 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
 class val _QueuedQuery
   let query: Query
   let receiver: ResultReceiver
+  let statement_timeout: (lori.TimerDuration | None)
 
-  new val create(query': Query, receiver': ResultReceiver) =>
+  new val create(query': Query, receiver': ResultReceiver,
+    statement_timeout': (lori.TimerDuration | None) = None)
+  =>
     query = query'
     receiver = receiver'
+    statement_timeout = statement_timeout'
 
 class val _QueuedPrepare
   let name: String
   let sql: String
   let receiver: PrepareReceiver
+  let statement_timeout: (lori.TimerDuration | None)
 
-  new val create(name': String, sql': String, receiver': PrepareReceiver) =>
+  new val create(name': String, sql': String, receiver': PrepareReceiver,
+    statement_timeout': (lori.TimerDuration | None) = None)
+  =>
     name = name'
     sql = sql'
     receiver = receiver'
+    statement_timeout = statement_timeout'
 
 class val _QueuedCloseStatement
   let name: String
@@ -765,18 +844,26 @@ class val _QueuedCloseStatement
 class val _QueuedCopyIn
   let sql: String
   let receiver: CopyInReceiver
+  let statement_timeout: (lori.TimerDuration | None)
 
-  new val create(sql': String, receiver': CopyInReceiver) =>
+  new val create(sql': String, receiver': CopyInReceiver,
+    statement_timeout': (lori.TimerDuration | None) = None)
+  =>
     sql = sql'
     receiver = receiver'
+    statement_timeout = statement_timeout'
 
 class val _QueuedCopyOut
   let sql: String
   let receiver: CopyOutReceiver
+  let statement_timeout: (lori.TimerDuration | None)
 
-  new val create(sql': String, receiver': CopyOutReceiver) =>
+  new val create(sql': String, receiver': CopyOutReceiver,
+    statement_timeout': (lori.TimerDuration | None) = None)
+  =>
     sql = sql'
     receiver = receiver'
+    statement_timeout = statement_timeout'
 
 class val _QueuedStreamingQuery
   """
@@ -785,13 +872,16 @@ class val _QueuedStreamingQuery
   let query: (PreparedQuery | NamedPreparedQuery)
   let window_size: U32
   let receiver: StreamingResultReceiver
+  let statement_timeout: (lori.TimerDuration | None)
 
   new val create(query': (PreparedQuery | NamedPreparedQuery),
-    window_size': U32, receiver': StreamingResultReceiver)
+    window_size': U32, receiver': StreamingResultReceiver,
+    statement_timeout': (lori.TimerDuration | None) = None)
   =>
     query = query'
     window_size = window_size'
     receiver = receiver'
+    statement_timeout = statement_timeout'
 
 class val _QueuedPipeline
   """
@@ -799,12 +889,15 @@ class val _QueuedPipeline
   """
   let queries: Array[(PreparedQuery | NamedPreparedQuery)] val
   let receiver: PipelineReceiver
+  let statement_timeout: (lori.TimerDuration | None)
 
   new val create(queries': Array[(PreparedQuery | NamedPreparedQuery)] val,
-    receiver': PipelineReceiver)
+    receiver': PipelineReceiver,
+    statement_timeout': (lori.TimerDuration | None) = None)
   =>
     queries = queries'
     receiver = receiver'
+    statement_timeout = statement_timeout'
 
 type _QueueItem is
   ( _QueuedQuery
@@ -821,14 +914,16 @@ class _SessionLoggedIn is _AuthenticatedState
   managed by a sub-state machine (`_QueryState`) that tracks whether a query
   is in flight, what protocol is active, and owns per-query accumulation data.
   """
-  // query_queue, query_state, backend_pid, backend_secret_key, and
-  // codec_registry are not underscore-prefixed because other types in this
-  // package need access, and Pony private fields are type-private.
+  // query_queue, query_state, backend_pid, backend_secret_key,
+  // codec_registry, and statement_timer are not underscore-prefixed because
+  // other types in this package need access, and Pony private fields are
+  // type-private.
   let query_queue: Array[_QueueItem] = query_queue.create()
   var query_state: _QueryState
   var backend_pid: I32 = 0
   var backend_secret_key: I32 = 0
   let codec_registry: CodecRegistry
+  var statement_timer: (lori.TimerToken | None) = None
   let _notify: SessionStatusNotify
   let _readbuf: Reader
 
@@ -870,6 +965,20 @@ class _SessionLoggedIn is _AuthenticatedState
   fun ref on_portal_suspended(s: Session ref) =>
     query_state.on_portal_suspended(s, this)
 
+  fun ref on_timer(s: Session ref, token: lori.TimerToken) =>
+    match statement_timer
+    | let t: lori.TimerToken if t == token =>
+      statement_timer = None
+      _CancelSender(s.server_connect_info(), backend_pid, backend_secret_key)
+    end
+
+  fun ref cancel_statement_timer(s: Session ref) =>
+    match statement_timer
+    | let t: lori.TimerToken =>
+      s._connection().cancel_timer(t)
+      statement_timer = None
+    end
+
   fun ref cancel(s: Session ref) =>
     match query_state
     | let _: _QueryReady => None
@@ -881,41 +990,50 @@ class _SessionLoggedIn is _AuthenticatedState
 
   fun ref execute(s: Session ref,
     query: Query,
-    receiver: ResultReceiver)
+    receiver: ResultReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
-    query_queue.push(_QueuedQuery(query, receiver))
+    query_queue.push(_QueuedQuery(query, receiver, statement_timeout))
     query_state.try_run_query(s, this)
 
   fun ref prepare(s: Session ref, name: String, sql: String,
-    receiver: PrepareReceiver)
+    receiver: PrepareReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
-    query_queue.push(_QueuedPrepare(name, sql, receiver))
+    query_queue.push(_QueuedPrepare(name, sql, receiver, statement_timeout))
     query_state.try_run_query(s, this)
 
   fun ref close_statement(s: Session ref, name: String) =>
     query_queue.push(_QueuedCloseStatement(name))
     query_state.try_run_query(s, this)
 
-  fun ref copy_in(s: Session ref, sql: String, receiver: CopyInReceiver) =>
-    query_queue.push(_QueuedCopyIn(sql, receiver))
+  fun ref copy_in(s: Session ref, sql: String, receiver: CopyInReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
+  =>
+    query_queue.push(_QueuedCopyIn(sql, receiver, statement_timeout))
     query_state.try_run_query(s, this)
 
-  fun ref copy_out(s: Session ref, sql: String, receiver: CopyOutReceiver) =>
-    query_queue.push(_QueuedCopyOut(sql, receiver))
+  fun ref copy_out(s: Session ref, sql: String, receiver: CopyOutReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
+  =>
+    query_queue.push(_QueuedCopyOut(sql, receiver, statement_timeout))
     query_state.try_run_query(s, this)
 
   fun ref stream(s: Session ref,
     query: (PreparedQuery | NamedPreparedQuery),
-    window_size: U32, receiver: StreamingResultReceiver)
+    window_size: U32, receiver: StreamingResultReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
-    query_queue.push(_QueuedStreamingQuery(query, window_size, receiver))
+    query_queue.push(_QueuedStreamingQuery(query, window_size, receiver,
+      statement_timeout))
     query_state.try_run_query(s, this)
 
   fun ref pipeline(s: Session ref,
     queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
-    receiver: PipelineReceiver)
+    receiver: PipelineReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
   =>
-    query_queue.push(_QueuedPipeline(queries, receiver))
+    query_queue.push(_QueuedPipeline(queries, receiver, statement_timeout))
     query_state.try_run_query(s, this)
 
   fun ref fetch_more(s: Session ref) =>
@@ -958,6 +1076,9 @@ class _SessionLoggedIn is _AuthenticatedState
     query_state.on_copy_done(s, this)
 
   fun ref on_shutdown(s: Session ref) =>
+    // Cancel any active statement timeout timer. Lori's hard_close() cancels
+    // the ASIO timer, but we clear our field for consistency.
+    cancel_statement_timer(s)
     // Clearing the readbuf is required for _ResponseMessageParser's
     // synchronous loop to exit — the next parse returns None.
     _readbuf.clear()
@@ -1327,6 +1448,26 @@ class _QueryReady is _QueryNoQueryInFlight
           li.query_state = _PipelineInFlight.create()
           s._connection().send(consume combined)
         end
+
+        // Set statement timeout timer if configured on the dispatched item.
+        // The queue item is still at index 0 — dequeuing happens in each
+        // in-flight state's on_ready_for_query.
+        let timeout = match \exhaustive\ li.query_queue(0)?
+        | let qry: _QueuedQuery => qry.statement_timeout
+        | let prep: _QueuedPrepare => prep.statement_timeout
+        | let _: _QueuedCloseStatement => None
+        | let ci: _QueuedCopyIn => ci.statement_timeout
+        | let co: _QueuedCopyOut => co.statement_timeout
+        | let sq: _QueuedStreamingQuery => sq.statement_timeout
+        | let pl: _QueuedPipeline => pl.statement_timeout
+        end
+        match timeout
+        | let d: lori.TimerDuration =>
+          match s._connection().set_timer(d)
+          | let t: lori.TimerToken => li.statement_timer = t
+          | let _: lori.SetTimerError => None
+          end
+        end
       end
     else
       _Unreachable()
@@ -1364,6 +1505,7 @@ class _SimpleQueryInFlight is _QueryState
     else
       _Unreachable()
     end
+    li.cancel_statement_timer(s)
     li.query_state = _QueryReady
     li.query_state.try_run_query(s, li)
 
@@ -1520,6 +1662,7 @@ class _ExtendedQueryInFlight is _QueryState
     else
       _Unreachable()
     end
+    li.cancel_statement_timer(s)
     li.query_state = _QueryReady
     li.query_state.try_run_query(s, li)
 
@@ -1688,6 +1831,7 @@ class _PrepareInFlight is _QueryState
     else
       _Unreachable()
     end
+    li.cancel_statement_timer(s)
     li.query_state = _QueryReady
     li.query_state.try_run_query(s, li)
 
@@ -1760,6 +1904,7 @@ class _CloseStatementInFlight is _QueryState
     else
       _Unreachable()
     end
+    li.cancel_statement_timer(s)
     li.query_state = _QueryReady
     li.query_state.try_run_query(s, li)
 
@@ -1882,6 +2027,7 @@ class _CopyInInFlight is _QueryState
     else
       _Unreachable()
     end
+    li.cancel_statement_timer(s)
     li.query_state = _QueryReady
     li.query_state.try_run_query(s, li)
 
@@ -1994,6 +2140,7 @@ class _CopyOutInFlight is _QueryState
     else
       _Unreachable()
     end
+    li.cancel_statement_timer(s)
     li.query_state = _QueryReady
     li.query_state.try_run_query(s, li)
 
@@ -2168,6 +2315,7 @@ class _StreamingQueryInFlight is _QueryState
     else
       _Unreachable()
     end
+    li.cancel_statement_timer(s)
     li.query_state = _QueryReady
     li.query_state.try_run_query(s, li)
 
@@ -2335,6 +2483,7 @@ class _PipelineInFlight is _QueryState
         // All queries processed
         pl.receiver.pg_pipeline_complete(s)
         li.query_queue.shift()?
+        li.cancel_statement_timer(s)
         li.query_state = _QueryReady
         li.query_state.try_run_query(s, li)
       end
@@ -2422,6 +2571,12 @@ interface _SessionState
     Called if the server requests we autheticate using the Postgres MD5
     password scheme.
     """
+  fun ref on_timer(s: Session ref, token: lori.TimerToken)
+    """
+    A statement timeout timer fired. Like `cancel`, this should never be an
+    illegal state — it should be silently ignored when not applicable.
+    """
+
   fun ref cancel(s: Session ref)
     """
     The client requested query cancellation. Like `close`, this should never
@@ -2446,13 +2601,15 @@ interface _SessionState
     Called when we receive data from the server.
     """
   
-  fun ref execute(s: Session ref, query: Query, receiver: ResultReceiver)
+  fun ref execute(s: Session ref, query: Query, receiver: ResultReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
     """
     Called when a client requests a query execution.
-    """"
+    """
 
   fun ref prepare(s: Session ref, name: String, sql: String,
-    receiver: PrepareReceiver)
+    receiver: PrepareReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
     """
     Called when a client requests a named statement preparation.
     """
@@ -2462,7 +2619,8 @@ interface _SessionState
     Called when a client requests closing a named prepared statement.
     """
 
-  fun ref copy_in(s: Session ref, sql: String, receiver: CopyInReceiver)
+  fun ref copy_in(s: Session ref, sql: String, receiver: CopyInReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
     """
     Called when a client requests a COPY ... FROM STDIN operation.
     """
@@ -2488,7 +2646,8 @@ interface _SessionState
     CopyInResponse message, indicating it is ready to receive data.
     """
 
-  fun ref copy_out(s: Session ref, sql: String, receiver: CopyOutReceiver)
+  fun ref copy_out(s: Session ref, sql: String, receiver: CopyOutReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
     """
     Called when a client requests a COPY ... TO STDOUT operation.
     """
@@ -2519,7 +2678,8 @@ interface _SessionState
 
   fun ref stream(s: Session ref,
     query: (PreparedQuery | NamedPreparedQuery),
-    window_size: U32, receiver: StreamingResultReceiver)
+    window_size: U32, receiver: StreamingResultReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
     """
     Called when a client requests a streaming query execution.
     """
@@ -2536,7 +2696,8 @@ interface _SessionState
 
   fun ref pipeline(s: Session ref,
     queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
-    receiver: PipelineReceiver)
+    receiver: PipelineReceiver,
+    statement_timeout: (lori.TimerDuration | None) = None)
     """
     Called when a client requests a pipelined query execution.
     """
@@ -2721,6 +2882,9 @@ trait _ConnectedState is _NotConnectableState
   fun ref process_responses(s: Session ref) =>
     _ResponseMessageParser(s, readbuf())
 
+  fun ref on_timer(s: Session ref, token: lori.TimerToken) =>
+    None
+
   fun ref cancel(s: Session ref) =>
     None
 
@@ -2788,6 +2952,9 @@ trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
     None
 
   fun ref process_responses(s: Session ref) =>
+    None
+
+  fun ref on_timer(s: Session ref, token: lori.TimerToken) =>
     None
 
   fun ref cancel(s: Session ref) =>

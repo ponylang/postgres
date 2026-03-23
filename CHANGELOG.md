@@ -38,6 +38,7 @@ All notable changes to this project will be documented in this file. This projec
 - Add 1-dimensional array type support ([PR #156](https://github.com/ponylang/postgres/pull/156))
 - Add statement timeout ([PR #178](https://github.com/ponylang/postgres/pull/178))
 - Add connection timeout ([PR #179](https://github.com/ponylang/postgres/pull/179))
+- Add cleartext password authentication ([PR #181](https://github.com/ponylang/postgres/pull/181))
 
 ### Changed
 

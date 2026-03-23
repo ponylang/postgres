@@ -18,6 +18,8 @@ primitive _ResponseMessageParser
           s.state.on_authentication_md5_password(s, msg)
         | _AuthenticationOkMessage =>
           s.state.on_authentication_ok(s)
+        | _AuthenticationCleartextPasswordMessage =>
+          s.state.on_authentication_cleartext_password(s)
         | let msg: _AuthenticationSASLMessage =>
           s.state.on_authentication_sasl(s, msg)
         | let msg: _AuthenticationSASLContinueMessage =>

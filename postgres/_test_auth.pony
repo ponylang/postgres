@@ -97,7 +97,7 @@ class \nodoc\ iso _TestSCRAMErrorDuringAuth is UnitTest
 class \nodoc\ iso _TestUnsupportedAuthentication is UnitTest
   """
   Verifies that when the server requests an unsupported authentication type
-  (e.g., cleartext password), the session fires pg_session_authentication_failed
+  (e.g., KerberosV5), the session fires pg_session_authentication_failed
   with UnsupportedAuthenticationMethod.
   """
   fun name(): String =>
@@ -156,7 +156,7 @@ actor \nodoc\ _UnsupportedAuthenticationTestListener is lori.TCPListenerActor
 actor \nodoc\ _UnsupportedAuthenticationTestServer
   is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
   """
-  Mock server that sends a cleartext password authentication request (type 3),
+  Mock server that sends a KerberosV5 authentication request (type 2),
   which the driver does not support.
   """
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
@@ -171,8 +171,159 @@ actor \nodoc\ _UnsupportedAuthenticationTestServer
   fun ref _on_received(data: Array[U8] iso) =>
     if not _received then
       _received = true
-      let msg = _IncomingUnsupportedAuthenticationTestMessage(3).bytes()
+      let msg = _IncomingUnsupportedAuthenticationTestMessage(2).bytes()
       _tcp_connection.send(msg)
+    end
+
+// Cleartext password authentication tests
+
+class \nodoc\ iso _TestCleartextAuthenticationSuccess is UnitTest
+  """
+  Verifies the full cleartext password authentication handshake:
+  AuthCleartextPassword -> PasswordMessage -> AuthOk -> ReadyForQuery ->
+  pg_session_authenticated.
+  """
+  fun name(): String =>
+    "Cleartext/AuthenticationSuccess"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "7722"
+
+    let listener = _CleartextTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h,
+      false)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+class \nodoc\ iso _TestCleartextAuthenticationFailure is UnitTest
+  """
+  Verifies that when cleartext password authentication fails (wrong password),
+  the session fires pg_session_authentication_failed with InvalidPassword.
+  """
+  fun name(): String =>
+    "Cleartext/AuthenticationFailure"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "7723"
+
+    let listener = _CleartextTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h,
+      true)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _CleartextTestListener is lori.TCPListenerActor
+  """
+  Listener for cleartext password authentication tests. Creates a mock
+  cleartext server and connects a client session.
+  """
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _h: TestHelper
+  let _host: String
+  let _port: String
+  let _send_error: Bool
+
+  new create(listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper,
+    send_error: Bool)
+  =>
+    _host = host
+    _port = port
+    _h = h
+    _send_error = send_error
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): _CleartextTestServer =>
+    let server = _CleartextTestServer(_server_auth, fd, _send_error)
+    _h.dispose_when_done(server)
+    server
+
+  fun ref _on_listening() =>
+    let notify: SessionStatusNotify = if _send_error then
+      _SCRAMFailureTestNotify(_h, InvalidPassword)
+    else
+      _SCRAMSuccessTestNotify(_h)
+    end
+    let session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      notify)
+    _h.dispose_when_done(session)
+
+  fun ref _on_listen_failure() =>
+    _h.fail("Unable to listen")
+    _h.complete(false)
+
+actor \nodoc\ _CleartextTestServer
+  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  """
+  Mock server that performs a cleartext password authentication handshake.
+  Receives a startup message, sends AuthenticationCleartextPassword, receives
+  the password, then sends AuthenticationOk + ReadyForQuery (or ErrorResponse
+  28P01 if _send_error is true).
+  """
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  let _send_error: Bool
+  var _state: U8 = 0
+  let _reader: _MockMessageReader = _MockMessageReader
+
+  new create(auth: lori.TCPServerAuth, fd: U32, send_error: Bool) =>
+    _send_error = send_error
+    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
+
+  fun ref _on_received(data: Array[U8] iso) =>
+    _reader.append(consume data)
+    _process()
+
+  fun ref _process() =>
+    if _state == 0 then
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        let msg =
+          _IncomingAuthenticationCleartextPasswordTestMessage.bytes()
+        _tcp_connection.send(msg)
+        _state = 1
+        _process()
+      end
+    elseif _state == 1 then
+      match _reader.read_message()
+      | let _: Array[U8] val =>
+        if _send_error then
+          let err = _IncomingErrorResponseTestMessage(
+            "FATAL", "28P01", "password authentication failed").bytes()
+          _tcp_connection.send(err)
+        else
+          let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
+          let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+          let combined = recover val
+            let arr = Array[U8]
+            arr.append(auth_ok)
+            arr.append(ready)
+            arr
+          end
+          _tcp_connection.send(combined)
+        end
+      end
     end
 
 actor \nodoc\ _SCRAMSuccessTestNotify is SessionStatusNotify

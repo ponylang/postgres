@@ -402,10 +402,28 @@ also implement `FieldDataEquatable`.
 
 ## Authentication
 
-The driver supports MD5 password and SCRAM-SHA-256 authentication.
-SCRAM-SHA-256 is the PostgreSQL default since version 10. Cleartext
-password, Kerberos, GSS, and certificate authentication are not
-supported.
+The driver supports cleartext password, MD5 password, and SCRAM-SHA-256
+authentication. The server chooses which method to use based on its
+`pg_hba.conf` configuration — the driver detects the server's request
+and responds automatically using the credentials from `DatabaseConnectInfo`.
+
+```pony
+let session = Session(
+  ServerConnectInfo(lori.TCPConnectAuth(env.root), "localhost", "5432"),
+  DatabaseConnectInfo("myuser", "mypassword", "mydb"),
+  MyNotify(env))
+```
+
+If authentication fails, the `pg_session_authentication_failed` callback
+fires with an `AuthenticationFailureReason`:
+
+* `InvalidAuthenticationSpecification` — nonexistent user or not
+  permitted to connect (SQLSTATE 28000)
+* `InvalidPassword` — wrong password (SQLSTATE 28P01)
+* `UnsupportedAuthenticationMethod` — the server requested a method
+  the driver doesn't support (e.g., Kerberos, GSSAPI)
+* `ServerVerificationFailed` — the server's SCRAM signature didn't
+  match (possible MITM or misconfigured server)
 
 ## Supported Features
 
@@ -413,7 +431,7 @@ supported.
 * Typed parameterized queries with binary encoding for numeric, boolean,
   bytea, and temporal types (unnamed and named prepared statements)
 * SSL/TLS via `SSLRequired` and `SSLPreferred`
-* MD5 and SCRAM-SHA-256 authentication
+* Cleartext password, MD5, and SCRAM-SHA-256 authentication
 * Transaction status tracking (`TransactionStatus`)
 * LISTEN/NOTIFY notifications
 * NoticeResponse delivery (non-fatal server messages)

@@ -7,6 +7,9 @@ primitive _AuthenticationRequestType
   fun ok(): I32 =>
     0
 
+  fun cleartext_password(): I32 =>
+    3
+
   fun md5_password(): I32 =>
     5
 

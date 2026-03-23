@@ -677,6 +677,9 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
   =>
     _IllegalState()
 
+  fun on_authentication_cleartext_password(s: Session ref) =>
+    _IllegalState()
+
   fun ref on_authentication_sasl(s: Session ref,
     msg: _AuthenticationSASLMessage)
   =>
@@ -2576,6 +2579,10 @@ interface _SessionState
     Called if the server requests we autheticate using the Postgres MD5
     password scheme.
     """
+  fun on_authentication_cleartext_password(s: Session ref)
+    """
+    Called if the server requests we authenticate using a cleartext password.
+    """
   fun ref on_timer(s: Session ref, token: lori.TimerToken)
     """
     A statement timeout timer fired. Like `cancel`, this should never be an
@@ -3010,6 +3017,10 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
     let reply = _FrontendMessage.password(md5_password)
     s._connection().send(reply)
 
+  fun on_authentication_cleartext_password(s: Session ref) =>
+    let reply = _FrontendMessage.password(password())
+    s._connection().send(reply)
+
   fun ref on_authentication_sasl(s: Session ref,
     msg: _AuthenticationSASLMessage)
   =>
@@ -3078,6 +3089,9 @@ trait _NotAuthenticableState
   fun on_authentication_md5_password(s: Session ref,
     msg: _AuthenticationMD5PasswordMessage)
   =>
+    _IllegalState()
+
+  fun on_authentication_cleartext_password(s: Session ref) =>
     _IllegalState()
 
   fun ref on_authentication_sasl(s: Session ref,

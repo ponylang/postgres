@@ -14,6 +14,12 @@ primitive _AuthenticationOkMessage
   authenticated.
   """
 
+primitive _AuthenticationCleartextPasswordMessage
+  """
+  Message from the backend that indicates that cleartext password
+  authentication is being requested by the server.
+  """
+
 class val _AuthenticationSASLMessage
   """
   Message from the backend that indicates SASL authentication is required.
@@ -48,7 +54,7 @@ class val _AuthenticationSASLFinalMessage
 primitive _UnsupportedAuthenticationMessage
   """
   Message indicating the server requested an authentication method that this
-  driver does not support (e.g., cleartext password, Kerberos, GSSAPI).
+  driver does not support (e.g., Kerberos, GSSAPI).
   """
 
 class val _BackendKeyDataMessage

@@ -469,6 +469,20 @@ class \nodoc\ val _IncomingAuthenticationOkTestMessage
     fun bytes(): Array[U8] val =>
       _bytes
 
+class \nodoc\ val _IncomingAuthenticationCleartextPasswordTestMessage
+  let _bytes: Array[U8] val
+
+  new val create() =>
+    let wb: Writer = Writer
+    wb.u8(_MessageType.authentication_request())
+    wb.u32_be(8)
+    wb.i32_be(_AuthenticationRequestType.cleartext_password())
+
+    _bytes = WriterToByteArray(wb)
+
+  fun bytes(): Array[U8] val =>
+    _bytes
+
 class \nodoc\ val _IncomingAuthenticationMD5PasswordTestMessage
   let _bytes: Array[U8] val
 
@@ -781,18 +795,59 @@ class \nodoc\ iso _TestResponseParserUnsupportedAuthenticationMessage
   is UnitTest
   """
   Verify that an authentication request with an unsupported type (e.g.,
-  cleartext password, type 3) is parsed as _UnsupportedAuthenticationMessage.
+  KerberosV5, type 2) is parsed as _UnsupportedAuthenticationMessage.
   """
   fun name(): String =>
     "ResponseParser/UnsupportedAuthenticationMessage"
 
   fun apply(h: TestHelper) ? =>
-    let bytes = _IncomingUnsupportedAuthenticationTestMessage(3).bytes()
+    let bytes = _IncomingUnsupportedAuthenticationTestMessage(2).bytes()
     let r: Reader = Reader
     r.append(bytes)
 
     if _ResponseParser(r)? isnt _UnsupportedAuthenticationMessage then
       h.fail("Wrong message returned.")
+    end
+
+class \nodoc\ iso _TestResponseParserAuthenticationCleartextPasswordMessage
+  is UnitTest
+  """
+  Verify that AuthenticationCleartextPassword messages (type 3) are parsed as
+  _AuthenticationCleartextPasswordMessage.
+  """
+  fun name(): String =>
+    "ResponseParser/AuthenticationCleartextPasswordMessage"
+
+  fun apply(h: TestHelper) ? =>
+    let bytes = _IncomingAuthenticationCleartextPasswordTestMessage.bytes()
+    let r: Reader = Reader
+    r.append(bytes)
+
+    if _ResponseParser(r)? isnt _AuthenticationCleartextPasswordMessage then
+      h.fail("Wrong message returned.")
+    end
+
+class \nodoc\ iso _TestResponseParserMultipleMessagesCleartextFirst
+  is UnitTest
+  """
+  Verify correct buffer advancement from a cleartext password authentication
+  message followed by an AuthenticationOk message.
+  """
+  fun name(): String =>
+    "ResponseParser/MultipleMessages/CleartextFirst"
+
+  fun apply(h: TestHelper) ? =>
+    let r: Reader = Reader
+    r.append(
+      _IncomingAuthenticationCleartextPasswordTestMessage.bytes())
+    r.append(_IncomingAuthenticationOkTestMessage.bytes())
+
+    if _ResponseParser(r)? isnt _AuthenticationCleartextPasswordMessage then
+      h.fail("Wrong message returned for first message.")
+    end
+
+    if _ResponseParser(r)? isnt _AuthenticationOkMessage then
+      h.fail("Wrong message returned for second message.")
     end
 
 class \nodoc\ iso _TestResponseParserMultipleMessagesSASLFirst is UnitTest
@@ -1541,68 +1596,70 @@ primitive \nodoc\ _RandomMessageBytesGen
     consume messages
 
   fun _random_message(rnd: Randomness): Array[U8] val =>
-    match rnd.usize(0, 25)
+    match rnd.usize(0, 26)
     | 0 => _IncomingAuthenticationOkTestMessage.bytes()
     | 1 =>
+      _IncomingAuthenticationCleartextPasswordTestMessage.bytes()
+    | 2 =>
       _IncomingAuthenticationMD5PasswordTestMessage(
         _random_salt(rnd)).bytes()
-    | 2 =>
+    | 3 =>
       let mechanisms: Array[String] val = recover val
         ["SCRAM-SHA-256"]
       end
       _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
-    | 3 =>
+    | 4 =>
       _IncomingAuthenticationSASLContinueTestMessage(
         _random_bytes(rnd)).bytes()
-    | 4 =>
+    | 5 =>
       _IncomingAuthenticationSASLFinalTestMessage(
         _random_bytes(rnd)).bytes()
-    | 5 =>
+    | 6 =>
       _IncomingUnsupportedAuthenticationTestMessage(
         _random_unsupported_auth_type(rnd)).bytes()
-    | 6 =>
-      _IncomingBackendKeyDataTestMessage(rnd.i32(), rnd.i32()).bytes()
     | 7 =>
+      _IncomingBackendKeyDataTestMessage(rnd.i32(), rnd.i32()).bytes()
+    | 8 =>
       _IncomingCommandCompleteTestMessage(
         _random_command_tag(rnd)).bytes()
-    | 8 =>
+    | 9 =>
       _IncomingCopyInResponseTestMessage(
         _random_copy_format(rnd), _random_column_formats(rnd)).bytes()
-    | 9 =>
+    | 10 =>
       _IncomingCopyOutResponseTestMessage(
         _random_copy_format(rnd), _random_column_formats(rnd)).bytes()
-    | 10 =>
+    | 11 =>
       _IncomingCopyDataTestMessage(_random_bytes(rnd)).bytes()
-    | 11 => _IncomingCopyDoneTestMessage.bytes()
-    | 12 =>
+    | 12 => _IncomingCopyDoneTestMessage.bytes()
+    | 13 =>
       _IncomingDataRowTestMessage(
         _random_data_row_columns(rnd)).bytes()
-    | 13 => _IncomingEmptyQueryResponseTestMessage.bytes()
-    | 14 =>
+    | 14 => _IncomingEmptyQueryResponseTestMessage.bytes()
+    | 15 =>
       _IncomingErrorResponseTestMessage(
         _safe_string(rnd), _safe_string(rnd), _safe_string(rnd)).bytes()
-    | 15 =>
+    | 16 =>
       _IncomingNoticeResponseTestMessage(
         _safe_string(rnd), _safe_string(rnd), _safe_string(rnd)).bytes()
-    | 16 =>
+    | 17 =>
       _IncomingNotificationResponseTestMessage(
         rnd.i32(), _safe_string(rnd), _safe_string(rnd)).bytes()
-    | 17 =>
+    | 18 =>
       _IncomingParameterStatusTestMessage(
         _safe_string(rnd), _safe_string(rnd)).bytes()
-    | 18 =>
-      _IncomingReadyForQueryTestMessage(_random_rfq_status(rnd)).bytes()
     | 19 =>
+      _IncomingReadyForQueryTestMessage(_random_rfq_status(rnd)).bytes()
+    | 20 =>
       _IncomingRowDescriptionTestMessage(
         _random_row_desc_columns(rnd)).bytes()
-    | 20 => _IncomingParseCompleteTestMessage.bytes()
-    | 21 => _IncomingBindCompleteTestMessage.bytes()
-    | 22 => _IncomingNoDataTestMessage.bytes()
-    | 23 => _IncomingCloseCompleteTestMessage.bytes()
-    | 24 =>
+    | 21 => _IncomingParseCompleteTestMessage.bytes()
+    | 22 => _IncomingBindCompleteTestMessage.bytes()
+    | 23 => _IncomingNoDataTestMessage.bytes()
+    | 24 => _IncomingCloseCompleteTestMessage.bytes()
+    | 25 =>
       _IncomingParameterDescriptionTestMessage(
         _random_oids(rnd)).bytes()
-    | 25 => _IncomingPortalSuspendedTestMessage.bytes()
+    | 26 => _IncomingPortalSuspendedTestMessage.bytes()
     else
       _IncomingAuthenticationOkTestMessage.bytes()
     end
@@ -1659,7 +1716,7 @@ primitive \nodoc\ _RandomMessageBytesGen
   fun _random_unsupported_auth_type(rnd: Randomness): I32 =>
     match rnd.usize(0, 3)
     | 0 => 2
-    | 1 => 3
+    | 1 => 4
     | 2 => 6
     else
       7
@@ -2110,7 +2167,7 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainRemainingTypes
     let col_fmts: Array[U8] val = recover val [as U8: 0] end
     let r: Reader = Reader
     r.append(_IncomingCopyInResponseTestMessage(0, col_fmts).bytes())
-    r.append(_IncomingUnsupportedAuthenticationTestMessage(3).bytes())
+    r.append(_IncomingUnsupportedAuthenticationTestMessage(2).bytes())
     r.append(_IncomingPortalSuspendedTestMessage.bytes())
     r.append(_IncomingAuthenticationOkTestMessage.bytes())
 

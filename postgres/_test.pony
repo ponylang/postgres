@@ -130,7 +130,9 @@ actor \nodoc\ Main is TestList
     test(_TestResponseParserAuthenticationSASLMessage)
     test(_TestResponseParserAuthenticationSASLContinueMessage)
     test(_TestResponseParserAuthenticationSASLFinalMessage)
+    test(_TestResponseParserAuthenticationCleartextPasswordMessage)
     test(_TestResponseParserUnsupportedAuthenticationMessage)
+    test(_TestResponseParserMultipleMessagesCleartextFirst)
     test(_TestResponseParserMultipleMessagesSASLFirst)
     test(Property1UnitTest[Array[Array[U8] val] val](
       _TestResponseParserMultipleMessagesChainProperty))
@@ -151,6 +153,8 @@ actor \nodoc\ Main is TestList
     test(_TestSCRAMServerVerificationFailed)
     test(_TestSCRAMErrorDuringAuth)
     test(_TestUnsupportedAuthentication)
+    test(_TestCleartextAuthenticationSuccess)
+    test(_TestCleartextAuthenticationFailure)
     test(_TestMD5Authenticate)
     test(_TestMD5AuthenticateFailure)
     test(_TestMD5QueryResults)

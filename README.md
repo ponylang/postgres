@@ -30,9 +30,9 @@ This library aims to support the Postgres API to the level required to use Postg
 
 ### Authentication
 
-MD5 password and SCRAM-SHA-256 authentication are supported. SCRAM-SHA-256 is the default authentication method in PostgreSQL 10 and later.
+Cleartext password, MD5 password, and SCRAM-SHA-256 authentication are supported. SCRAM-SHA-256 is the default authentication method in PostgreSQL 10 and later. The server chooses which method to use based on its `pg_hba.conf` configuration — the driver detects the server's request and responds automatically using the credentials from `DatabaseConnectInfo`.
 
-KerberosV5, cleartext, SCM, GSS, SSPI, SCRAM-SHA-256-PLUS (channel binding), and certificate authentication methods are not supported.
+KerberosV5, SCM, GSS, SSPI, SCRAM-SHA-256-PLUS (channel binding), and certificate authentication methods are not supported.
 
 ### SSL/TLS
 

@@ -3,6 +3,7 @@ use "collections"
 
 type _AuthenticationMessages is
   ( _AuthenticationOkMessage
+  | _AuthenticationCleartextPasswordMessage
   | _AuthenticationMD5PasswordMessage
   | _AuthenticationSASLMessage
   | _AuthenticationSASLContinueMessage
@@ -90,6 +91,9 @@ primitive _ResponseParser
         buffer.skip(message_size)?
         // notify that we are authenticated
         return _AuthenticationOkMessage
+      elseif auth_type == _AuthenticationRequestType.cleartext_password() then
+        buffer.skip(message_size)?
+        return _AuthenticationCleartextPasswordMessage
       elseif auth_type == _AuthenticationRequestType.md5_password() then
         let salt = String.from_array(
           recover val

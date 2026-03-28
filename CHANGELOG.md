@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file. This projec
 - Send Terminate message before closing TCP connection ([PR #86](https://github.com/ponylang/postgres/pull/86))
 - Fix unsupported authentication type causing silent hang ([PR #97](https://github.com/ponylang/postgres/pull/97))
 - Fix ReadyForQuery queue stall with explicit transactions ([PR #105](https://github.com/ponylang/postgres/pull/105))
+- Fix crash when closing a Session before connection initialization completes ([PR #184](https://github.com/ponylang/postgres/pull/184))
 
 ### Added
 

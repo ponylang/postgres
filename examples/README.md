@@ -14,6 +14,10 @@ Binary data using `bytea` columns. Executes a SELECT that returns a bytea value,
 
 Custom type decoding via `CodecRegistry.with_codec()`. Defines a `Point` class implementing `FieldData` and a `PointBinaryCodec` for PostgreSQL's `point` type (OID 600), registers the codec, passes the extended `CodecRegistry` to `Session`, and matches on `Point` in query results. Shows how to extend the driver with decoders for PostgreSQL types not covered by the built-in codecs.
 
+## enum-type
+
+Enum type support via `CodecRegistry.with_enum_type()`. Creates a PostgreSQL enum type, discovers its OID from `pg_type`, registers it with `with_enum_type`, and queries the enum with `PreparedQuery` to get `String` results in binary format. Uses two sessions to demonstrate the typical two-phase pattern for dynamic OIDs: the first session discovers the OID, the second uses a `CodecRegistry` built with that OID.
+
 ## query
 
 Minimal example using `SimpleQuery`. Connects, authenticates, executes `SELECT 525600::text`, and prints the result by iterating rows and matching on field value types. Start here if you're new to the library.

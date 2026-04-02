@@ -6,13 +6,15 @@ class val CodecRegistry
   type produces a new registry.
 
   The default constructor creates a registry with all built-in text and binary
-  codecs. Use `with_codec` to register custom codecs and `with_array_type` to
-  register custom array type mappings:
+  codecs. Use `with_codec` to register custom codecs, `with_enum_type` to
+  register user-defined enum types, and `with_array_type` to register custom
+  array type mappings:
 
   ```pony
   let registry = CodecRegistry
-    .with_codec(600, PointBinaryCodec)?
-    .with_array_type(1017, 600)?
+    .with_codec(600, PointBinaryCodec)?  // custom point type
+    .with_enum_type(12345)?              // mood enum
+    .with_array_type(12350, 12345)?      // mood[]
   let session = Session(server_info, db_info, notify where registry = registry)
   ```
   """
@@ -132,6 +134,59 @@ class val CodecRegistry
         m(oid) = codec
         m
       end
+    end
+
+  fun val with_enum_type(oid: U32): CodecRegistry ? =>
+    """
+    Returns a new registry with text-passthrough codecs registered for the
+    given enum OID in both text and binary formats. PostgreSQL enum types use
+    raw UTF-8 labels on the wire in both formats, so the driver decodes them
+    as `String`. Only use this for enum type OIDs — other dynamically-assigned
+    types (composites, ranges) have different binary wire formats and would
+    produce garbage `String` values.
+
+    Supports chaining:
+    `CodecRegistry.with_enum_type(12345)?.with_enum_type(12346)?`.
+
+    Composes with `with_array_type` for enum arrays:
+    `CodecRegistry.with_enum_type(12345)?.with_array_type(12350, 12345)?`.
+
+    Errors if the OID is already registered (built-in or custom) or collides
+    with a built-in or custom array OID — same validation semantics as
+    `with_codec`.
+
+    Because this registers the OID in both codec maps atomically, a subsequent
+    `with_codec(oid, ...)` will error for either format. This is stricter than
+    two separate `with_codec` calls (which allow independent text/binary
+    registration for the same OID).
+    """
+    if _ArrayOidMap.is_array_oid(oid) then error end
+    if _custom_array_element_oids.contains(oid) then error end
+    if _text_codecs.contains(oid) then error end
+    if _binary_codecs.contains(oid) then error end
+    CodecRegistry._with_enum_type(this, oid)
+
+  new val _with_enum_type(base: CodecRegistry, oid: U32) =>
+    """
+    New registry that adds text-passthrough codecs for the given enum OID in
+    both text and binary formats.
+    """
+    _custom_array_element_oids = base._custom_array_element_oids
+    _text_codecs = recover val
+      let m = Map[U32, Codec]
+      for (k, v) in base._text_codecs.pairs() do
+        m(k) = v
+      end
+      m(oid) = _TextPassthroughTextCodec
+      m
+    end
+    _binary_codecs = recover val
+      let m = Map[U32, Codec]
+      for (k, v) in base._binary_codecs.pairs() do
+        m(k) = v
+      end
+      m(oid) = _TextPassthroughBinaryCodec
+      m
     end
 
   fun val with_array_type(array_oid: U32, element_oid: U32)

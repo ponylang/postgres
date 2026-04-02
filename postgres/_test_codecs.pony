@@ -3562,3 +3562,296 @@ class \nodoc\ iso _TestCodecRegistryDecodeErrorPropagatesBuiltin is UnitTest
     // OID 23 (int4) expects 4 bytes; 2 bytes triggers decode error
     let data: Array[U8] val = recover val [0; 0] end
     h.assert_error({()? => reg.decode(23, 1, data)? })
+
+class \nodoc\ iso _TestCodecRegistryWithEnumTypeBinary is UnitTest
+  """
+  Registering an enum OID makes binary-format data decode as `String`.
+  """
+  fun name(): String =>
+    "CodecRegistry/WithEnumType/Binary"
+
+  fun apply(h: TestHelper) ? =>
+    let reg = CodecRegistry.with_enum_type(99990)?
+    let data: Array[U8] val = recover val [
+      'h'; 'a'; 'p'; 'p'; 'y'] end
+    let result = reg.decode(99990, 1, data)?
+    match result
+    | let s: String => h.assert_eq[String]("happy", s)
+    else h.fail("expected String, got something else")
+    end
+
+class \nodoc\ iso _TestCodecRegistryWithEnumTypeText is UnitTest
+  """
+  Registering an enum OID makes text-format data decode as `String`.
+  """
+  fun name(): String =>
+    "CodecRegistry/WithEnumType/Text"
+
+  fun apply(h: TestHelper) ? =>
+    let reg = CodecRegistry.with_enum_type(99990)?
+    let data: Array[U8] val = recover val [
+      'h'; 'a'; 'p'; 'p'; 'y'] end
+    let result = reg.decode(99990, 0, data)?
+    match result
+    | let s: String => h.assert_eq[String]("happy", s)
+    else h.fail("expected String, got something else")
+    end
+
+class \nodoc\ iso _TestCodecRegistryWithEnumTypeRejectsBuiltin is UnitTest
+  """
+  `with_enum_type` rejects a built-in binary OID (bool, OID 16).
+  """
+  fun name(): String =>
+    "CodecRegistry/WithEnumType/RejectsBuiltin"
+
+  fun apply(h: TestHelper) =>
+    h.assert_error({()? => CodecRegistry.with_enum_type(16)? })
+
+class \nodoc\ iso _TestCodecRegistryWithEnumTypeRejectsBuiltinText is UnitTest
+  """
+  `with_enum_type` rejects a built-in text-like OID (text, OID 25).
+  """
+  fun name(): String =>
+    "CodecRegistry/WithEnumType/RejectsBuiltinText"
+
+  fun apply(h: TestHelper) =>
+    h.assert_error({()? => CodecRegistry.with_enum_type(25)? })
+
+class \nodoc\ iso _TestCodecRegistryWithEnumTypeRejectsCustomTextCodec
+  is UnitTest
+  """
+  `with_enum_type` rejects an OID that already has a custom text-format codec
+  registered via `with_codec`. This exercises the `_text_codecs` check
+  independently of the `_binary_codecs` check.
+  """
+  fun name(): String =>
+    "CodecRegistry/WithEnumType/RejectsCustomTextCodec"
+
+  fun apply(h: TestHelper) =>
+    h.assert_error({()? =>
+      CodecRegistry
+        .with_codec(99990, _TestUppercaseTextCodec)?
+        .with_enum_type(99990)?
+    })
+
+class \nodoc\ iso _TestCodecRegistryWithEnumTypeRejectsCustomBinaryCodec
+  is UnitTest
+  """
+  `with_enum_type` rejects an OID that already has a custom binary-format
+  codec registered via `with_codec`. This exercises the `_binary_codecs`
+  check independently of the `_text_codecs` check.
+  """
+  fun name(): String =>
+    "CodecRegistry/WithEnumType/RejectsCustomBinaryCodec"
+
+  fun apply(h: TestHelper) =>
+    h.assert_error({()? =>
+      CodecRegistry
+        .with_codec(99990, _TestPointCodec)?
+        .with_enum_type(99990)?
+    })
+
+class \nodoc\ iso _TestCodecRegistryWithEnumTypeRejectsDuplicate is UnitTest
+  """
+  Registering the same enum OID twice errors on the second call.
+  """
+  fun name(): String =>
+    "CodecRegistry/WithEnumType/RejectsDuplicate"
+
+  fun apply(h: TestHelper) =>
+    h.assert_error({()? =>
+      CodecRegistry
+        .with_enum_type(99990)?
+        .with_enum_type(99990)?
+    })
+
+class \nodoc\ iso _TestCodecRegistryWithEnumTypeRejectsArrayOid is UnitTest
+  """
+  `with_enum_type` rejects a built-in array OID (int4[], OID 1007).
+  """
+  fun name(): String =>
+    "CodecRegistry/WithEnumType/RejectsArrayOid"
+
+  fun apply(h: TestHelper) =>
+    h.assert_error({()? => CodecRegistry.with_enum_type(1007)? })
+
+class \nodoc\ iso _TestCodecRegistryWithEnumTypeRejectsCustomArrayOid
+  is UnitTest
+  """
+  `with_enum_type` rejects an OID already registered as a custom array OID.
+  """
+  fun name(): String =>
+    "CodecRegistry/WithEnumType/RejectsCustomArrayOid"
+
+  fun apply(h: TestHelper) =>
+    h.assert_error({()? =>
+      CodecRegistry
+        .with_array_type(9998, 600)?
+        .with_enum_type(9998)?
+    })
+
+class \nodoc\ iso _TestCodecRegistryWithEnumTypeChaining is UnitTest
+  """
+  Multiple `with_enum_type` calls can be chained and both OIDs decode.
+  """
+  fun name(): String =>
+    "CodecRegistry/WithEnumType/Chaining"
+
+  fun apply(h: TestHelper) ? =>
+    let reg = CodecRegistry
+      .with_enum_type(99990)?
+      .with_enum_type(99991)?
+    let data1: Array[U8] val = recover val [
+      'h'; 'a'; 'p'; 'p'; 'y'] end
+    let data2: Array[U8] val = recover val [
+      'r'; 'e'; 'd'] end
+    match reg.decode(99990, 1, data1)?
+    | let s: String => h.assert_eq[String]("happy", s)
+    else h.fail("expected String for OID 99990")
+    end
+    match reg.decode(99991, 1, data2)?
+    | let s: String => h.assert_eq[String]("red", s)
+    else h.fail("expected String for OID 99991")
+    end
+
+class \nodoc\ iso _TestCodecRegistryWithEnumTypeHasBinaryCodec is UnitTest
+  """
+  `has_binary_codec` returns true for an enum-registered OID.
+  """
+  fun name(): String =>
+    "CodecRegistry/WithEnumType/HasBinaryCodec"
+
+  fun apply(h: TestHelper) ? =>
+    let reg = CodecRegistry.with_enum_type(99990)?
+    h.assert_true(reg.has_binary_codec(99990))
+
+class \nodoc\ iso _TestCodecRegistryWithEnumTypeBlocksWithCodec is UnitTest
+  """
+  After `with_enum_type(X)`, `with_codec(X, ...)` errors for both binary
+  and text codecs because the OID is registered in both codec maps.
+  """
+  fun name(): String =>
+    "CodecRegistry/WithEnumType/BlocksWithCodec"
+
+  fun apply(h: TestHelper) =>
+    // Binary codec blocked
+    h.assert_error({()? =>
+      CodecRegistry
+        .with_enum_type(99990)?
+        .with_codec(99990, _TestPointCodec)?
+    })
+    // Text codec blocked
+    h.assert_error({()? =>
+      CodecRegistry
+        .with_enum_type(99990)?
+        .with_codec(99990, _TestUppercaseTextCodec)?
+    })
+
+class \nodoc\ iso _TestCodecRegistryWithEnumTypeBlocksWithArrayType
+  is UnitTest
+  """
+  After `with_enum_type(X)`, `with_array_type(X, ...)` errors because the
+  OID is registered in both codec maps.
+  """
+  fun name(): String =>
+    "CodecRegistry/WithEnumType/BlocksWithArrayType"
+
+  fun apply(h: TestHelper) =>
+    h.assert_error({()? =>
+      CodecRegistry
+        .with_enum_type(99990)?
+        .with_array_type(99990, 600)?
+    })
+
+class \nodoc\ iso _TestCodecRegistryWithEnumTypeComposesWithArrayType
+  is UnitTest
+  """
+  `with_enum_type` composes with `with_array_type` for enum arrays. After
+  registering an enum OID and a corresponding array OID, a binary array of
+  enum labels decodes as `PgArray` with `String` elements.
+  """
+  fun name(): String =>
+    "CodecRegistry/WithEnumType/ComposesWithArrayType"
+
+  fun apply(h: TestHelper) ? =>
+    let reg = CodecRegistry
+      .with_enum_type(99990)?
+      .with_array_type(99991, 99990)?
+
+    // Build a binary array with element OID 99990, one element "happy"
+    let data: Array[U8] val = recover val
+      let d = Array[U8]
+      // ndim = 1
+      d.push(0); d.push(0); d.push(0); d.push(1)
+      // has_null = 0
+      d.push(0); d.push(0); d.push(0); d.push(0)
+      // element_oid = 99990 (big-endian)
+      let oid: U32 = 99990
+      d.push((oid >> 24).u8())
+      d.push((oid >> 16).u8())
+      d.push((oid >> 8).u8())
+      d.push((oid and 0xFF).u8())
+      // dim_size = 1
+      d.push(0); d.push(0); d.push(0); d.push(1)
+      // lower_bound = 1
+      d.push(0); d.push(0); d.push(0); d.push(1)
+      // element: len=5, "happy"
+      d.push(0); d.push(0); d.push(0); d.push(5)
+      d.push('h'); d.push('a'); d.push('p'); d.push('p'); d.push('y')
+      d
+    end
+
+    let result = reg.decode(99991, 1, data)?
+    match result
+    | let arr: PgArray =>
+      h.assert_eq[USize](1, arr.size())
+      match arr(0)?
+      | let s: String => h.assert_eq[String]("happy", s)
+      else h.fail("expected String element")
+      end
+    else
+      h.fail("expected PgArray")
+    end
+
+class \nodoc\ iso _TestCodecRegistryWithEnumTypeComposesArrayFirst
+  is UnitTest
+  """
+  Reverse ordering: `with_array_type` first, then `with_enum_type`. Both
+  orderings are valid user patterns and must produce the same result.
+  """
+  fun name(): String =>
+    "CodecRegistry/WithEnumType/ComposesArrayFirst"
+
+  fun apply(h: TestHelper) ? =>
+    let reg = CodecRegistry
+      .with_array_type(99991, 99990)?
+      .with_enum_type(99990)?
+
+    // Same binary array payload as ComposesWithArrayType
+    let data: Array[U8] val = recover val
+      let d = Array[U8]
+      d.push(0); d.push(0); d.push(0); d.push(1)
+      d.push(0); d.push(0); d.push(0); d.push(0)
+      let oid: U32 = 99990
+      d.push((oid >> 24).u8())
+      d.push((oid >> 16).u8())
+      d.push((oid >> 8).u8())
+      d.push((oid and 0xFF).u8())
+      d.push(0); d.push(0); d.push(0); d.push(1)
+      d.push(0); d.push(0); d.push(0); d.push(1)
+      d.push(0); d.push(0); d.push(0); d.push(5)
+      d.push('h'); d.push('a'); d.push('p'); d.push('p'); d.push('y')
+      d
+    end
+
+    let result = reg.decode(99991, 1, data)?
+    match result
+    | let arr: PgArray =>
+      h.assert_eq[USize](1, arr.size())
+      match arr(0)?
+      | let s: String => h.assert_eq[String]("happy", s)
+      else h.fail("expected String element")
+      end
+    else
+      h.fail("expected PgArray")
+    end

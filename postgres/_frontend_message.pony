@@ -145,20 +145,22 @@ primitive _FrontendMessage
 
     Parameters use per-parameter format codes: binary (1) for typed values
     (I16, I32, I64, F32, F64, Bool, Array[U8] val, PgTimestamp, PgTime,
-    PgDate, PgInterval, PgArray), text (0) for String. NULL parameters use
-    text format code (doesn't matter — no data bytes).
+    PgDate, PgInterval, PgArray, PgComposite), text (0) for String. NULL
+    parameters use text format code (doesn't matter — no data bytes).
     Result format: all binary (num_result_formats = 1, format_code = 1).
 
     Note: The inline encoding for each type must match the corresponding
     binary codec's encode() method. See _binary_codecs.pony.
     """
-    // Pre-encode PgArray parameters before the recover block.
-    // _ArrayEncoder needs codec access that isn't available inside recover.
+    // Pre-encode PgArray and PgComposite parameters before the recover block.
+    // _ArrayEncoder and _CompositeEncoder need codec access that isn't
+    // available inside recover.
     let pre_encoded: Array[(Array[U8] val | None)] val = recover val
       let pe = Array[(Array[U8] val | None)](params.size())
       for p in params.values() do
         match p
-        | let a: PgArray => pe.push(_ArrayEncoder(a)?)
+        | let a: PgArray => pe.push(_ArrayEncoder(a, registry)?)
+        | let c: PgComposite => pe.push(_CompositeEncoder(c, registry)?)
         else
           pe.push(None)
         end
@@ -183,6 +185,11 @@ primitive _FrontendMessage
         | let a: Array[U8] val =>
           params_data_size = params_data_size + a.size()
         | let _: PgArray =>
+          match try pre_encoded(pi)? else None end
+          | let enc: Array[U8] val =>
+            params_data_size = params_data_size + enc.size()
+          end
+        | let _: PgComposite =>
           match try pre_encoded(pi)? else None end
           | let enc: Array[U8] val =>
             params_data_size = params_data_size + enc.size()
@@ -339,6 +346,18 @@ primitive _FrontendMessage
           msg.copy_from(a, 0, offset, a.size())
           offset = offset + a.size()
         | let _: PgArray =>
+          match try pre_encoded(pi)? else None end
+          | let enc: Array[U8] val =>
+            ifdef bigendian then
+              msg.update_u32(offset, enc.size().u32())?
+            else
+              msg.update_u32(offset, enc.size().u32().bswap())?
+            end
+            offset = offset + 4
+            msg.copy_from(enc, 0, offset, enc.size())
+            offset = offset + enc.size()
+          end
+        | let _: PgComposite =>
           match try pre_encoded(pi)? else None end
           | let enc: Array[U8] val =>
             ifdef bigendian then

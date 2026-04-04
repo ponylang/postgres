@@ -104,8 +104,9 @@ Three query types are available, all executed via `session.execute()`:
 * **`PreparedQuery`** — a parameterized single statement using `$1`,
   `$2`, etc. Parameters are `Array[FieldDataTypes] val` — typed values
   (`I16`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Array[U8] val`,
-  `PgArray`, `PgTimestamp`, `PgTime`, `PgDate`, `PgInterval`) are sent
-  in binary format with explicit OIDs, while `String` and `None` use
+  `PgArray`, `PgComposite`, `PgTimestamp`, `PgTime`, `PgDate`,
+  `PgInterval`) are sent in binary format with explicit OIDs, while
+  `String` and `None` use
   text format with server-inferred types. Uses an unnamed server-side
   prepared statement (created and destroyed per execution).
 
@@ -147,6 +148,8 @@ be pg_query_result(session: Session, result: Result) =>
           _env.out.print(field.name + ": " + v.data.size().string() + " bytes")
         | let a: PgArray =>
           _env.out.print(field.name + ": " + a.string())
+        | let c: PgComposite =>
+          _env.out.print(field.name + ": " + c.string())
         | let t: PgTimestamp => _env.out.print(field.name + ": " + t.string())
         | let t: PgDate => _env.out.print(field.name + ": " + t.string())
         | let t: PgTime => _env.out.print(field.name + ": " + t.string())
@@ -165,7 +168,8 @@ Field values are typed based on the PostgreSQL column OID:
 bytea → `Bytea`, bool → `Bool`, int2 → `I16`, int4 → `I32`,
 int8 → `I64`, float4 → `F32`, float8 → `F64`, date → `PgDate`,
 time → `PgTime`, timestamp/timestamptz → `PgTimestamp`,
-interval → `PgInterval`, array types → `PgArray`, NULL → `None`.
+interval → `PgInterval`, array types → `PgArray`,
+registered composite types → `PgComposite`, NULL → `None`.
 Extended query results use binary format — unknown OIDs produce
 `RawBytes`. Simple query results use text format — unknown OIDs
 produce `String`.
@@ -347,6 +351,58 @@ let registry = CodecRegistry
   .with_array_type(1017, 600)?
 ```
 
+## Composite Types
+
+User-defined composite types (created with `CREATE TYPE ... AS (...)`) are
+decoded as `PgComposite` when registered with `CodecRegistry.with_composite_type()`.
+Register the composite OID and its field descriptors (name + OID pairs):
+
+```pony
+// CREATE TYPE address AS (street text, city text, zip_code int4)
+// OID discovered via: SELECT oid FROM pg_type WHERE typname = 'address'
+
+let registry = CodecRegistry
+  .with_composite_type(16400,
+    recover val
+      [as (String, U32): ("street", 25); ("city", 25); ("zip_code", 23)]
+    end)?
+  .with_array_type(16401, 16400)?  // address[]
+let session = Session(server_info, db_info, notify where registry = registry)
+```
+
+Access fields by position or name:
+
+```pony
+match field.value
+| let addr: PgComposite =>
+  match try addr(0)? end       // positional
+  | let street: String => // ...
+  end
+  match try addr.field("city")? end  // named
+  | let city: String => // ...
+  end
+end
+```
+
+`PgComposite` can also be sent as a query parameter using `from_fields`
+for safe construction:
+
+```pony
+let addr = PgComposite.from_fields(16400,
+  recover val
+    [as (String, U32, (FieldData | None)):
+      ("street", 25, "123 Main St")
+      ("city", 25, "Springfield")
+      ("zip_code", 23, I32(62704))]
+  end)
+session.execute(PreparedQuery("INSERT INTO users (home) VALUES ($1)",
+  recover val [as FieldDataTypes: addr] end), receiver)
+```
+
+Nested composites and composite arrays are supported. Both `PreparedQuery`
+(binary format) and `SimpleQuery` (text format) decode registered
+composites.
+
 ## Custom Codecs
 
 Extend the driver with custom type decoders. Implement `Codec` to decode
@@ -443,6 +499,7 @@ fires with an `AuthenticationFailureReason`:
 * Statement timeout (automatic cancellation after a deadline)
 * ParameterStatus tracking (server runtime parameters)
 * 1-dimensional array types (decode and encode via `PgArray`)
+* User-defined composite types (decode and encode via `PgComposite`)
 * Custom codecs via `CodecRegistry.with_codec()`
 * Custom array types via `CodecRegistry.with_array_type()`
 """

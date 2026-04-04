@@ -1,8 +1,9 @@
 interface val FieldData
   """
   Open result type for decoded column values. All built-in types (`Bool`,
-  `I16`, `I32`, `I64`, `F32`, `F64`, `String`, `PgArray`, `PgDate`, `PgTime`,
-  `PgTimestamp`, `PgInterval`, `Bytea`) conform structurally via `Stringable`.
+  `I16`, `I32`, `I64`, `F32`, `F64`, `String`, `PgArray`, `PgComposite`,
+  `PgDate`, `PgTime`, `PgTimestamp`, `PgInterval`, `Bytea`) conform
+  structurally via `Stringable`.
   Custom codecs return their own types implementing this interface.
 
   The encode path (`FieldDataTypes`) remains a closed union because parameters

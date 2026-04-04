@@ -2,25 +2,33 @@ use "collections"
 
 class val CodecRegistry
   """
-  Maps PostgreSQL type OIDs to codecs. Immutable — adding a codec or array
-  type produces a new registry.
+  Maps PostgreSQL type OIDs to codecs. Immutable — adding a codec, enum,
+  composite, or array type produces a new registry.
 
   The default constructor creates a registry with all built-in text and binary
   codecs. Use `with_codec` to register custom codecs, `with_enum_type` to
-  register user-defined enum types, and `with_array_type` to register custom
+  register user-defined enum types, `with_composite_type` to register
+  user-defined composite types, and `with_array_type` to register custom
   array type mappings:
 
   ```pony
   let registry = CodecRegistry
-    .with_codec(600, PointBinaryCodec)?  // custom point type
-    .with_enum_type(12345)?              // mood enum
-    .with_array_type(12350, 12345)?      // mood[]
+    .with_codec(600, PointBinaryCodec)?       // custom point type
+    .with_enum_type(12345)?                   // mood enum
+    .with_composite_type(16400,               // address composite
+      recover val
+        [as (String, U32): ("street", 25); ("city", 25); ("zip_code", 23)]
+      end)?
+    .with_array_type(12350, 12345)?           // mood[]
+    .with_array_type(16401, 16400)?           // address[]
   let session = Session(server_info, db_info, notify where registry = registry)
   ```
   """
   let _text_codecs: Map[U32, Codec] val
   let _binary_codecs: Map[U32, Codec] val
   let _custom_array_element_oids: Map[U32, U32] val
+  let _composite_field_descriptors:
+    Map[U32, (Array[String] val, Array[U32] val)] val
 
   new val create() =>
     """
@@ -89,6 +97,8 @@ class val CodecRegistry
       m
     end
     _custom_array_element_oids = recover val Map[U32, U32] end
+    _composite_field_descriptors =
+      recover val Map[U32, (Array[String] val, Array[U32] val)] end
 
   fun val with_codec(oid: U32, codec: Codec): CodecRegistry ? =>
     """
@@ -101,6 +111,7 @@ class val CodecRegistry
     """
     if _ArrayOidMap.is_array_oid(oid) then error end
     if _custom_array_element_oids.contains(oid) then error end
+    if _composite_field_descriptors.contains(oid) then error end
     if codec.format() == 0 then
       if _text_codecs.contains(oid) then error end
     else
@@ -113,6 +124,7 @@ class val CodecRegistry
     New registry that adds the codec for the given OID.
     """
     _custom_array_element_oids = base._custom_array_element_oids
+    _composite_field_descriptors = base._composite_field_descriptors
     let fmt = codec.format()
     if fmt == 0 then
       _text_codecs = recover val
@@ -162,6 +174,7 @@ class val CodecRegistry
     """
     if _ArrayOidMap.is_array_oid(oid) then error end
     if _custom_array_element_oids.contains(oid) then error end
+    if _composite_field_descriptors.contains(oid) then error end
     if _text_codecs.contains(oid) then error end
     if _binary_codecs.contains(oid) then error end
     CodecRegistry._with_enum_type(this, oid)
@@ -172,6 +185,7 @@ class val CodecRegistry
     both text and binary formats.
     """
     _custom_array_element_oids = base._custom_array_element_oids
+    _composite_field_descriptors = base._composite_field_descriptors
     _text_codecs = recover val
       let m = Map[U32, Codec]
       for (k, v) in base._text_codecs.pairs() do
@@ -186,6 +200,68 @@ class val CodecRegistry
         m(k) = v
       end
       m(oid) = _TextPassthroughBinaryCodec
+      m
+    end
+
+  fun val with_composite_type(oid: U32,
+    field_descriptors: Array[(String, U32)] val): CodecRegistry ?
+  =>
+    """
+    Returns a new registry with the given composite type registered.
+    `field_descriptors` are `(name, oid)` pairs in declaration order.
+
+    Supports chaining:
+    `CodecRegistry.with_composite_type(16400, fields)?.with_array_type(16401, 16400)?`.
+
+    Errors if the OID is already registered (built-in, custom codec, enum,
+    or composite), collides with a built-in or custom array OID, or has
+    empty field descriptors. Self-referential field OIDs (the composite's
+    own OID in its field list) are also rejected.
+
+    Does NOT auto-register the corresponding array type — call
+    `with_array_type` separately if needed.
+    """
+    if field_descriptors.size() == 0 then error end
+    if _ArrayOidMap.is_array_oid(oid) then error end
+    if _custom_array_element_oids.contains(oid) then error end
+    if _text_codecs.contains(oid) then error end
+    if _binary_codecs.contains(oid) then error end
+    if _composite_field_descriptors.contains(oid) then error end
+    // Reject self-referential field OIDs
+    for (_, field_oid) in field_descriptors.values() do
+      if field_oid == oid then error end
+    end
+    let names: Array[String] val = recover val
+      let n = Array[String](field_descriptors.size())
+      for (name, _) in field_descriptors.values() do
+        n.push(name)
+      end
+      n
+    end
+    let oids: Array[U32] val = recover val
+      let o = Array[U32](field_descriptors.size())
+      for (_, field_oid) in field_descriptors.values() do
+        o.push(field_oid)
+      end
+      o
+    end
+    CodecRegistry._with_composite_type(this, oid, names, oids)
+
+  new val _with_composite_type(base: CodecRegistry, oid: U32,
+    names: Array[String] val, oids: Array[U32] val)
+  =>
+    """
+    New registry that adds the composite type mapping for the given OID.
+    """
+    _text_codecs = base._text_codecs
+    _binary_codecs = base._binary_codecs
+    _custom_array_element_oids = base._custom_array_element_oids
+    _composite_field_descriptors = recover val
+      let m = Map[U32, (Array[String] val, Array[U32] val)]
+      for (k, v) in base._composite_field_descriptors.pairs() do
+        m(k) = v
+      end
+      m(oid) = (names, oids)
       m
     end
 
@@ -217,6 +293,9 @@ class val CodecRegistry
     if _text_codecs.contains(array_oid) then error end
     if _binary_codecs.contains(array_oid) then error end
 
+    // Reject array OIDs that collide with composite OIDs
+    if _composite_field_descriptors.contains(array_oid) then error end
+
     // Reject array OIDs that collide with built-in array OIDs
     if _ArrayOidMap.is_array_oid(array_oid) then error end
 
@@ -235,6 +314,7 @@ class val CodecRegistry
   =>
     _text_codecs = base._text_codecs
     _binary_codecs = base._binary_codecs
+    _composite_field_descriptors = base._composite_field_descriptors
     _custom_array_element_oids = recover val
       let m = Map[U32, U32]
       for (k, v) in base._custom_array_element_oids.pairs() do
@@ -263,9 +343,8 @@ class val CodecRegistry
 
   fun decode(oid: U32, format: U16, data: Array[U8] val): FieldData ? =>
     """
-    Decode result column data using the registered codec. Array OIDs are
-    intercepted and decoded as `PgArray` before falling through to per-OID
-    codec lookup.
+    Decode result column data using the registered codec. Array and composite
+    OIDs are intercepted before falling through to per-OID codec lookup.
 
     Format 0 uses the text codec, format 1 uses the binary codec.
 
@@ -277,11 +356,21 @@ class val CodecRegistry
     codecs) and broken custom codecs instead of silently returning fallback
     values.
 
-    For arrays, structural parsing errors (malformed wire format) fall back,
-    but element codec errors propagate. This distinguishes between an
-    unrecognized array format (which might be a new PostgreSQL feature) and
-    corrupt element data (which should be surfaced).
+    For arrays and composites, structural parsing errors (malformed wire
+    format) fall back, but element/field codec errors propagate.
     """
+    _decode_with_depth(oid, format, data, 0)?
+
+  fun _decode_with_depth(oid: U32, format: U16, data: Array[U8] val,
+    depth: USize): FieldData ?
+  =>
+    """
+    Depth-aware decode implementation. `depth` tracks recursion through
+    nested arrays and composites to prevent stack overflow from pathological
+    schemas.
+    """
+    if depth > _max_decode_depth() then error end
+
     // Check built-in array OIDs
     if _ArrayOidMap.is_array_oid(oid) then
       let parsed = try
@@ -291,7 +380,7 @@ class val CodecRegistry
         if format == 0 then return String.from_array(data)
         else return RawBytes(data) end
       end
-      return _decode_array_elements(parsed._1, format, parsed._2)?
+      return _decode_array_elements(parsed._1, format, parsed._2, depth)?
     end
 
     // Check custom array OIDs
@@ -303,7 +392,16 @@ class val CodecRegistry
         if format == 0 then return String.from_array(data)
         else return RawBytes(data) end
       end
-      return _decode_array_elements(parsed._1, format, parsed._2)?
+      return _decode_array_elements(parsed._1, format, parsed._2, depth)?
+    end
+
+    // Check composite OIDs — no fallback; parsing errors propagate because
+    // composites are explicitly registered (unlike arrays, which might be
+    // unrecognized formats). Field count mismatches indicate schema drift.
+    if _composite_field_descriptors.contains(oid) then
+      let parsed = if format == 0 then _parse_text_composite(oid, data)?
+        else _parse_binary_composite(data)? end
+      return _decode_composite_fields(oid, format, parsed, depth)?
     end
 
     if format == 0 then
@@ -322,14 +420,18 @@ class val CodecRegistry
       codec.decode(data)?
     end
 
+  fun _max_decode_depth(): USize => 16
+
   fun has_binary_codec(oid: U32): Bool =>
     """
     Whether a binary codec is registered for this OID. Returns true for
-    known array OIDs (built-in and custom) in addition to scalar codecs.
+    known array OIDs (built-in and custom) and composite OIDs in addition
+    to scalar codecs.
     """
     _binary_codecs.contains(oid)
       or _ArrayOidMap.is_array_oid(oid)
       or _custom_array_element_oids.contains(oid)
+      or _composite_field_descriptors.contains(oid)
 
   fun _parse_binary_array(data: Array[U8] val)
     : (U32, Array[(Array[U8] val | None)] val) ?
@@ -498,7 +600,7 @@ class val CodecRegistry
     (element_oid, raw_elements)
 
   fun _decode_array_elements(element_oid: U32, format: U16,
-    raw_elements: Array[(Array[U8] val | None)] val): PgArray ?
+    raw_elements: Array[(Array[U8] val | None)] val, depth: USize): PgArray ?
   =>
     """
     Decode raw element byte arrays into typed `FieldData` values using the
@@ -519,9 +621,218 @@ class val CodecRegistry
         match raw
         | None => elems.push(None)
         | let bytes: Array[U8] val =>
-          elems.push(decode(element_oid, format, bytes)?)
+          elems.push(_decode_with_depth(element_oid, format, bytes,
+            depth + 1)?)
         end
       end
       elems
     end
     PgArray(element_oid, consume elements)
+
+  fun _parse_binary_composite(data: Array[U8] val)
+    : Array[(U32, (Array[U8] val | None))] val ?
+  =>
+    """
+    Parse binary composite wire format, extracting per-field OIDs and raw
+    byte slices without decoding them.
+
+    Binary composite format:
+    ```
+    I32  field_count
+    Per field:
+      I32  field_oid
+      I32  field_len (-1 = NULL)
+      Byte[len] data
+    ```
+    """
+    if data.size() < 4 then error end
+    let field_count = ifdef bigendian then
+      data.read_u32(0)?.i32()
+    else
+      data.read_u32(0)?.bswap().i32()
+    end
+    if field_count < 0 then error end
+
+    // Validate minimum data size: each field requires at least 8 bytes
+    // (4 OID + 4 length). Prevents allocation from untrusted field_count.
+    let min_field_bytes = field_count.usize().mul_partial(8)?
+    if (4 + min_field_bytes) > data.size() then error end
+
+    recover val
+      let fields = Array[(U32, (Array[U8] val | None))](field_count.usize())
+      var offset: USize = 4
+      var i: I32 = 0
+      while i < field_count do
+        if (offset + 8) > data.size() then error end
+        let field_oid = ifdef bigendian then
+          data.read_u32(offset)?
+        else
+          data.read_u32(offset)?.bswap()
+        end
+        offset = offset + 4
+        let field_len = ifdef bigendian then
+          data.read_u32(offset)?.i32()
+        else
+          data.read_u32(offset)?.bswap().i32()
+        end
+        offset = offset + 4
+        if field_len == -1 then
+          fields.push((field_oid, None))
+        elseif field_len < 0 then
+          error
+        else
+          let len = field_len.usize()
+          if (offset + len) > data.size() then error end
+          fields.push((field_oid,
+            recover val data.trim(offset, offset + len) end))
+          offset = offset + len
+        end
+        i = i + 1
+      end
+      if offset != data.size() then error end
+      fields
+    end
+
+  fun _parse_text_composite(oid: U32, data: Array[U8] val)
+    : Array[(U32, (Array[U8] val | None))] val ?
+  =>
+    """
+    Parse text composite format `(val1,val2,val3)`, extracting raw field
+    byte arrays without decoding them. Uses registered field descriptors
+    for per-position OID lookup.
+
+    Text composite format differs from array text format:
+    - Delimiters: `()` not `{}`
+    - NULL: empty unquoted position (not the keyword `NULL`)
+    - Empty string: `""` (quoted empty)
+    - Escaping: doubled `""` and `\\` (not backslash-as-escape like arrays)
+    - Nested composites appear as quoted strings with inner quoting
+    """
+    let s: String val = String.from_array(data)
+    if s.size() < 2 then error end
+    if s(0)? != '(' then error end
+    if s(s.size() - 1)? != ')' then error end
+
+    (_, let field_oids) = _composite_field_descriptors(oid)?
+
+    let raw_fields: Array[(U32, (Array[U8] val | None))] val = recover val
+      let fields = Array[(U32, (Array[U8] val | None))](field_oids.size())
+      var pos: USize = 1  // skip opening '('
+      let end_pos = s.size() - 1  // before closing ')'
+      var field_idx: USize = 0
+
+      var after_comma = true  // start of content is like after a delimiter
+      while (pos <= end_pos) and (field_idx < field_oids.size()) do
+        let field_oid = field_oids(field_idx)?
+
+        if pos == end_pos then
+          if after_comma then
+            // Trailing NULL — a comma preceded the closing paren
+            fields.push((field_oid, None))
+            field_idx = field_idx + 1
+          end
+          // Either way, exit — we're at the end
+          break
+        elseif s(pos)? == ',' then
+          // Empty unquoted position = NULL
+          fields.push((field_oid, None))
+          pos = pos + 1
+          after_comma = true
+          field_idx = field_idx + 1
+        elseif s(pos)? == '"' then
+          // Quoted field — doubled-character escaping for " and \
+          pos = pos + 1
+          var buf = recover iso Array[U8] end
+          while pos < end_pos do
+            let ch = s(pos)?
+            if ch == '"' then
+              // Check for doubled double-quote
+              if ((pos + 1) < end_pos) and (s(pos + 1)? == '"') then
+                buf.push('"')
+                pos = pos + 2
+              else
+                // End of quoted value
+                break
+              end
+            elseif ch == '\\' then
+              // Check for doubled backslash
+              if ((pos + 1) < end_pos) and (s(pos + 1)? == '\\') then
+                buf.push('\\')
+                pos = pos + 2
+              else
+                buf.push(ch)
+                pos = pos + 1
+              end
+            else
+              buf.push(ch)
+              pos = pos + 1
+            end
+          end
+          if (pos >= end_pos) and (s(pos)? != '"') then error end
+          pos = pos + 1  // skip closing '"'
+          fields.push((field_oid, consume buf))
+          // Skip comma separator
+          after_comma = false
+          if (pos < end_pos) and (s(pos)? == ',') then
+            pos = pos + 1
+            after_comma = true
+          end
+          field_idx = field_idx + 1
+        else
+          // Unquoted value — read until ',' or ')'
+          let start = pos
+          while (pos < end_pos) and (s(pos)? != ',') do
+            pos = pos + 1
+          end
+          let token: String val = s.substring(start.isize(), pos.isize())
+          fields.push((field_oid, token.array()))
+          // Skip comma separator
+          after_comma = false
+          if (pos < end_pos) and (s(pos)? == ',') then
+            pos = pos + 1
+            after_comma = true
+          end
+          field_idx = field_idx + 1
+        end
+      end
+
+      if field_idx != field_oids.size() then error end
+      // Verify all input was consumed (extra fields = schema mismatch)
+      if pos != end_pos then error end
+      fields
+    end
+    raw_fields
+
+  fun _decode_composite_fields(oid: U32, format: U16,
+    parsed: Array[(U32, (Array[U8] val | None))] val, depth: USize)
+    : PgComposite ?
+  =>
+    """
+    Decode raw composite field data into a `PgComposite`. For binary format,
+    uses wire OIDs for codec selection (authoritative). For text format, uses
+    registered OIDs. Errors on field count mismatch with registration.
+    """
+    (let names, let registered_oids) = _composite_field_descriptors(oid)?
+
+    if parsed.size() != registered_oids.size() then error end
+
+    let wire_oids: Array[U32] val = recover val
+      let o = Array[U32](parsed.size())
+      for (field_oid, _) in parsed.values() do
+        o.push(field_oid)
+      end
+      o
+    end
+
+    let fields = recover iso
+      let f = Array[(FieldData | None)](parsed.size())
+      for (field_oid, raw) in parsed.values() do
+        match raw
+        | None => f.push(None)
+        | let bytes: Array[U8] val =>
+          f.push(_decode_with_depth(field_oid, format, bytes, depth + 1)?)
+        end
+      end
+      f
+    end
+    PgComposite(oid, wire_oids, names, consume fields)?

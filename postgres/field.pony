@@ -3,7 +3,8 @@ class val Field is Equatable[Field]
   A single column value within a `Row`. Contains the column name and the
   value decoded via the `CodecRegistry` into a `FieldData` type. Built-in
   types include `Bool`, `I16`, `I32`, `I64`, `F32`, `F64`, `String`, `Bytea`,
-  `PgArray`, `PgDate`, `PgTime`, `PgTimestamp`, `PgInterval`, and `None`
+  `PgArray`, `PgComposite`, `PgDate`, `PgTime`, `PgTimestamp`, `PgInterval`,
+  and `None`
   (for NULL). Custom codecs may produce additional types implementing
   `FieldData`.
   """

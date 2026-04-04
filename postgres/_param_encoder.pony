@@ -20,6 +20,7 @@ primitive _ParamEncoder
         | let _: Bool => U32(16)
         | let _: Array[U8] val => U32(17)
         | let a: PgArray => registry.array_oid_for(a.element_oid)
+        | let c: PgComposite => c.type_oid
         | let _: PgTimestamp => U32(1114)
         | let _: PgTime => U32(1083)
         | let _: PgDate => U32(1082)

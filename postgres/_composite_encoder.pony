@@ -1,60 +1,41 @@
-primitive _ArrayEncoder
+primitive _CompositeEncoder
   """
-  Encodes `PgArray` to PostgreSQL binary array wire format.
+  Encodes `PgComposite` to PostgreSQL binary composite wire format.
 
-  Binary array format:
+  Binary composite format:
   ```
-  I32  ndim            (1 for 1-D, 0 for empty)
-  I32  has_null        (0 or 1)
-  I32  element_oid
-  I32  dimension_size  (number of elements)
-  I32  lower_bound     (1)
-  Per element:
-    I32  element_length (-1 = NULL, else byte count)
-    Byte[length] data
+  I32  field_count
+  Per field:
+    I32  field_oid
+    I32  field_len (-1 = NULL)
+    Byte[len] data
   ```
 
-  Coupling: element encoding must stay in sync with `_CompositeEncoder`,
+  Coupling: element encoding must stay in sync with `_ArrayEncoder`,
   `_FrontendMessage.bind()`, and `_binary_codecs.pony`. Changes to scalar
   binary encoding in those files must be mirrored here.
   """
-  fun apply(a: PgArray, registry: CodecRegistry = CodecRegistry)
-    : Array[U8] val ?
-  =>
-    if a.elements.size() == 0 then
-      return recover val
-        let msg = Array[U8].init(0, 12)
-        // ndim=0, has_null=0, element_oid
-        ifdef bigendian then
-          msg.update_u32(8, a.element_oid)?
-        else
-          msg.update_u32(8, a.element_oid.bswap())?
-        end
-        msg
-      end
-    end
-
-    // Encode each element first
+  fun apply(c: PgComposite, registry: CodecRegistry): Array[U8] val ? =>
+    // Encode each field first
     let encoded: Array[(Array[U8] val | None)] val = recover val
-      let enc = Array[(Array[U8] val | None)](a.elements.size())
-      for elem in a.elements.values() do
-        match elem
+      let enc = Array[(Array[U8] val | None)](c.fields.size())
+      var i: USize = 0
+      while i < c.fields.size() do
+        match c.fields(i)?
         | None => enc.push(None)
         | let fd: FieldData =>
-          enc.push(_encode_element(fd, a.element_oid, registry)?)
+          enc.push(_encode_field(fd, c.field_oids(i)?, registry)?)
         end
+        i = i + 1
       end
       enc
     end
 
-    var has_null: U32 = 0
-    // Calculate total size
-    // 20 bytes header + per-element (4 bytes length + data)
-    var data_size: USize = 20
+    // Calculate total size: 4 (field_count) + per-field (4 oid + 4 len + data)
+    var data_size: USize = 4
     for e in encoded.values() do
-      data_size = data_size + 4
+      data_size = data_size + 8 // oid + len
       match e
-      | None => has_null = 1
       | let bytes: Array[U8] val => data_size = data_size + bytes.size()
       end
     end
@@ -62,22 +43,23 @@ primitive _ArrayEncoder
     recover val
       let msg = Array[U8].init(0, data_size)
       ifdef bigendian then
-        msg.update_u32(0, U32(1))?         // ndim
-        msg.update_u32(4, has_null)?        // has_null
-        msg.update_u32(8, a.element_oid)?   // element_oid
-        msg.update_u32(12, a.elements.size().u32())? // dimension_size
-        msg.update_u32(16, U32(1))?         // lower_bound
+        msg.update_u32(0, c.fields.size().u32())?
       else
-        msg.update_u32(0, U32(1).bswap())?
-        msg.update_u32(4, has_null.bswap())?
-        msg.update_u32(8, a.element_oid.bswap())?
-        msg.update_u32(12, a.elements.size().u32().bswap())?
-        msg.update_u32(16, U32(1).bswap())?
+        msg.update_u32(0, c.fields.size().u32().bswap())?
       end
 
-      var offset: USize = 20
-      for e in encoded.values() do
-        match e
+      var offset: USize = 4
+      var i: USize = 0
+      while i < encoded.size() do
+        let field_oid = c.field_oids(i)?
+        ifdef bigendian then
+          msg.update_u32(offset, field_oid)?
+        else
+          msg.update_u32(offset, field_oid.bswap())?
+        end
+        offset = offset + 4
+
+        match encoded(i)?
         | None =>
           // NULL: length = -1
           ifdef bigendian then
@@ -96,11 +78,12 @@ primitive _ArrayEncoder
           msg.copy_from(bytes, 0, offset, bytes.size())
           offset = offset + bytes.size()
         end
+        i = i + 1
       end
       msg
     end
 
-  fun _encode_element(fd: FieldData, element_oid: U32,
+  fun _encode_field(fd: FieldData, field_oid: U32,
     registry: CodecRegistry): Array[U8] val ?
   =>
     match fd
@@ -116,9 +99,10 @@ primitive _ArrayEncoder
     | let v: PgTimestamp => _TimestampBinaryCodec.encode(v)?
     | let v: PgInterval => _IntervalBinaryCodec.encode(v)?
     | let c: PgComposite => _CompositeEncoder(c, registry)?
+    | let a: PgArray => _ArrayEncoder(a, registry)?
     | let v: String =>
-      // Route by element_oid for string-producing types
-      match element_oid
+      // Route by field_oid for string-producing types
+      match field_oid
       | 2950 => _UuidBinaryCodec.encode(v)?
       | 3802 => _JsonbBinaryCodec.encode(v)?
       | 26 => _OidBinaryCodec.encode(v)?

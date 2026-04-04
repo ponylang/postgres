@@ -8,6 +8,7 @@ type FieldDataTypes is
   | I64
   | None
   | PgArray
+  | PgComposite
   | PgDate
   | PgInterval
   | PgTime

@@ -46,6 +46,10 @@ Query cancellation using `Session.cancel()`. Executes a long-running query (`SEL
 
 Connection timeout using the `connection_timeout` parameter on `ServerConnectInfo`. Connects to a configurable host and port with a 3-second timeout via `lori.MakeConnectionTimeout(3000)`, and handles `ConnectionFailedTimeout` in `pg_session_connection_failed`. Shows how the driver reports unreachable servers without hanging indefinitely.
 
+## composite-type
+
+Composite type support via `CodecRegistry.with_composite_type()`. Creates a PostgreSQL composite type, discovers its OID from `pg_type`, registers it with field descriptors, and queries it with `PreparedQuery` to get `PgComposite` results. Uses two sessions to demonstrate the typical two-phase pattern for dynamic OIDs: the first session discovers the OID, the second uses a `CodecRegistry` built with that OID. Shows positional access via `apply()`, named access via `field()`, and sending a `PgComposite` as a query parameter.
+
 ## crud
 
 Multi-query workflow mixing `SimpleQuery` and `PreparedQuery`. Creates a table, inserts rows with parameterized INSERTs, selects them back, deletes, and drops the table. Demonstrates all three `Result` types (`ResultSet`, `RowModifying`, `SimpleResult`) and `ErrorResponseMessage` error handling.

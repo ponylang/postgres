@@ -41,6 +41,7 @@ All notable changes to this project will be documented in this file. This projec
 - Add connection timeout ([PR #179](https://github.com/ponylang/postgres/pull/179))
 - Add cleartext password authentication ([PR #181](https://github.com/ponylang/postgres/pull/181))
 - Add enum type support ([PR #186](https://github.com/ponylang/postgres/pull/186))
+- Add composite type support ([PR #190](https://github.com/ponylang/postgres/pull/190))
 
 ### Changed
 

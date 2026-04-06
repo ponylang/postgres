@@ -63,3 +63,7 @@ The following data types are fully supported and will be converted from their po
 * `float8` => `F64`
 
 As `String` is our default type, all character types such as `text` are returned to the user as `String` and as such, aren't listed in our supported types.
+
+## Development
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for build instructions and test setup.

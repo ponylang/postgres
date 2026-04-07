@@ -1,5 +1,7 @@
 # Development
 
+For contribution guidelines, PR conventions, and code formatting standards, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Prerequisites
 
 - [ponyc](https://github.com/ponylang/ponyc)

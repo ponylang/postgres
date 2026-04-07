@@ -1,6 +1,6 @@
 # Contributing
 
-You want to contribute to postgres? Awesome.
+You want to contribute to postgres? Awesome. For build and test setup instructions, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 There are a number of ways to contribute. As this document is a little long, feel free to jump to the section that applies to you currently:
 

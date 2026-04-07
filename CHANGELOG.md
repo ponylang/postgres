@@ -55,7 +55,7 @@ All notable changes to this project will be documented in this file. This projec
 - Change extended query results to binary format with typed temporal values ([PR #144](https://github.com/ponylang/postgres/pull/144))
 - Change result field values from closed union to open interface ([PR #150](https://github.com/ponylang/postgres/pull/150))
 - Change pg_session_connection_failed to include a failure reason ([PR #163](https://github.com/ponylang/postgres/pull/163))
-- Add ConnectionFailedTimeout to ConnectionFailureReason ([PR #177](https://github.com/ponylang/postgres/pull/177))
+- Expand ConnectionFailureReason with ConnectionFailedTimeout ([PR #177](https://github.com/ponylang/postgres/pull/177))
 
 ## [0.2.2] - 2025-07-16
 

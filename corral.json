@@ -3,7 +3,7 @@
     "postgres"
   ],
   "deps": [
-   {
+    {
       "locator": "github.com/ponylang/lori.git",
       "version": "0.13.0"
     },
@@ -17,7 +17,7 @@
     "homepage": "https://github.com/ponylang/postgres/",
     "license": "BSD-2-Clause",
     "documentation_url": "https://ponylang.github.io/postgres",
-    "version": "0.2.2",
+    "version": "0.3.0",
     "name": "postgres"
   }
 }

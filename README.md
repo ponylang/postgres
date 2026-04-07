@@ -9,7 +9,7 @@ postgres is beta quality software that will change frequently. Expect breaking c
 ## Installation
 
 * Install [corral](https://github.com/ponylang/corral)
-* `corral add github.com/ponylang/postgres.git --version 0.2.2`
+* `corral add github.com/ponylang/postgres.git --version 0.3.0`
 * `corral fetch` to fetch your dependencies
 * `use "postgres"` to include this package
 * `corral run -- ponyc` to compile your application

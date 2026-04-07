@@ -36,33 +36,39 @@ KerberosV5, SCM, GSS, SSPI, SCRAM-SHA-256-PLUS (channel binding), and certificat
 
 ### SSL/TLS
 
-Optional SSL/TLS encryption is supported. Pass `SSLRequired` with an `SSLContext` to `ServerConnectInfo` to enable encrypted connections. If the server refuses SSL negotiation, the connection fails. Plaintext connections are the default.
+SSL is disabled by default (`SSLDisabled`). Two SSL modes are available: `SSLRequired` mandates encryption — if the server refuses SSL negotiation, the connection fails. `SSLPreferred` attempts encryption but falls back to a plaintext connection if the server refuses. Pass either mode with an `SSLContext` to `ServerConnectInfo` to enable.
 
 ### Commands
 
-Simple queries, parameterized queries (extended query protocol), named prepared statements, query cancellation, and LISTEN/NOTIFY are supported.
+Simple queries, parameterized queries (extended query protocol), named prepared statements, query cancellation, LISTEN/NOTIFY, COPY FROM STDIN, COPY TO STDOUT, streaming queries (portal-based cursors with windowed batch delivery), query pipelining, statement timeout (per-query automatic cancellation), and connection timeout are supported.
 
 Some functionality that isn't yet supported is:
 
 * Supplying connection configuration to the server
-* Pipelining queries
 * Function calls
 
 Note the appearance of an item on the above list isn't a guarantee that it will be supported in the future.
 
 ### Data Types
 
-The following data types are fully supported and will be converted from their postgres type to the corresponding Pony type. All other data types will be presented as `String`.
+The following PostgreSQL types are decoded to typed Pony values:
 
 * `bool` => `Bool`
-* `bytea` => `Array[U8]`
+* `bytea` => `Bytea`
 * `int2` => `I16`
 * `int4` => `I32`
 * `int8` => `I64`
 * `float4` => `F32`
 * `float8` => `F64`
+* `date` => `PgDate`
+* `time` => `PgTime`
+* `timestamp` / `timestamptz` => `PgTimestamp`
+* `interval` => `PgInterval`
+* 1-dimensional arrays of any supported element type => `PgArray`
 
-As `String` is our default type, all character types such as `text` are returned to the user as `String` and as such, aren't listed in our supported types.
+Text-like types (`text`, `varchar`, `char`, `name`, `bpchar`, `xml`) and types with text representations (`oid`, `numeric`, `uuid`, `json`, `jsonb`) are returned as `String`. Unknown types in text format are also returned as `String`; unknown types in binary format are returned as `RawBytes`.
+
+User-defined enum types can be registered with `CodecRegistry.with_enum_type()`, which decodes them as `String`. User-defined composite types can be registered with `CodecRegistry.with_composite_type()`, which decodes them as `PgComposite`. Custom array type mappings can be added with `CodecRegistry.with_array_type()`.
 
 ## Development
 

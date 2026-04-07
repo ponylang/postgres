@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Fixed
 
+- Fix connection stall after large write with backpressure ([PR #201](https://github.com/ponylang/postgres/pull/201))
 
 ### Added
 

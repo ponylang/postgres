@@ -428,6 +428,21 @@ actor BulkLoader is (SessionStatusNotify & ResultReceiver & CopyInReceiver)
 
 Data format depends on the COPY command — the default is tab-delimited text with newline row terminators. The pull-based design provides bounded memory usage: only one chunk is in flight at a time.
 
+## Add notice response message support
+
+PostgreSQL sends NoticeResponse messages for non-fatal informational feedback — for example, "table does not exist, skipping" when you run `DROP TABLE IF EXISTS` on a nonexistent table, or `RAISE NOTICE` output from PL/pgSQL functions. Previously, the driver silently discarded these messages.
+
+A new `pg_notice` callback on `SessionStatusNotify` delivers notices as `NoticeResponseMessage` values with the full set of PostgreSQL notice fields (severity, code, message, detail, hint, etc.):
+
+```pony
+actor MyNotify is SessionStatusNotify
+  be pg_notice(session: Session, notice: NoticeResponseMessage) =>
+    _env.out.print("[" + notice.severity + "] " + notice.code + ": "
+      + notice.message)
+```
+
+The callback has a default no-op implementation, so existing code is unaffected.
+
 ## Add bytea type conversion
 
 PostgreSQL `bytea` columns are now automatically decoded from hex format into `Bytea`, a wrapper around `Array[U8] val`. Previously, bytea values were returned as raw hex strings (e.g., `\x48656c6c6f`). They are now decoded into `Bytea` values whose `.data` field contains the raw bytes.
@@ -493,6 +508,30 @@ actor Exporter is (SessionStatusNotify & ResultReceiver & CopyOutReceiver)
 ```
 
 Data format depends on the COPY command — the default is tab-delimited text with newline row terminators. Data chunks do not necessarily align with row boundaries; the receiver should buffer chunks if row-level processing is needed.
+
+## Add row streaming support
+
+Row streaming delivers query results in fixed-size batches instead of buffering all rows before delivery. This enables pull-based paged result consumption with bounded memory, ideal for large result sets.
+
+A new `StreamingResultReceiver` interface provides three callbacks: `pg_stream_batch` delivers each batch of rows, `pg_stream_complete` signals all rows have been delivered, and `pg_stream_failed` reports errors. Three new `Session` methods control the flow:
+
+```pony
+// Start streaming with a window size of 100 rows per batch
+session.stream(
+  PreparedQuery("SELECT * FROM big_table",
+    recover val Array[FieldDataTypes] end),
+  100, my_receiver)
+
+// In the receiver:
+be pg_stream_batch(session: Session, rows: Rows) =>
+  // Process this batch
+  session.fetch_more()  // Pull the next batch
+
+be pg_stream_complete(session: Session) =>
+  // All rows delivered
+```
+
+Call `session.close_stream()` to end streaming early. Only `PreparedQuery` and `NamedPreparedQuery` are supported — streaming uses the extended query protocol's `Execute(max_rows)` + `PortalSuspended` mechanism.
 
 ## Add SSLPreferred mode
 

@@ -497,8 +497,10 @@ fires with an `AuthenticationFailureReason`:
 * Query pipelining (batched multi-query execution)
 * Query cancellation
 * Statement timeout (automatic cancellation after a deadline)
+* Connection timeout (bounded TCP connection phase)
 * ParameterStatus tracking (server runtime parameters)
 * 1-dimensional array types (decode and encode via `PgArray`)
+* User-defined enum types via `CodecRegistry.with_enum_type()`
 * User-defined composite types (decode and encode via `PgComposite`)
 * Custom codecs via `CodecRegistry.with_codec()`
 * Custom array types via `CodecRegistry.with_array_type()`

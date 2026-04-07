@@ -2,17 +2,11 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a CHANGELOG](http://keepachangelog.com/).
 
-## [unreleased] - unreleased
+## [0.3.1] - 2026-04-07
 
 ### Fixed
 
 - Fix connection stall after large write with backpressure ([PR #201](https://github.com/ponylang/postgres/pull/201))
-
-### Added
-
-
-### Changed
-
 
 ## [0.3.0] - 2026-04-07
 

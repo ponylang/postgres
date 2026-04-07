@@ -1,8 +1,8 @@
 """
 # Pony PostgreSQL Driver
 
-Pure Pony driver for PostgreSQL. Alpha-level — the API may change
-between releases.
+Pure Pony driver for PostgreSQL. Beta-level — we feel good about it
+but it needs real-world usage. Expect breaking changes between releases.
 
 ## Connecting
 

@@ -1,6 +1,6 @@
 # Project: ponylang/postgres
 
-Pure Pony PostgreSQL driver. Alpha-level. Version 0.2.2.
+Pure Pony PostgreSQL driver. Beta-level. Version 0.2.2.
 
 ## Building and Testing
 

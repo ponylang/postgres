@@ -6,12 +6,15 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Fixed
 
+- Fix potential connection hang when timer event subscription fails ([PR #202](https://github.com/ponylang/postgres/pull/202))
 
 ### Added
 
 
 ### Changed
 
+- Add ConnectionFailedTimerError to ConnectionFailureReason ([PR #202](https://github.com/ponylang/postgres/pull/202))
+- Require ponyc 0.63.1 or later ([PR #202](https://github.com/ponylang/postgres/pull/202))
 
 ## [0.3.1] - 2026-04-07
 

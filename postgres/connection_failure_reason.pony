@@ -29,7 +29,13 @@ primitive ConnectionFailedTimeout
   established.
   """
 
+primitive ConnectionFailedTimerError
+  """
+  The connection was aborted because the connect timer's ASIO event
+  subscription failed.
+  """
+
 type ConnectionFailureReason is
   (ConnectionFailedDNS | ConnectionFailedTCP |
    SSLServerRefused | TLSAuthFailed | TLSHandshakeFailed |
-   ConnectionFailedTimeout)
+   ConnectionFailedTimeout | ConnectionFailedTimerError)

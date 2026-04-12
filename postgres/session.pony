@@ -223,6 +223,7 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     | let _: lori.ConnectionFailedTCP => ConnectionFailedTCP
     | let _: lori.ConnectionFailedSSL => TLSHandshakeFailed
     | let _: lori.ConnectionFailedTimeout => ConnectionFailedTimeout
+    | let _: lori.ConnectionFailedTimerError => ConnectionFailedTimerError
     end
     state.on_failure(this, r)
 

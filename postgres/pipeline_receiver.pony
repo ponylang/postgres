@@ -23,7 +23,12 @@ interface tag PipelineReceiver
     Called when an individual query in the pipeline fails. The `index`
     corresponds to the query's position in the array passed to
     `session.pipeline()`. Remaining queries in the pipeline continue
-    executing — each Sync creates an error isolation boundary.
+    executing — each Sync creates an error isolation boundary. The
+    failure is either a server error (ErrorResponseMessage) or a
+    client-side error (ClientQueryError), which includes
+    `ProtocolViolation` when the server tore the session down with an
+    invalid wire message; the currently-executing query sees
+    `ProtocolViolation` and subsequent queries see `SessionClosed`.
     """
 
   be pg_pipeline_complete(session: Session)

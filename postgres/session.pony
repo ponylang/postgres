@@ -329,6 +329,9 @@ class ref _SessionUnopened is _ConnectableState
   fun codec_registry(): CodecRegistry =>
     _codec_registry
 
+  fun ref on_protocol_violation(s: Session ref) =>
+    _IllegalState()
+
 class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
   fun ref execute(s: Session ref, q: Query, r: ResultReceiver,
     statement_timeout: (lori.TimerDuration | None) = None)
@@ -376,6 +379,9 @@ class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
   fun ref on_connection_failed(s: Session ref,
     reason: ConnectionFailureReason)
   =>
+    _IllegalState()
+
+  fun ref on_protocol_violation(s: Session ref) =>
     _IllegalState()
 
 class ref _SessionSSLNegotiating
@@ -442,7 +448,7 @@ class ref _SessionSSLNegotiating
           _connection_failed(s, SSLServerRefused)
         end
       else
-        _shutdown(s)
+        _connection_failed(s, ProtocolViolation)
       end
     else
       _shutdown(s)
@@ -561,6 +567,12 @@ class ref _SessionSSLNegotiating
 
   fun ref shutdown(s: Session ref) =>
     _shutdown(s)
+
+  fun ref on_protocol_violation(s: Session ref) =>
+    // Parser does not run during SSL negotiation; protocol violations in
+    // this state are routed through `_connection_failed` directly from
+    // `on_received`.
+    _IllegalState()
 
   fun ref _connection_failed(s: Session ref,
     reason: ConnectionFailureReason)
@@ -715,18 +727,21 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
   fun ref on_error_response(s: Session ref, msg: ErrorResponseMessage) =>
     on_connection_failed(s, _ConnectionFailureReasonFromError(msg))
 
-  fun on_authentication_md5_password(s: Session ref,
+  fun ref on_authentication_md5_password(s: Session ref,
     msg: _AuthenticationMD5PasswordMessage)
   =>
-    _IllegalState()
+    on_protocol_violation(s)
 
-  fun on_authentication_cleartext_password(s: Session ref) =>
-    _IllegalState()
+  fun ref on_authentication_cleartext_password(s: Session ref) =>
+    on_protocol_violation(s)
 
   fun ref on_authentication_sasl(s: Session ref,
     msg: _AuthenticationSASLMessage)
   =>
-    _IllegalState()
+    on_protocol_violation(s)
+
+  fun ref on_protocol_violation(s: Session ref) =>
+    on_connection_failed(s, ProtocolViolation)
 
   fun ref on_authentication_sasl_continue(s: Session ref,
     msg: _AuthenticationSASLContinueMessage)
@@ -1025,6 +1040,13 @@ class _SessionLoggedIn is _AuthenticatedState
   =>
     _IllegalState()
 
+  fun ref on_protocol_violation(s: Session ref) =>
+    // Let the in-flight query (if any) deliver a ProtocolViolation to its
+    // receiver. drain_in_flight (called from shutdown's on_shutdown chain)
+    // will skip the already-notified item because `_error = true`.
+    query_state.on_protocol_violation(s, this)
+    shutdown(s)
+
   fun ref on_timer(s: Session ref, token: lori.TimerToken) =>
     match statement_timer
     | let t: lori.TimerToken if t == token =>
@@ -1208,6 +1230,13 @@ interface _QueryState
     """
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref)
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref)
+  fun ref on_protocol_violation(s: Session ref, li: _SessionLoggedIn ref)
+    """
+    Called from `_SessionLoggedIn.on_protocol_violation`. In-flight states
+    deliver a `ProtocolViolation` failure to their receiver and set their
+    internal `_error` flag so the subsequent `drain_in_flight` skips the
+    already-notified item. States with no query in flight are a no-op.
+    """
 
 trait _QueryNoQueryInFlight is _QueryState
   """
@@ -1237,6 +1266,8 @@ trait _QueryNoQueryInFlight is _QueryState
     li.shutdown(s)
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) => None
+  fun ref on_protocol_violation(s: Session ref, li: _SessionLoggedIn ref) =>
+    None
 
 class _QueryNotReady is _QueryNoQueryInFlight
   """
@@ -1665,6 +1696,20 @@ class _SimpleQueryInFlight is _QueryState
   fun ref on_portal_suspended(s: Session ref, li: _SessionLoggedIn ref) =>
     li.shutdown(s)
 
+  fun ref on_protocol_violation(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        match li.query_queue(0)?
+        | let qry: _QueuedQuery =>
+          qry.receiver.pg_query_failed(s, qry.query, ProtocolViolation)
+        else
+          _Unreachable()
+        end
+      else
+        _Unreachable()
+      end
+      _error = true
+    end
 
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     if not _error then
@@ -1822,6 +1867,20 @@ class _ExtendedQueryInFlight is _QueryState
   fun ref on_portal_suspended(s: Session ref, li: _SessionLoggedIn ref) =>
     li.shutdown(s)
 
+  fun ref on_protocol_violation(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        match li.query_queue(0)?
+        | let qry: _QueuedQuery =>
+          qry.receiver.pg_query_failed(s, qry.query, ProtocolViolation)
+        else
+          _Unreachable()
+        end
+      else
+        _Unreachable()
+      end
+      _error = true
+    end
 
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     if not _error then
@@ -1931,6 +1990,20 @@ class _PrepareInFlight is _QueryState
   fun ref on_portal_suspended(s: Session ref, li: _SessionLoggedIn ref) =>
     li.shutdown(s)
 
+  fun ref on_protocol_violation(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        match li.query_queue(0)?
+        | let prep: _QueuedPrepare =>
+          prep.receiver.pg_prepare_failed(s, prep.name, ProtocolViolation)
+        else
+          _Unreachable()
+        end
+      else
+        _Unreachable()
+      end
+      _error = true
+    end
 
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     if not _error then
@@ -2015,6 +2088,10 @@ class _CloseStatementInFlight is _QueryState
   fun ref on_portal_suspended(s: Session ref, li: _SessionLoggedIn ref) =>
     li.shutdown(s)
 
+  fun ref on_protocol_violation(s: Session ref, li: _SessionLoggedIn ref) =>
+    // Fire-and-forget: no receiver to notify; drain_in_flight shifts
+    // unconditionally in this state.
+    None
 
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     try
@@ -2125,6 +2202,17 @@ class _CopyInInFlight is _QueryState
 
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
 
+  fun ref on_protocol_violation(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        (li.query_queue(0)? as _QueuedCopyIn).receiver.pg_copy_failed(s,
+          ProtocolViolation)
+      else
+        _Unreachable()
+      end
+      _error = true
+    end
+
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     if not _error then
       try
@@ -2229,6 +2317,17 @@ class _CopyOutInFlight is _QueryState
 
 
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
+
+  fun ref on_protocol_violation(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        (li.query_queue(0)? as _QueuedCopyOut).receiver.pg_copy_failed(s,
+          ProtocolViolation)
+      else
+        _Unreachable()
+      end
+      _error = true
+    end
 
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     if not _error then
@@ -2419,6 +2518,17 @@ class _StreamingQueryInFlight is _QueryState
   fun ref on_copy_done(s: Session ref, li: _SessionLoggedIn ref) =>
     li.shutdown(s)
 
+  fun ref on_protocol_violation(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        let sq = li.query_queue(0)? as _QueuedStreamingQuery
+        sq.receiver.pg_stream_failed(s, sq.query, ProtocolViolation)
+      else
+        _Unreachable()
+      end
+      _error = true
+    end
+
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     if not _error then
       try
@@ -2573,6 +2683,21 @@ class _PipelineInFlight is _QueryState
   fun ref on_portal_suspended(s: Session ref, li: _SessionLoggedIn ref) =>
     li.shutdown(s)
 
+  fun ref on_protocol_violation(s: Session ref, li: _SessionLoggedIn ref) =>
+    // Only the current query directly observed the violation. The remaining
+    // queries are casualties of session closure and are notified with
+    // SessionClosed by the subsequent drain_in_flight path.
+    if not _error then
+      try
+        let pl = li.query_queue(0)? as _QueuedPipeline
+        pl.receiver.pg_pipeline_failed(s, _current_index,
+          pl.queries(_current_index)?, ProtocolViolation)
+      else
+        _Unreachable()
+      end
+      _error = true
+    end
+
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     try
       let pl = li.query_queue(0)? as _QueuedPipeline
@@ -2615,17 +2740,17 @@ interface _SessionState
     reason: ConnectionFailureReason)
     """
     Called when the session fails to reach the ready state — any transport
-    failure, TLS failure, unsupported authentication method, or server
-    rejection during startup. Fires pg_session_connection_failed and
-    transitions to _SessionClosed.
+    failure, TLS failure, unsupported authentication method, server
+    protocol violation, or server rejection during startup. Fires
+    pg_session_connection_failed and transitions to _SessionClosed.
     """
-  fun on_authentication_md5_password(s: Session ref,
+  fun ref on_authentication_md5_password(s: Session ref,
     msg: _AuthenticationMD5PasswordMessage)
     """
     Called if the server requests we autheticate using the Postgres MD5
     password scheme.
     """
-  fun on_authentication_cleartext_password(s: Session ref)
+  fun ref on_authentication_cleartext_password(s: Session ref)
     """
     Called if the server requests we authenticate using a cleartext password.
     """
@@ -2653,7 +2778,17 @@ interface _SessionState
     """
     Called when we are shutting down the session.
     """
-  
+
+  fun ref on_protocol_violation(s: Session ref)
+    """
+    Called when the server sends data that violates the wire protocol —
+    either unparseable bytes, a well-formed message of a type invalid in
+    the current state, or an unexpected byte during SSL negotiation. The
+    session cannot recover; implementations deliver the failure to the user
+    through the callback appropriate for the current state and transition
+    to `_SessionClosed`.
+    """
+
   fun ref on_received(s: Session ref, data: Array[U8] iso)
     """
     Called when we receive data from the server.
@@ -3054,14 +3189,14 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
   fun ref on_error_response(s: Session ref, msg: ErrorResponseMessage) =>
     on_connection_failed(s, _ConnectionFailureReasonFromError(msg))
 
-  fun on_authentication_md5_password(s: Session ref,
+  fun ref on_authentication_md5_password(s: Session ref,
     msg: _AuthenticationMD5PasswordMessage)
   =>
     let md5_password = _MD5Password(user(), password(), msg.salt)
     let reply = _FrontendMessage.password(md5_password)
     s._connection().send(reply)
 
-  fun on_authentication_cleartext_password(s: Session ref) =>
+  fun ref on_authentication_cleartext_password(s: Session ref) =>
     let reply = _FrontendMessage.password(password())
     s._connection().send(reply)
 
@@ -3103,12 +3238,15 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
   fun ref on_authentication_sasl_continue(s: Session ref,
     msg: _AuthenticationSASLContinueMessage)
   =>
-    _IllegalState()
+    on_protocol_violation(s)
 
   fun ref on_authentication_sasl_final(s: Session ref,
     msg: _AuthenticationSASLFinalMessage)
   =>
-    _IllegalState()
+    on_protocol_violation(s)
+
+  fun ref on_protocol_violation(s: Session ref) =>
+    on_connection_failed(s, ProtocolViolation)
 
   fun user(): String
   fun password(): String
@@ -3119,33 +3257,39 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
 trait _NotAuthenticableState
   """
   A session that isn't eligible to be authenticated. Only connected sessions
-  that haven't yet been authenticated are eligible to be authenticated.
+  that haven't yet been authenticated are eligible to be authenticated. A
+  server-sent authentication message in such a state is a protocol
+  violation — routed through `on_protocol_violation`, which each concrete
+  state handles appropriately (panic for states where the parser never runs,
+  failure delivery for states where it does).
   """
-  fun ref on_authentication_ok(s: Session ref) =>
-    _IllegalState()
+  fun ref on_protocol_violation(s: Session ref)
 
-  fun on_authentication_md5_password(s: Session ref,
+  fun ref on_authentication_ok(s: Session ref) =>
+    on_protocol_violation(s)
+
+  fun ref on_authentication_md5_password(s: Session ref,
     msg: _AuthenticationMD5PasswordMessage)
   =>
-    _IllegalState()
+    on_protocol_violation(s)
 
-  fun on_authentication_cleartext_password(s: Session ref) =>
-    _IllegalState()
+  fun ref on_authentication_cleartext_password(s: Session ref) =>
+    on_protocol_violation(s)
 
   fun ref on_authentication_sasl(s: Session ref,
     msg: _AuthenticationSASLMessage)
   =>
-    _IllegalState()
+    on_protocol_violation(s)
 
   fun ref on_authentication_sasl_continue(s: Session ref,
     msg: _AuthenticationSASLContinueMessage)
   =>
-    _IllegalState()
+    on_protocol_violation(s)
 
   fun ref on_authentication_sasl_final(s: Session ref,
     msg: _AuthenticationSASLFinalMessage)
   =>
-    _IllegalState()
+    on_protocol_violation(s)
 
 trait _AuthenticatedState is (_ConnectedState & _NotAuthenticableState)
   """
@@ -3157,46 +3301,51 @@ trait _AuthenticatedState is (_ConnectedState & _NotAuthenticableState)
 
 trait _NotAuthenticated
   """
-  A session that has yet to be authenticated. Before being authenticated, then
-  all "query related" commands should not be received.
+  A session that has yet to be authenticated. Before being authenticated,
+  query-related messages should not be received from the server. Such a
+  message is a protocol violation — routed through `on_protocol_violation`,
+  which each concrete state handles appropriately (panic for states where
+  the parser never runs, failure delivery for states where it does).
   """
+  fun ref on_protocol_violation(s: Session ref)
+
   fun ref on_notification(s: Session ref, msg: _NotificationResponseMessage) =>
-    _IllegalState()
+    on_protocol_violation(s)
 
   fun ref on_backend_key_data(s: Session ref, msg: _BackendKeyDataMessage) =>
-    _IllegalState()
+    on_protocol_violation(s)
 
   fun ref on_command_complete(s: Session ref, msg: _CommandCompleteMessage) =>
-    _IllegalState()
+    on_protocol_violation(s)
 
   fun ref on_data_row(s: Session ref, msg: _DataRowMessage) =>
-    _IllegalState()
+    on_protocol_violation(s)
 
   fun ref on_empty_query_response(s: Session ref) =>
-    _IllegalState()
+    on_protocol_violation(s)
 
   fun ref on_error_response(s: Session ref, msg: ErrorResponseMessage) =>
-    _IllegalState()
+    on_protocol_violation(s)
 
   fun ref on_ready_for_query(s: Session ref, msg: _ReadyForQueryMessage) =>
-    _IllegalState()
+    on_protocol_violation(s)
 
   fun ref on_row_description(s: Session ref, msg: _RowDescriptionMessage) =>
-    _IllegalState()
+    on_protocol_violation(s)
 
   fun ref on_copy_in_response(s: Session ref, msg: _CopyInResponseMessage) =>
-    _IllegalState()
+    on_protocol_violation(s)
 
   fun ref on_copy_out_response(s: Session ref,
     msg: _CopyOutResponseMessage)
   =>
-    _IllegalState()
+    on_protocol_violation(s)
 
   fun ref on_copy_data(s: Session ref, msg: _CopyDataMessage) =>
-    _IllegalState()
+    on_protocol_violation(s)
 
   fun ref on_copy_done(s: Session ref) =>
-    _IllegalState()
+    on_protocol_violation(s)
 
   fun ref on_portal_suspended(s: Session ref) =>
-    _IllegalState()
+    on_protocol_violation(s)

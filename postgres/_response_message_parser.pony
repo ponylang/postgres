@@ -68,12 +68,13 @@ primitive _ResponseMessageParser
           return
         end
       else
-        // An unrecoverable error was encountered while parsing. Once that
-        // happens, there's no way we are going to be able to figure out how
-        // to get the responses back into an understandable state. The only
-        // thing we can do is shut the session down.
+        // An unrecoverable error was encountered while parsing. The state
+        // handler delivers the failure reason through the callback
+        // appropriate for the current state (pre-ready:
+        // pg_session_connection_failed; logged-in with an in-flight query:
+        // pg_query_failed and peers) and then shuts the session down.
 
-        s.state.shutdown(s)
+        s.state.on_protocol_violation(s)
         return
       end
     end

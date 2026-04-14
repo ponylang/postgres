@@ -1,11 +1,18 @@
-// A client-side error that prevented a query from being sent to the server.
-// Each member represents a specific pre-condition failure (session not open,
-// session closed, not authenticated, or malformed data).
+// A non-server-error failure for a query. Most members represent client-side
+// conditions that prevented the query from being sent or its result from
+// being delivered (session not open, session closed, not authenticated,
+// malformed data). `ProtocolViolation` is the exception: it is a
+// server-caused failure detected during query handling — the server sent
+// data that couldn't be parsed or that was invalid in the current state,
+// and the session was torn down. The query may or may not have been
+// processed on the server before the violation; treat the result as
+// indeterminate.
 type ClientQueryError is
   ( SessionNeverOpened
   | SessionClosed
   | SessionNotAuthenticated
-  | DataError )
+  | DataError
+  | ProtocolViolation )
 
 primitive SessionNeverOpened
   """
@@ -18,8 +25,10 @@ primitive SessionClosed
   Error returned when a query is attempted for a session that was closed or
   failed to open. Includes sessions that were closed by the user as well as
   those closed due to connection failures, authentication failures, and
-  connections that have been shut down due to unrecoverable Postgres protocol
-  errors.
+  connections that were shut down after a server protocol violation.
+  Queries that were queued at the time of the protocol violation (not in
+  flight) receive this error; the in-flight query, if any, receives
+  `ProtocolViolation`.
   """
 
 primitive SessionNotAuthenticated

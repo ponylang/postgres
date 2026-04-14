@@ -117,7 +117,9 @@ actor \nodoc\ _SSLRefusedTestServer
 class \nodoc\ iso _TestSSLNegotiationJunkResponse is UnitTest
   """
   Verifies that when the server responds with a junk byte (not 'S' or 'N')
-  to an SSLRequest, the session shuts down.
+  to an SSLRequest, the session reports
+  `pg_session_connection_failed(ProtocolViolation)` and then
+  `pg_session_shutdown` — in that order.
   """
   fun name(): String =>
     "SSLNegotiation/JunkResponse"
@@ -144,12 +146,10 @@ class \nodoc\ iso _TestSSLNegotiationJunkResponse is UnitTest
 
 actor \nodoc\ _SSLJunkTestNotify is SessionStatusNotify
   let _h: TestHelper
+  var _connection_failed: Bool = false
 
   new create(h: TestHelper) =>
     _h = h
-
-  be pg_session_shutdown(s: Session) =>
-    _h.complete(true)
 
   be pg_session_connected(s: Session) =>
     _h.fail("Should not have connected")
@@ -158,8 +158,22 @@ actor \nodoc\ _SSLJunkTestNotify is SessionStatusNotify
   be pg_session_connection_failed(s: Session,
     reason: ConnectionFailureReason)
   =>
-    _h.fail("Should not have gotten connection_failed for junk")
-    _h.complete(false)
+    match reason
+    | ProtocolViolation =>
+      _connection_failed = true
+    else
+      _h.fail("Expected ProtocolViolation.")
+      _h.complete(false)
+    end
+
+  be pg_session_shutdown(s: Session) =>
+    if not _connection_failed then
+      _h.fail(
+        "pg_session_shutdown fired before pg_session_connection_failed.")
+      _h.complete(false)
+      return
+    end
+    _h.complete(true)
 
 actor \nodoc\ _SSLJunkTestListener is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()

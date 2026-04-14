@@ -18,8 +18,9 @@ interface tag SessionStatusNotify
     """
     Called when the session fails to reach the ready state. Fires for any
     pre-ready failure including: transport-level errors (DNS, TCP, timeout),
-    TLS negotiation and handshake failures, unsupported authentication
-    methods, invalid passwords, invalid users, missing databases, server
+    peer TCP close before the session reaches the ready state, TLS
+    negotiation and handshake failures, unsupported authentication methods,
+    invalid passwords, invalid users, missing databases, server
     connection-limit exhaustion, SCRAM server-verification failures, server
     protocol violations (unparseable bytes, wrong-state messages, or
     unexpected SSL-negotiation bytes), and any other server rejection during

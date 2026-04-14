@@ -14,6 +14,7 @@ interface tag ResultReceiver
     """
     Called when a query fails. The failure is either a server error
     (ErrorResponseMessage) or a client-side error (ClientQueryError) such as
-    the session being closed, never opened, or torn down after a server
+    the session being closed (by the user, by peer TCP close, or by any
+    other shutdown cause), never opened, or torn down after a server
     protocol violation (`ProtocolViolation`).
     """

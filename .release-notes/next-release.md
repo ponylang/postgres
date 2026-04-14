@@ -116,3 +116,7 @@ be pg_session_connection_failed(session: Session,
 ```
 
 The same applies to `ClientQueryError`: add a `| ProtocolViolation =>` arm to any exhaustive match and handle the case the way you'd handle an unrecoverable session failure on the query you dispatched.
+## Guard against integer underflow on server-supplied message lengths
+
+When a PostgreSQL server declared a message length smaller than the protocol's minimum, the driver performed an unsigned subtraction that wrapped to a huge value. The full consequences of the wrap were not fully characterized — one observed effect was silently consuming malformed bytes as a zero-payload acknowledgement before eventually reporting a protocol violation, but other downstream effects may have been reachable with different message shapes. The driver now validates length fields before arithmetic and rejects such messages as a protocol violation immediately.
+

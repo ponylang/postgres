@@ -56,6 +56,32 @@ class \nodoc\ iso _TestResponseParserJunkMessage is UnitTest
       r.append(bytes)
       _ResponseParser(r)? })
 
+class \nodoc\ iso _TestResponseParserShortLengthField is UnitTest
+  """
+  Verify that a server-declared payload length less than 4 causes the parser
+  to error rather than silently consume malformed bytes as a zero-payload
+  acknowledgement. A length of 4 means a zero-byte payload and is still
+  valid on the wire — covered by `_TestResponseParserParseCompleteMessage`.
+  """
+  fun name(): String =>
+    "ResponseParser/ShortLengthField"
+
+  fun apply(h: TestHelper) =>
+    for declared_length in [as U8: 0; 1; 2; 3].values() do
+      let len' = declared_length
+      // Type byte '1' (ParseComplete) is used because without the bounds
+      // check, both `payload_size` and `message_size` wrap such that
+      // `buffer.skip(message_size)` succeeds on a 5-byte buffer and returns
+      // a bogus success — the strongest counterfactual for the fix.
+      h.assert_error(
+        {()(len') ? =>
+          let bytes: Array[U8] val = [as U8: '1'; 0; 0; 0; len']
+          let r: Reader = Reader
+          r.append(bytes)
+          _ResponseParser(r)? },
+        "length=" + declared_length.string() + " should error")
+    end
+
 class \nodoc\ iso _TestResponseParserAuthenticationOkMessage is UnitTest
   """
   Verify that AuthenticationOk messages are parsed correctly

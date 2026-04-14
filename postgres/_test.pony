@@ -57,6 +57,7 @@ actor \nodoc\ Main is TestList
     test(_TestResponseParserReadyForQueryMessage)
     test(_TestResponseParserRowDescriptionMessage)
     test(_TestResponseParserRowDescriptionBinaryFormat)
+    test(_TestResponseParserShortLengthField)
     test(_TestResponseParserParseCompleteMessage)
     test(_TestResponseParserBindCompleteMessage)
     test(_TestResponseParserNoDataMessage)

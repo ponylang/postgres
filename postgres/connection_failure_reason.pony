@@ -8,21 +8,6 @@ primitive ConnectionFailedTCP
   TCP connection failed — the server is not reachable.
   """
 
-primitive SSLServerRefused
-  """
-  The server refused the SSL request.
-  """
-
-primitive TLSAuthFailed
-  """
-  TLS certificate or authentication verification failed.
-  """
-
-primitive TLSHandshakeFailed
-  """
-  The TLS handshake failed.
-  """
-
 primitive ConnectionFailedTimeout
   """
   The connection attempt timed out before a TCP or TLS connection was
@@ -33,6 +18,32 @@ primitive ConnectionFailedTimerError
   """
   The connection was aborted because the connect timer's ASIO event
   subscription failed.
+  """
+
+primitive ConnectionClosedByServer
+  """
+  The server closed the TCP connection before the session reached the ready
+  state. Distinct from `ConnectionFailedTCP`, which indicates the connection
+  could not be established in the first place.
+
+  Applies only to pre-ready peer close. If the server closes the connection
+  after the session has reached the ready state, affected queries receive
+  `SessionClosed` through their receiver.
+  """
+
+primitive SSLServerRefused
+  """
+  The server refused the SSL request.
+  """
+
+primitive TLSHandshakeFailed
+  """
+  The TLS handshake failed.
+  """
+
+primitive TLSAuthFailed
+  """
+  TLS certificate or authentication verification failed.
   """
 
 primitive UnsupportedAuthenticationMethod
@@ -106,6 +117,7 @@ type ConnectionFailureReason is
   | ConnectionFailedTCP
   | ConnectionFailedTimeout
   | ConnectionFailedTimerError
+  | ConnectionClosedByServer
   | SSLServerRefused
   | TLSHandshakeFailed
   | TLSAuthFailed

@@ -24,11 +24,16 @@ primitive SessionClosed
   """
   Error returned when a query is attempted for a session that was closed or
   failed to open. Includes sessions that were closed by the user as well as
-  those closed due to connection failures, authentication failures, and
-  connections that were shut down after a server protocol violation.
-  Queries that were queued at the time of the protocol violation (not in
-  flight) receive this error; the in-flight query, if any, receives
-  `ProtocolViolation`.
+  those closed due to connection failures, authentication failures,
+  connections that were shut down after a server protocol violation, and
+  sessions whose TCP connection was closed by the server after reaching the
+  ready state.
+
+  For server protocol violations specifically, the in-flight query (if
+  any) receives `ProtocolViolation` rather than `SessionClosed`; only
+  queued queries receive `SessionClosed` in that case. For every other
+  cause (including peer TCP close post-ready), the in-flight query
+  receives `SessionClosed` along with the queued queries.
   """
 
 primitive SessionNotAuthenticated

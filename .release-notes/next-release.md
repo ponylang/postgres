@@ -120,3 +120,45 @@ The same applies to `ClientQueryError`: add a `| ProtocolViolation =>` arm to an
 
 When a PostgreSQL server declared a message length smaller than the protocol's minimum, the driver performed an unsigned subtraction that wrapped to a huge value. The full consequences of the wrap were not fully characterized — one observed effect was silently consuming malformed bytes as a zero-payload acknowledgement before eventually reporting a protocol violation, but other downstream effects may have been reachable with different message shapes. The driver now validates length fields before arithmetic and rejects such messages as a protocol violation immediately.
 
+## Detect peer-initiated TCP close during any session state
+
+If the server closed the TCP connection at any point — during SSL negotiation, pre-auth startup, mid-SCRAM, or after the session reached the ready state — the driver would hang indefinitely without notifying the application. Peer close is now detected and delivered through the state machine's own error handling.
+
+A pre-ready peer close fires `pg_session_connection_failed(ConnectionClosedByServer)` followed by `pg_session_shutdown`. A logged-in session with a query in flight delivers `SessionClosed` to that query's receiver — `pg_query_failed`, `pg_prepare_failed`, `pg_copy_failed`, `pg_stream_failed`, or `pg_pipeline_failed` — before `pg_session_shutdown` fires. Queued queries still receive `SessionClosed` through the existing shutdown drain.
+
+## Add ConnectionClosedByServer to ConnectionFailureReason
+
+`ConnectionClosedByServer` is a new primitive in the `ConnectionFailureReason` union (delivered via `pg_session_connection_failed`). It indicates the server closed the TCP connection before the session reached the ready state. It carries no payload — there is nothing useful to attach to a peer-initiated close.
+
+This is distinct from `ConnectionFailedTCP`, which signals that the TCP connection could never be established in the first place. `ConnectionClosedByServer` means the server accepted the connection and then closed it.
+
+### Migration
+
+Any `match \exhaustive\` on `ConnectionFailureReason` needs a new arm for `ConnectionClosedByServer`. Non-exhaustive matches (with an `else` clause or no `\exhaustive\` annotation) keep compiling without changes. `ClientQueryError` is intentionally unchanged — post-ready peer close surfaces through the existing `SessionClosed` variant.
+
+Before:
+
+```pony
+be pg_session_connection_failed(session: Session,
+  reason: ConnectionFailureReason)
+=>
+  match \exhaustive\ reason
+  | ConnectionFailedDNS => _out.print("DNS")
+  | ConnectionFailedTCP => _out.print("TCP")
+  // ...
+  end
+```
+
+After:
+
+```pony
+be pg_session_connection_failed(session: Session,
+  reason: ConnectionFailureReason)
+=>
+  match \exhaustive\ reason
+  | ConnectionFailedDNS => _out.print("DNS")
+  | ConnectionFailedTCP => _out.print("TCP")
+  // ...
+  | ConnectionClosedByServer => _out.print("Server closed connection")
+  end
+```

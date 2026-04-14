@@ -230,11 +230,15 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   fun ref _on_received(data: Array[U8] iso) =>
     state.on_received(this, consume data)
 
-  // _on_tls_failure already completes cleanup and transitions to
-  // _SessionClosed. Lori follows _on_tls_failure() with _on_closed(). Since
-  // we don't override _on_closed() (lori's default is a no-op), no additional
-  // handling is needed. If _on_closed() is ever added here, it must handle
-  // the _SessionClosed state gracefully.
+  // Routed through the state machine. Each state handles peer close
+  // through its own `on_closed` — pre-ready states deliver
+  // `pg_session_connection_failed(ConnectionClosedByServer)`;
+  // `_SessionLoggedIn` notifies any in-flight query; `_SessionClosed`
+  // is a no-op so lori's follow-up after user-initiated close or TLS
+  // failure does not double-notify.
+  fun ref _on_closed() =>
+    state.on_closed(this)
+
   fun ref _on_tls_ready() =>
     state.on_tls_ready(this)
 
@@ -332,6 +336,11 @@ class ref _SessionUnopened is _ConnectableState
   fun ref on_protocol_violation(s: Session ref) =>
     _IllegalState()
 
+  fun ref on_closed(s: Session ref) =>
+    // No TCP connection has ever existed in this state — lori cannot fire
+    // `_on_closed` before `_on_connected` or `_on_connection_failure`.
+    _IllegalState()
+
 class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
   fun ref execute(s: Session ref, q: Query, r: ResultReceiver,
     statement_timeout: (lori.TimerDuration | None) = None)
@@ -384,6 +393,14 @@ class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
   fun ref on_protocol_violation(s: Session ref) =>
     _IllegalState()
 
+  fun ref on_closed(s: Session ref) =>
+    // Reachable after the session has already shut down and transitioned
+    // here: either user-initiated close (lori fires `_on_closed` after
+    // the resulting `hard_close()`), or a TLS-handshake failure where
+    // lori fires `_on_tls_failure` followed by `_on_closed`. Firing
+    // callbacks again would double-notify the application.
+    None
+
 class ref _SessionSSLNegotiating
   is (_NotConnectableState & _NotAuthenticableState & _NotAuthenticated)
   """
@@ -396,7 +413,8 @@ class ref _SessionSSLNegotiating
   true (`SSLPreferred`), the session falls back to plaintext; if false
   (`SSLRequired`), the session fires `pg_session_connection_failed`. TLS
   handshake failures always fire `pg_session_connection_failed` regardless
-  of this flag.
+  of this flag. If the server closes the TCP connection during negotiation,
+  `pg_session_connection_failed(ConnectionClosedByServer)` fires.
   """
   let _notify: SessionStatusNotify
   let _database_connect_info: DatabaseConnectInfo
@@ -426,10 +444,11 @@ class ref _SessionSSLNegotiating
 
   fun ref on_received(s: Session ref, data: Array[U8] iso) =>
     if _handshake_started then
-      // Should never happen — lori handles socket I/O during the handshake
-      // and doesn't deliver application data until _on_tls_ready.
-      _shutdown(s)
-      return
+      // Invariant: lori handles socket I/O during the TLS handshake and does
+      // not deliver application data until on_tls_ready fires. Reaching this
+      // branch means lori's contract has been violated — a crash is the
+      // correct response.
+      _IllegalState()
     end
 
     try
@@ -451,7 +470,7 @@ class ref _SessionSSLNegotiating
         _connection_failed(s, ProtocolViolation)
       end
     else
-      _shutdown(s)
+      _Unreachable()
     end
 
   fun ref on_tls_ready(s: Session ref) =>
@@ -474,8 +493,9 @@ class ref _SessionSSLNegotiating
     reason: ConnectionFailureReason)
   =>
     """
-    Entry point for failures reported by lori — currently only the TLS
-    handshake failure path (Session._on_tls_failure). Lori has already
+    Entry point for failures reported by lori — the TLS handshake failure
+    path (Session._on_tls_failure) and the peer-close path
+    (Session._on_closed, routed via `on_closed` below). Lori has already
     closed the TCP connection on its side by the time this fires, so we
     do not call close() ourselves.
 
@@ -486,6 +506,9 @@ class ref _SessionSSLNegotiating
     _notify.pg_session_connection_failed(s, reason)
     _notify.pg_session_shutdown(s)
     s.state = _SessionClosed
+
+  fun ref on_closed(s: Session ref) =>
+    on_connection_failed(s, ConnectionClosedByServer)
 
   fun ref execute(s: Session ref, q: Query, r: ResultReceiver,
     statement_timeout: (lori.TimerDuration | None) = None)
@@ -661,6 +684,15 @@ class ref _SessionConnected is _AuthenticableState
     // Clearing the readbuf is required for _ResponseMessageParser's
     // synchronous loop to exit — the next parse returns None.
     _readbuf.clear()
+
+  fun ref on_closed(s: Session ref) =>
+    // Direct implementation: the `_AuthenticableState.on_connection_failed`
+    // trait default chains into `_ConnectedState.shutdown`, which sends
+    // `Terminate` and calls `close()` on an already-closed connection.
+    on_shutdown(s)
+    notify().pg_session_connection_failed(s, ConnectionClosedByServer)
+    notify().pg_session_shutdown(s)
+    s.state = _SessionClosed
 
   fun user(): String =>
     _database_connect_info.user
@@ -873,6 +905,15 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
   fun ref on_shutdown(s: Session ref) =>
     _readbuf.clear()
 
+  fun ref on_closed(s: Session ref) =>
+    // Direct implementation: `on_connection_failed` chains into
+    // `_ConnectedState.shutdown`, which sends `Terminate` and calls
+    // `close()` on an already-closed connection.
+    on_shutdown(s)
+    notify().pg_session_connection_failed(s, ConnectionClosedByServer)
+    notify().pg_session_shutdown(s)
+    s.state = _SessionClosed
+
   fun ref readbuf(): Reader =>
     _readbuf
 
@@ -1046,6 +1087,17 @@ class _SessionLoggedIn is _AuthenticatedState
     // will skip the already-notified item because `_error = true`.
     query_state.on_protocol_violation(s, this)
     shutdown(s)
+
+  fun ref on_closed(s: Session ref) =>
+    // Server closed the TCP connection. The `shutdown` helper in
+    // `_ConnectedState` would send `Terminate` and call `close()` on the
+    // already-gone connection, so we open-code the cleanup instead:
+    // notify the in-flight query, drain the queue via `on_shutdown`, then
+    // fire `pg_session_shutdown` and transition.
+    query_state.on_closed(s, this)
+    on_shutdown(s)
+    _notify.pg_session_shutdown(s)
+    s.state = _SessionClosed
 
   fun ref on_timer(s: Session ref, token: lori.TimerToken) =>
     match statement_timer
@@ -1237,6 +1289,14 @@ interface _QueryState
     internal `_error` flag so the subsequent `drain_in_flight` skips the
     already-notified item. States with no query in flight are a no-op.
     """
+  fun ref on_closed(s: Session ref, li: _SessionLoggedIn ref)
+    """
+    Called from `_SessionLoggedIn.on_closed` when the server closes the TCP
+    connection. In-flight states deliver a `SessionClosed` failure to their
+    receiver and set their internal `_error` flag so the subsequent
+    `drain_in_flight` skips the already-notified item. States with no query
+    in flight are a no-op.
+    """
 
 trait _QueryNoQueryInFlight is _QueryState
   """
@@ -1267,6 +1327,8 @@ trait _QueryNoQueryInFlight is _QueryState
   fun ref try_run_query(s: Session ref, li: _SessionLoggedIn ref) => None
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) => None
   fun ref on_protocol_violation(s: Session ref, li: _SessionLoggedIn ref) =>
+    None
+  fun ref on_closed(s: Session ref, li: _SessionLoggedIn ref) =>
     None
 
 class _QueryNotReady is _QueryNoQueryInFlight
@@ -1711,6 +1773,21 @@ class _SimpleQueryInFlight is _QueryState
       _error = true
     end
 
+  fun ref on_closed(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        match li.query_queue(0)?
+        | let qry: _QueuedQuery =>
+          qry.receiver.pg_query_failed(s, qry.query, SessionClosed)
+        else
+          _Unreachable()
+        end
+      else
+        _Unreachable()
+      end
+      _error = true
+    end
+
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     if not _error then
       try
@@ -1882,6 +1959,21 @@ class _ExtendedQueryInFlight is _QueryState
       _error = true
     end
 
+  fun ref on_closed(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        match li.query_queue(0)?
+        | let qry: _QueuedQuery =>
+          qry.receiver.pg_query_failed(s, qry.query, SessionClosed)
+        else
+          _Unreachable()
+        end
+      else
+        _Unreachable()
+      end
+      _error = true
+    end
+
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     if not _error then
       try
@@ -2005,6 +2097,21 @@ class _PrepareInFlight is _QueryState
       _error = true
     end
 
+  fun ref on_closed(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        match li.query_queue(0)?
+        | let prep: _QueuedPrepare =>
+          prep.receiver.pg_prepare_failed(s, prep.name, SessionClosed)
+        else
+          _Unreachable()
+        end
+      else
+        _Unreachable()
+      end
+      _error = true
+    end
+
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     if not _error then
       try
@@ -2091,6 +2198,10 @@ class _CloseStatementInFlight is _QueryState
   fun ref on_protocol_violation(s: Session ref, li: _SessionLoggedIn ref) =>
     // Fire-and-forget: no receiver to notify; drain_in_flight shifts
     // unconditionally in this state.
+    None
+
+  fun ref on_closed(s: Session ref, li: _SessionLoggedIn ref) =>
+    // Fire-and-forget: no receiver to notify.
     None
 
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
@@ -2213,6 +2324,17 @@ class _CopyInInFlight is _QueryState
       _error = true
     end
 
+  fun ref on_closed(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        (li.query_queue(0)? as _QueuedCopyIn).receiver.pg_copy_failed(s,
+          SessionClosed)
+      else
+        _Unreachable()
+      end
+      _error = true
+    end
+
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     if not _error then
       try
@@ -2323,6 +2445,17 @@ class _CopyOutInFlight is _QueryState
       try
         (li.query_queue(0)? as _QueuedCopyOut).receiver.pg_copy_failed(s,
           ProtocolViolation)
+      else
+        _Unreachable()
+      end
+      _error = true
+    end
+
+  fun ref on_closed(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        (li.query_queue(0)? as _QueuedCopyOut).receiver.pg_copy_failed(s,
+          SessionClosed)
       else
         _Unreachable()
       end
@@ -2529,6 +2662,17 @@ class _StreamingQueryInFlight is _QueryState
       _error = true
     end
 
+  fun ref on_closed(s: Session ref, li: _SessionLoggedIn ref) =>
+    if not _error then
+      try
+        let sq = li.query_queue(0)? as _QueuedStreamingQuery
+        sq.receiver.pg_stream_failed(s, sq.query, SessionClosed)
+      else
+        _Unreachable()
+      end
+      _error = true
+    end
+
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     if not _error then
       try
@@ -2698,6 +2842,20 @@ class _PipelineInFlight is _QueryState
       _error = true
     end
 
+  fun ref on_closed(s: Session ref, li: _SessionLoggedIn ref) =>
+    // Only notify the current query. Remaining queries are delivered
+    // SessionClosed by the subsequent drain_in_flight path.
+    if not _error then
+      try
+        let pl = li.query_queue(0)? as _QueuedPipeline
+        pl.receiver.pg_pipeline_failed(s, _current_index,
+          pl.queries(_current_index)?, SessionClosed)
+      else
+        _Unreachable()
+      end
+      _error = true
+    end
+
   fun ref drain_in_flight(s: Session ref, li: _SessionLoggedIn ref) =>
     try
       let pl = li.query_queue(0)? as _QueuedPipeline
@@ -2787,6 +2945,16 @@ interface _SessionState
     session cannot recover; implementations deliver the failure to the user
     through the callback appropriate for the current state and transition
     to `_SessionClosed`.
+    """
+
+  fun ref on_closed(s: Session ref)
+    """
+    Called when lori reports that the TCP connection is closed. State
+    implementations deliver the failure to the user through the callback
+    appropriate for the current state and transition to `_SessionClosed`.
+    Implementations must be idempotent with user-initiated close — lori
+    fires `_on_closed` after any `hard_close()`, including closes this
+    session itself initiated.
     """
 
   fun ref on_received(s: Session ref, data: Array[U8] iso)

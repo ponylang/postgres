@@ -10,9 +10,11 @@ All notable changes to this project will be documented in this file. This projec
 - Close SCRAM mutual-authentication bypass ([PR #209](https://github.com/ponylang/postgres/pull/209))
 - Deliver server protocol violations to the application ([PR #212](https://github.com/ponylang/postgres/pull/212))
 - Guard against integer underflow on server-supplied message lengths ([PR #215](https://github.com/ponylang/postgres/pull/215))
+- Detect peer-initiated TCP close during any session state ([PR #218](https://github.com/ponylang/postgres/pull/218))
 
 ### Added
 
+- Add ConnectionClosedByServer to ConnectionFailureReason ([PR #218](https://github.com/ponylang/postgres/pull/218))
 
 ### Changed
 

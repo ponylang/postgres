@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file. This projec
 - Deliver server protocol violations to the application ([PR #212](https://github.com/ponylang/postgres/pull/212))
 - Guard against integer underflow on server-supplied message lengths ([PR #215](https://github.com/ponylang/postgres/pull/215))
 - Detect peer-initiated TCP close during any session state ([PR #218](https://github.com/ponylang/postgres/pull/218))
+- Guard against integer overflow on server-supplied message lengths ([PR #220](https://github.com/ponylang/postgres/pull/220))
 
 ### Added
 

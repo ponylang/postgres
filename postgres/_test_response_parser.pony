@@ -82,6 +82,49 @@ class \nodoc\ iso _TestResponseParserShortLengthField is UnitTest
         "length=" + declared_length.string() + " should error")
     end
 
+class \nodoc\ iso _TestResponseParserLongLengthField is UnitTest
+  """
+  Verify that a server-declared payload length near `U32.max` cannot wrap
+  `message_size` on 32-bit `USize` targets. Without the `add_partial`
+  guard, `payload_size + 4 + 1` would wrap `U32.max` down to 0 on ilp32;
+  `buffer.skip(0)` would then succeed on a 5-byte buffer and return a
+  phantom `_ParseCompleteMessage`.
+
+  CI runs lp64, so the ilp32 branch of the assertion cannot be exercised
+  here. It is retained so the regression is caught when a Pony build
+  eventually runs on a 32-bit target.
+  """
+  fun name(): String =>
+    "ResponseParser/LongLengthField"
+
+  fun apply(h: TestHelper) =>
+    // Type byte '1' (ParseComplete) mirrors the `ShortLengthField`
+    // counterfactual — the strongest regression signal on 32-bit.
+    let bytes: Array[U8] val =
+      [as U8: '1'; 0xFF; 0xFF; 0xFF; 0xFF]
+    ifdef ilp32 then
+      h.assert_error(
+        {() ? =>
+          let r: Reader = Reader
+          r.append(bytes)
+          _ResponseParser(r)? },
+        "U32.max length should error on ilp32 (message_size wrap)")
+    else
+      try
+        let r: Reader = Reader
+        r.append(bytes)
+        match _ResponseParser(r)?
+        | None => None
+        else
+          h.fail(
+            "Parser returned a message for a buffer smaller than the " +
+            "declared length.")
+        end
+      else
+        h.fail("Parser errored unexpectedly on lp64.")
+      end
+    end
+
 class \nodoc\ iso _TestResponseParserAuthenticationOkMessage is UnitTest
   """
   Verify that AuthenticationOk messages are parsed correctly

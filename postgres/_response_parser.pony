@@ -74,8 +74,12 @@ primitive _ResponseParser
     // descriptive header on the payload. We are calling `payload_size` to be
     // only the payload, not the header as well. `sub_partial` errors on a
     // server-declared length less than 4 instead of wrapping the result.
+    // The `add_partial` chain guards the reverse direction: on 32-bit USize
+    // targets, adding back the 4-byte length header and the 1-byte type tag
+    // could wrap a near-`U32.max` declared length down to a small value and
+    // let bogus "complete" messages slip past the buffer-size check.
     let payload_size = buffer.peek_u32_be(1)?.usize().sub_partial(4)?
-    let message_size = payload_size + 4 + 1
+    let message_size = payload_size.add_partial(4)?.add_partial(1)?
 
     // The message will be `message_size` in length. If we have less than
     // that then there's no point in continuing.

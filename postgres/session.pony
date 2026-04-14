@@ -669,6 +669,14 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
   """
   Mid-SCRAM-SHA-256 authentication exchange. Has sent the client-first-message
   and is waiting for the server's SASL challenge and final messages.
+
+  Enforces SCRAM's mutual-authentication property: transitioning to
+  `_SessionLoggedIn` requires that the server's `v=<verifier>` SASLFinal was
+  received and compared equal to the locally computed signature via
+  `ConstantTimeCompare`. The `_server_verified` flag records this; any
+  protocol violation (skipped, duplicated, or malformed SASL messages;
+  mismatched signature; mismatched nonce) is reported to the application as
+  `pg_session_connection_failed(ServerVerificationFailed)`.
   """
   let _notify: SessionStatusNotify
   let _readbuf: Reader
@@ -677,6 +685,7 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
   let _password: String
   let _codec_registry: CodecRegistry
   var _expected_server_signature: (Array[U8] val | None) = None
+  var _server_verified: Bool = false
 
   new ref create(notify': SessionStatusNotify, readbuf': Reader,
     client_nonce': String, client_first_bare': String, password': String,
@@ -690,6 +699,10 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
     _codec_registry = codec_registry'
 
   fun ref on_authentication_ok(s: Session ref) =>
+    if not _server_verified then
+      on_connection_failed(s, ServerVerificationFailed)
+      return
+    end
     s.state = _SessionLoggedIn(notify(), readbuf(), _codec_registry)
     notify().pg_session_authenticated(s)
 
@@ -718,6 +731,12 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
   fun ref on_authentication_sasl_continue(s: Session ref,
     msg: _AuthenticationSASLContinueMessage)
   =>
+    // A second SASLContinue would overwrite the verifier, resetting
+    // verification state. Reject as a protocol violation.
+    if _expected_server_signature isnt None then
+      on_connection_failed(s, ServerVerificationFailed)
+      return
+    end
     // Parse server-first-message: r=<combined_nonce>,s=<base64_salt>,i=<iter>
     let server_first: String val = String.from_array(msg.data)
     let parts = server_first.split(",")
@@ -741,7 +760,7 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
 
       // Validate combined nonce starts with our client nonce
       if not combined_nonce.at(_client_nonce) then
-        shutdown(s)
+        on_connection_failed(s, ServerVerificationFailed)
         return
       end
 
@@ -760,7 +779,7 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
       s._connection().send(_FrontendMessage.sasl_response(response))
       _expected_server_signature = server_signature
     else
-      shutdown(s)
+      on_connection_failed(s, ServerVerificationFailed)
     end
 
   fun ref on_authentication_sasl_final(s: Session ref,
@@ -779,16 +798,18 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
             on_connection_failed(s, ServerVerificationFailed)
             return
           end
-          // If match, wait for AuthenticationOk(0) which PostgreSQL always
+          _server_verified = true
+          // On match, wait for AuthenticationOk(0) which PostgreSQL always
           // sends after a successful SASLFinal.
         | None =>
-          shutdown(s)
+          on_connection_failed(s, ServerVerificationFailed)
+          return
         end
       else
-        shutdown(s)
+        on_connection_failed(s, ServerVerificationFailed)
       end
     else
-      shutdown(s)
+      on_connection_failed(s, ServerVerificationFailed)
     end
 
   fun ref execute(s: Session ref, q: Query, r: ResultReceiver,

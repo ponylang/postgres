@@ -152,6 +152,12 @@ actor \nodoc\ Main is TestList
     test(_TestSCRAMUnsupportedMechanism)
     test(_TestSCRAMServerVerificationFailed)
     test(_TestSCRAMErrorDuringAuth)
+    test(_TestSCRAMServerSkipsSASLFinal)
+    test(_TestSCRAMDuplicateSASLContinue)
+    test(_TestSCRAMSASLFinalBeforeSASLContinue)
+    test(_TestSCRAMMalformedSASLFinal)
+    test(_TestSCRAMNonceMismatch)
+    test(_TestSCRAMMalformedSASLContinue)
     test(_TestConnectionFailureReasonFromErrorInvalidPassword)
     test(
       _TestConnectionFailureReasonFromErrorInvalidAuthorizationSpecification)

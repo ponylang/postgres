@@ -95,6 +95,147 @@ class \nodoc\ iso _TestSCRAMErrorDuringAuth is UnitTest
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
+class \nodoc\ iso _TestSCRAMServerSkipsSASLFinal is UnitTest
+  """
+  Verifies that when the server sends AuthenticationOk without a preceding
+  AuthenticationSASLFinal, the session fires pg_session_connection_failed
+  with ServerVerificationFailed. A server must never be treated as
+  authenticated without signature verification.
+  """
+  fun name(): String =>
+    "SCRAM/ServerSkipsSASLFinal"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "7725"
+
+    let listener = _SCRAMSkipSASLFinalTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+class \nodoc\ iso _TestSCRAMDuplicateSASLContinue is UnitTest
+  """
+  Verifies that when the server sends a second AuthenticationSASLContinue
+  after the first one has established the expected server signature, the
+  session fires pg_session_connection_failed with ServerVerificationFailed.
+  A duplicate SASLContinue would overwrite the verifier, resetting
+  verification state.
+  """
+  fun name(): String =>
+    "SCRAM/DuplicateSASLContinue"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "7726"
+
+    let listener = _SCRAMDuplicateSASLContinueTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+class \nodoc\ iso _TestSCRAMSASLFinalBeforeSASLContinue is UnitTest
+  """
+  Verifies that when the server sends AuthenticationSASLFinal before any
+  AuthenticationSASLContinue, the session fires
+  pg_session_connection_failed with ServerVerificationFailed. No server
+  signature has been computed, so the SASLFinal cannot be verified.
+  """
+  fun name(): String =>
+    "SCRAM/SASLFinalBeforeSASLContinue"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "7727"
+
+    let listener = _SCRAMSASLFinalBeforeContinueTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+class \nodoc\ iso _TestSCRAMMalformedSASLFinal is UnitTest
+  """
+  Verifies that when the server sends an AuthenticationSASLFinal whose
+  payload does not begin with the "v=" verifier prefix, the session fires
+  pg_session_connection_failed with ServerVerificationFailed. Per RFC 5802,
+  the only SASLFinal form PostgreSQL uses is "v=<verifier>"; anything else
+  is a protocol violation.
+  """
+  fun name(): String =>
+    "SCRAM/MalformedSASLFinal"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "7728"
+
+    let listener = _SCRAMMalformedSASLFinalTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+class \nodoc\ iso _TestSCRAMNonceMismatch is UnitTest
+  """
+  Verifies that when the server's AuthenticationSASLContinue carries a
+  combined nonce that does not begin with the client's nonce, the session
+  fires pg_session_connection_failed with ServerVerificationFailed. A
+  combined nonce that replaces the client's contribution would let the
+  server impersonate a different session.
+  """
+  fun name(): String =>
+    "SCRAM/NonceMismatch"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "7729"
+
+    let listener = _SCRAMNonceMismatchTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+class \nodoc\ iso _TestSCRAMMalformedSASLContinue is UnitTest
+  """
+  Verifies that when the server's AuthenticationSASLContinue cannot be
+  parsed (e.g., non-numeric iteration count), the session fires
+  pg_session_connection_failed with ServerVerificationFailed rather than
+  silently closing.
+  """
+  fun name(): String =>
+    "SCRAM/MalformedSASLContinue"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "7730"
+
+    let listener = _SCRAMMalformedSASLContinueTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
 class \nodoc\ iso _TestUnsupportedAuthentication is UnitTest
   """
   Verifies that when the server requests an unsupported authentication type
@@ -500,61 +641,10 @@ actor \nodoc\ _SCRAMTestServer
     elseif _state == 1 then
       match _reader.read_message()
       | let data_val: Array[U8] val =>
-        // SASLInitialResponse: parse client nonce, compute SCRAM values,
-        // send SASLContinue.
-        //
-        // Wire format: 'p' I32(len) "SCRAM-SHA-256\0" I32(resp_len) response
-        //   response starts at offset 23 (1 type + 4 len + 14 mech\0 + 4 resp_len)
-        //   response = "n,,n=,r=<nonce>"
-        //   client_first_bare starts at offset 26 (23 + 3, skip "n,,")
-        //   client_nonce starts at offset 31 (23 + 8, skip "n,,n=,r=")
-        try
-          let client_nonce = recover val
-            let s = String(data_val.size() - 31)
-            var i: USize = 31
-            while i < data_val.size() do
-              s.push(data_val(i)?)
-              i = i + 1
-            end
-            s
-          end
-
-          let client_first_bare = recover val
-            let s = String(data_val.size() - 26)
-            var i: USize = 26
-            while i < data_val.size() do
-              s.push(data_val(i)?)
-              i = i + 1
-            end
-            s
-          end
-
-          let server_nonce = "servernonce123456"
-          let combined_nonce: String val = client_nonce + server_nonce
-          let salt: Array[U8] val =
-            [0x73; 0x61; 0x6C; 0x74; 0x30; 0x31; 0x32; 0x33]
-          let salt_b64_iso = Base64.encode(salt)
-          let salt_b64: String val = consume salt_b64_iso
-          let iterations: U32 = 4096
-
-          let server_first: String val =
-            "r=" + combined_nonce + ",s=" + salt_b64 + ",i=4096"
-
-          (let client_proof, let sig) =
-            _ScramSha256.compute_proof("postgres", salt, iterations,
-              client_first_bare, server_first, combined_nonce)?
-
-          // client_proof is unused — we don't verify the client's proof in
-          // this mock server; the test validates the client's behavior,
-          // not ours.
-          client_proof.size()
-
-          _server_signature = sig
-
-          let sasl_continue =
-            _IncomingAuthenticationSASLContinueTestMessage(
-              server_first.array()).bytes()
-          _tcp_connection.send(sasl_continue)
+        match _SCRAMMockHelper.build(data_val)
+        | let r: _SCRAMMockContinue =>
+          _server_signature = r.server_signature
+          _tcp_connection.send(r.continue_bytes)
           _state = 2
           _process()
         else
@@ -727,6 +817,660 @@ actor \nodoc\ _SCRAMErrorTestServer
           "password authentication failed").bytes()
         _tcp_connection.send(err)
       end
+    end
+
+actor \nodoc\ _SCRAMSkipSASLFinalTestListener is lori.TCPListenerActor
+  """
+  Listener for `_TestSCRAMServerSkipsSASLFinal`. Spawns a mock server that
+  skips SASLFinal in the SCRAM exchange and connects a client session.
+  """
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _h: TestHelper
+  let _host: String
+  let _port: String
+
+  new create(listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper)
+  =>
+    _host = host
+    _port = port
+    _h = h
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): _SCRAMSkipSASLFinalTestServer =>
+    let server = _SCRAMSkipSASLFinalTestServer(_server_auth, fd, _h)
+    _h.dispose_when_done(server)
+    server
+
+  fun ref _on_listening() =>
+    let session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _SCRAMFailureTestNotify(_h, ServerVerificationFailed))
+    _h.dispose_when_done(session)
+
+  fun ref _on_listen_failure() =>
+    _h.fail("Unable to listen")
+    _h.complete(false)
+
+actor \nodoc\ _SCRAMSkipSASLFinalTestServer
+  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  """
+  Mock server that runs a SCRAM-SHA-256 exchange through
+  AuthenticationSASLContinue, receives the client's SASLResponse, then
+  skips SASLFinal entirely and sends AuthenticationOk + ReadyForQuery.
+  The client must reject this as a protocol violation.
+  """
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  let _h: TestHelper
+  var _state: U8 = 0
+  let _reader: _MockMessageReader = _MockMessageReader
+
+  new create(auth: lori.TCPServerAuth, fd: U32, h: TestHelper) =>
+    _h = h
+    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
+
+  fun ref _on_received(data: Array[U8] iso) =>
+    _reader.append(consume data)
+    _process()
+
+  fun ref _process() =>
+    if _state == 0 then
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        let mechanisms: Array[String] val =
+          recover val ["SCRAM-SHA-256"] end
+        let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+        _tcp_connection.send(sasl)
+        _state = 1
+        _process()
+      end
+    elseif _state == 1 then
+      match _reader.read_message()
+      | let data_val: Array[U8] val =>
+        match _SCRAMMockHelper.build(data_val)
+        | let r: _SCRAMMockContinue =>
+          _tcp_connection.send(r.continue_bytes)
+          _state = 2
+          _process()
+        else
+          _h.fail("SCRAM mock computation failed")
+          _h.complete(false)
+        end
+      end
+    elseif _state == 2 then
+      match _reader.read_message()
+      | let _: Array[U8] val =>
+        // Skip SASLFinal — send AuthOk + ReadyForQuery directly. The
+        // client's `_server_verified` guard must reject this.
+        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
+        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        let combined = recover val
+          let arr = Array[U8]
+          arr.append(auth_ok)
+          arr.append(ready)
+          arr
+        end
+        _tcp_connection.send(combined)
+      end
+    end
+
+actor \nodoc\ _SCRAMDuplicateSASLContinueTestListener is lori.TCPListenerActor
+  """
+  Listener for `_TestSCRAMDuplicateSASLContinue`. Spawns a mock server
+  that sends two SASLContinue messages back-to-back.
+  """
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _h: TestHelper
+  let _host: String
+  let _port: String
+
+  new create(listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper)
+  =>
+    _host = host
+    _port = port
+    _h = h
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): _SCRAMDuplicateSASLContinueTestServer =>
+    let server = _SCRAMDuplicateSASLContinueTestServer(_server_auth, fd, _h)
+    _h.dispose_when_done(server)
+    server
+
+  fun ref _on_listening() =>
+    let session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _SCRAMFailureTestNotify(_h, ServerVerificationFailed))
+    _h.dispose_when_done(session)
+
+  fun ref _on_listen_failure() =>
+    _h.fail("Unable to listen")
+    _h.complete(false)
+
+actor \nodoc\ _SCRAMDuplicateSASLContinueTestServer
+  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  """
+  Mock server that answers the client's SASLInitialResponse with two
+  AuthenticationSASLContinue messages sent in a single TCP write. The
+  first is valid and lets the client populate its expected-verifier
+  state; the second must be rejected by the duplicate-SASLContinue
+  guard.
+  """
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  let _h: TestHelper
+  var _state: U8 = 0
+  let _reader: _MockMessageReader = _MockMessageReader
+
+  new create(auth: lori.TCPServerAuth, fd: U32, h: TestHelper) =>
+    _h = h
+    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
+
+  fun ref _on_received(data: Array[U8] iso) =>
+    _reader.append(consume data)
+    _process()
+
+  fun ref _process() =>
+    if _state == 0 then
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        let mechanisms: Array[String] val =
+          recover val ["SCRAM-SHA-256"] end
+        let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+        _tcp_connection.send(sasl)
+        _state = 1
+        _process()
+      end
+    elseif _state == 1 then
+      match _reader.read_message()
+      | let data_val: Array[U8] val =>
+        match _SCRAMMockHelper.build(data_val)
+        | let r: _SCRAMMockContinue =>
+          let combined = recover val
+            let arr = Array[U8]
+            arr.append(r.continue_bytes)
+            arr.append(r.continue_bytes)
+            arr
+          end
+          _tcp_connection.send(combined)
+          _state = 2
+        else
+          _h.fail("SCRAM mock computation failed")
+          _h.complete(false)
+        end
+      end
+    end
+
+actor \nodoc\ _SCRAMSASLFinalBeforeContinueTestListener
+  is lori.TCPListenerActor
+  """
+  Listener for `_TestSCRAMSASLFinalBeforeSASLContinue`. Spawns a mock
+  server that sends SASLFinal without ever sending SASLContinue.
+  """
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _h: TestHelper
+  let _host: String
+  let _port: String
+
+  new create(listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper)
+  =>
+    _host = host
+    _port = port
+    _h = h
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): _SCRAMSASLFinalBeforeContinueTestServer =>
+    let server =
+      _SCRAMSASLFinalBeforeContinueTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
+
+  fun ref _on_listening() =>
+    let session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _SCRAMFailureTestNotify(_h, ServerVerificationFailed))
+    _h.dispose_when_done(session)
+
+  fun ref _on_listen_failure() =>
+    _h.fail("Unable to listen")
+    _h.complete(false)
+
+actor \nodoc\ _SCRAMSASLFinalBeforeContinueTestServer
+  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  """
+  Mock server that answers the client's SASLInitialResponse with a
+  SASLFinal directly, without a preceding SASLContinue. The SASLFinal
+  body starts with "v=" but the client has no expected signature to
+  compare against.
+  """
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _state: U8 = 0
+  let _reader: _MockMessageReader = _MockMessageReader
+
+  new create(auth: lori.TCPServerAuth, fd: U32) =>
+    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
+
+  fun ref _on_received(data: Array[U8] iso) =>
+    _reader.append(consume data)
+    _process()
+
+  fun ref _process() =>
+    if _state == 0 then
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        let mechanisms: Array[String] val =
+          recover val ["SCRAM-SHA-256"] end
+        let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+        _tcp_connection.send(sasl)
+        _state = 1
+        _process()
+      end
+    elseif _state == 1 then
+      match _reader.read_message()
+      | let _: Array[U8] val =>
+        let server_final: String val = "v=c29tZWRhdGE="
+        let sasl_final = _IncomingAuthenticationSASLFinalTestMessage(
+          server_final.array()).bytes()
+        _tcp_connection.send(sasl_final)
+        _state = 2
+      end
+    end
+
+actor \nodoc\ _SCRAMMalformedSASLFinalTestListener is lori.TCPListenerActor
+  """
+  Listener for `_TestSCRAMMalformedSASLFinal`. Spawns a mock server that
+  completes SCRAM up to SASLFinal, then sends a SASLFinal payload that
+  does not begin with "v=".
+  """
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _h: TestHelper
+  let _host: String
+  let _port: String
+
+  new create(listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper)
+  =>
+    _host = host
+    _port = port
+    _h = h
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): _SCRAMMalformedSASLFinalTestServer =>
+    let server = _SCRAMMalformedSASLFinalTestServer(_server_auth, fd, _h)
+    _h.dispose_when_done(server)
+    server
+
+  fun ref _on_listening() =>
+    let session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _SCRAMFailureTestNotify(_h, ServerVerificationFailed))
+    _h.dispose_when_done(session)
+
+  fun ref _on_listen_failure() =>
+    _h.fail("Unable to listen")
+    _h.complete(false)
+
+actor \nodoc\ _SCRAMMalformedSASLFinalTestServer
+  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  """
+  Mock server that runs a SCRAM-SHA-256 exchange through
+  AuthenticationSASLContinue, receives the client's SASLResponse, then
+  sends an AuthenticationSASLFinal whose payload does not begin with
+  "v=". The client must treat this as a protocol violation.
+  """
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  let _h: TestHelper
+  var _state: U8 = 0
+  let _reader: _MockMessageReader = _MockMessageReader
+
+  new create(auth: lori.TCPServerAuth, fd: U32, h: TestHelper) =>
+    _h = h
+    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
+
+  fun ref _on_received(data: Array[U8] iso) =>
+    _reader.append(consume data)
+    _process()
+
+  fun ref _process() =>
+    if _state == 0 then
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        let mechanisms: Array[String] val =
+          recover val ["SCRAM-SHA-256"] end
+        let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+        _tcp_connection.send(sasl)
+        _state = 1
+        _process()
+      end
+    elseif _state == 1 then
+      match _reader.read_message()
+      | let data_val: Array[U8] val =>
+        match _SCRAMMockHelper.build(data_val)
+        | let r: _SCRAMMockContinue =>
+          _tcp_connection.send(r.continue_bytes)
+          _state = 2
+          _process()
+        else
+          _h.fail("SCRAM mock computation failed")
+          _h.complete(false)
+        end
+      end
+    elseif _state == 2 then
+      match _reader.read_message()
+      | let _: Array[U8] val =>
+        let server_final: String val = "garbage-without-v-prefix"
+        let sasl_final = _IncomingAuthenticationSASLFinalTestMessage(
+          server_final.array()).bytes()
+        _tcp_connection.send(sasl_final)
+      end
+    end
+
+actor \nodoc\ _SCRAMNonceMismatchTestListener is lori.TCPListenerActor
+  """
+  Listener for `_TestSCRAMNonceMismatch`. Spawns a mock server that sends
+  a SASLContinue whose combined nonce does not include the client's
+  nonce.
+  """
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _h: TestHelper
+  let _host: String
+  let _port: String
+
+  new create(listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper)
+  =>
+    _host = host
+    _port = port
+    _h = h
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): _SCRAMNonceMismatchTestServer =>
+    let server = _SCRAMNonceMismatchTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
+
+  fun ref _on_listening() =>
+    let session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _SCRAMFailureTestNotify(_h, ServerVerificationFailed))
+    _h.dispose_when_done(session)
+
+  fun ref _on_listen_failure() =>
+    _h.fail("Unable to listen")
+    _h.complete(false)
+
+actor \nodoc\ _SCRAMNonceMismatchTestServer
+  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  """
+  Mock server whose SASLContinue carries a combined nonce that does not
+  begin with the client's nonce. The client's nonce-prefix check must
+  reject as a protocol violation.
+  """
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _state: U8 = 0
+  let _reader: _MockMessageReader = _MockMessageReader
+
+  new create(auth: lori.TCPServerAuth, fd: U32) =>
+    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
+
+  fun ref _on_received(data: Array[U8] iso) =>
+    _reader.append(consume data)
+    _process()
+
+  fun ref _process() =>
+    if _state == 0 then
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        let mechanisms: Array[String] val =
+          recover val ["SCRAM-SHA-256"] end
+        let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+        _tcp_connection.send(sasl)
+        _state = 1
+        _process()
+      end
+    elseif _state == 1 then
+      match _reader.read_message()
+      | let _: Array[U8] val =>
+        // `server_first` uses a hardcoded nonce that cannot match the
+        // client's random nonce. Salt is valid base64 and iterations is
+        // a valid integer, so parsing succeeds up to the nonce check.
+        let server_first: String val = "r=badnonce,s=c2FsdA==,i=4096"
+        let sasl_continue = _IncomingAuthenticationSASLContinueTestMessage(
+          server_first.array()).bytes()
+        _tcp_connection.send(sasl_continue)
+        _state = 2
+      end
+    end
+
+actor \nodoc\ _SCRAMMalformedSASLContinueTestListener
+  is lori.TCPListenerActor
+  """
+  Listener for `_TestSCRAMMalformedSASLContinue`. Spawns a mock server
+  that sends a SASLContinue whose iteration count is not a number.
+  """
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _h: TestHelper
+  let _host: String
+  let _port: String
+
+  new create(listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper)
+  =>
+    _host = host
+    _port = port
+    _h = h
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): _SCRAMMalformedSASLContinueTestServer =>
+    let server = _SCRAMMalformedSASLContinueTestServer(_server_auth, fd, _h)
+    _h.dispose_when_done(server)
+    server
+
+  fun ref _on_listening() =>
+    let session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _SCRAMFailureTestNotify(_h, ServerVerificationFailed))
+    _h.dispose_when_done(session)
+
+  fun ref _on_listen_failure() =>
+    _h.fail("Unable to listen")
+    _h.complete(false)
+
+actor \nodoc\ _SCRAMMalformedSASLContinueTestServer
+  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  """
+  Mock server whose SASLContinue uses the client's nonce (so the nonce
+  prefix check passes) but has a non-numeric `i=` field. The client's
+  outer `try`/`else` parse-failure path must fire
+  `pg_session_connection_failed` with `ServerVerificationFailed`.
+  """
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  let _h: TestHelper
+  var _state: U8 = 0
+  let _reader: _MockMessageReader = _MockMessageReader
+
+  new create(auth: lori.TCPServerAuth, fd: U32, h: TestHelper) =>
+    _h = h
+    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
+
+  fun ref _on_received(data: Array[U8] iso) =>
+    _reader.append(consume data)
+    _process()
+
+  fun ref _process() =>
+    if _state == 0 then
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        let mechanisms: Array[String] val =
+          recover val ["SCRAM-SHA-256"] end
+        let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+        _tcp_connection.send(sasl)
+        _state = 1
+        _process()
+      end
+    elseif _state == 1 then
+      match _reader.read_message()
+      | let data_val: Array[U8] val =>
+        match _SCRAMMockHelper.build(data_val)
+        | let r: _SCRAMMockContinue =>
+          let combined_nonce: String val =
+            r.client_nonce + "servernonce123456"
+          let server_first: String val =
+            "r=" + combined_nonce + ",s=c2FsdA==,i=notanumber"
+          let sasl_continue = _IncomingAuthenticationSASLContinueTestMessage(
+            server_first.array()).bytes()
+          _tcp_connection.send(sasl_continue)
+          _state = 2
+        else
+          _h.fail("SCRAM mock computation failed")
+          _h.complete(false)
+        end
+      end
+    end
+
+class \nodoc\ val _SCRAMMockContinue
+  """
+  Output of `_SCRAMMockHelper.build`: the SASLContinue bytes to send to the
+  client, the matching server signature a subsequent SASLFinal would embed,
+  and the client nonce extracted from the client's SASLInitialResponse.
+  """
+  let continue_bytes: Array[U8] val
+  let server_signature: Array[U8] val
+  let client_nonce: String val
+
+  new val create(continue_bytes': Array[U8] val,
+    server_signature': Array[U8] val,
+    client_nonce': String val)
+  =>
+    continue_bytes = continue_bytes'
+    server_signature = server_signature'
+    client_nonce = client_nonce'
+
+primitive \nodoc\ _SCRAMMockHelper
+  """
+  Computes a valid SCRAM-SHA-256 server-first-message for a received
+  SASLInitialResponse, using a fixed server nonce suffix, salt, and
+  iteration count against the test password "postgres". Returns the
+  SASLContinue bytes, the matching server signature, and the extracted
+  client nonce. Shared by the success/failure SCRAM mock servers so the
+  SCRAM computation and wire-offset math live in one place.
+  """
+  fun build(data_val: Array[U8] val): (_SCRAMMockContinue | None) =>
+    // Wire format: 'p' I32(len) "SCRAM-SHA-256\0" I32(resp_len) response
+    //   response starts at offset 23 (1 type + 4 len + 14 mech\0 + 4 resp_len)
+    //   response = "n,,n=,r=<nonce>"
+    //   client_first_bare starts at offset 26 (23 + 3, skip "n,,")
+    //   client_nonce starts at offset 31 (23 + 8, skip "n,,n=,r=")
+    try
+      let client_nonce = recover val
+        let s = String(data_val.size() - 31)
+        var i: USize = 31
+        while i < data_val.size() do
+          s.push(data_val(i)?)
+          i = i + 1
+        end
+        s
+      end
+
+      let client_first_bare = recover val
+        let s = String(data_val.size() - 26)
+        var i: USize = 26
+        while i < data_val.size() do
+          s.push(data_val(i)?)
+          i = i + 1
+        end
+        s
+      end
+
+      let server_nonce = "servernonce123456"
+      let combined_nonce: String val = client_nonce + server_nonce
+      let salt: Array[U8] val =
+        [0x73; 0x61; 0x6C; 0x74; 0x30; 0x31; 0x32; 0x33]
+      let salt_b64_iso = Base64.encode(salt)
+      let salt_b64: String val = consume salt_b64_iso
+      let iterations: U32 = 4096
+
+      let server_first: String val =
+        "r=" + combined_nonce + ",s=" + salt_b64 + ",i=4096"
+
+      (let client_proof, let server_signature) =
+        _ScramSha256.compute_proof("postgres", salt, iterations,
+          client_first_bare, server_first, combined_nonce)?
+
+      // client_proof is unused — the mock servers validate the client's
+      // behavior, not their own proof computation.
+      client_proof.size()
+
+      let continue_bytes = _IncomingAuthenticationSASLContinueTestMessage(
+        server_first.array()).bytes()
+
+      _SCRAMMockContinue(continue_bytes, server_signature, client_nonce)
     end
 
 primitive \nodoc\ _ConnectionFailureReasonFromErrorTestHelper

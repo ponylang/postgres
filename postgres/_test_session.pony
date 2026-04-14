@@ -145,13 +145,6 @@ actor \nodoc\ _DoesntAnswerClient is (SessionStatusNotify & ResultReceiver)
     _send_query(session, "select * from expensive_candy")
     session.close()
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_query_result(session: Session, result: Result) =>
     _h.fail("Unexpectedly got a result for a query.")
     _h.complete(false)
@@ -292,13 +285,6 @@ actor \nodoc\ _ZeroRowSelectTestClient is (SessionStatusNotify & ResultReceiver)
   be pg_session_authenticated(session: Session) =>
     _session = session
     session.execute(_query, this)
-
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
     if result.query() isnt _query then
@@ -466,13 +452,6 @@ actor \nodoc\ _PrepareShutdownTestClient is
     session.prepare("s2", "SELECT 2", this)
     session.close()
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_statement_prepared(session: Session, name: String) =>
     _h.fail("Unexpectedly got a prepared statement.")
     _h.complete(false)
@@ -564,13 +543,6 @@ actor \nodoc\ _TerminateSentTestNotify is SessionStatusNotify
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unable to establish connection.")
-    _h.complete(false)
-
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
     _h.complete(false)
 
 actor \nodoc\ _TerminateSentTestListener is lori.TCPListenerActor
@@ -721,13 +693,6 @@ actor \nodoc\ _ByteaTestClient is (SessionStatusNotify & ResultReceiver)
   be pg_session_authenticated(session: Session) =>
     _session = session
     session.execute(_query, this)
-
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
     match \exhaustive\ result

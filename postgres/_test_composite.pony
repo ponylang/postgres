@@ -1551,11 +1551,10 @@ actor \nodoc\ _CompositeSelectClient is
     session.execute(
       SimpleQuery("DROP TYPE IF EXISTS _test_address_sel"), this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Authentication failed")
+    _h.fail("Connection failed")
     _h.complete(false)
     s.close()
 
@@ -1659,11 +1658,10 @@ actor \nodoc\ _CompositeRoundtripClient is
         recover val [as FieldDataTypes: addr] end), this)
     end
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Authentication failed")
+    _h.fail("Connection failed")
     _h.complete(false)
     s.close()
 

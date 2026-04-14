@@ -66,12 +66,6 @@ actor Client is SessionStatusNotify
     _out.print("Authenticated.")
     session.close()
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _out.print("Failed to authenticate.")
-
 class val ServerInfo
   let host: String
   let port: String

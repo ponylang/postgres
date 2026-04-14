@@ -152,6 +152,13 @@ actor \nodoc\ Main is TestList
     test(_TestSCRAMUnsupportedMechanism)
     test(_TestSCRAMServerVerificationFailed)
     test(_TestSCRAMErrorDuringAuth)
+    test(_TestConnectionFailureReasonFromErrorInvalidPassword)
+    test(
+      _TestConnectionFailureReasonFromErrorInvalidAuthorizationSpecification)
+    test(_TestConnectionFailureReasonFromErrorTooManyConnections)
+    test(_TestConnectionFailureReasonFromErrorInvalidDatabaseName)
+    test(_TestConnectionFailureReasonFromErrorServerRejected)
+    test(_TestConnectionFailedOnServerRejection)
     test(_TestUnsupportedAuthentication)
     test(_TestCleartextAuthenticationSuccess)
     test(_TestCleartextAuthenticationFailure)
@@ -624,11 +631,24 @@ actor \nodoc\ _AuthenticateTestNotify is SessionStatusNotify
   be pg_session_authenticated(session: Session) =>
     _h.complete(_success_expected == true)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.complete(_success_expected == false)
+    let auth_failure =
+      match reason
+      | let _: InvalidPassword => true
+      | let _: InvalidAuthorizationSpecification => true
+      | UnsupportedAuthenticationMethod => true
+      | ServerVerificationFailed => true
+      else
+        false
+      end
+    if auth_failure then
+      _h.complete(_success_expected == false)
+    else
+      _h.fail("Unexpected non-auth connection failure.")
+      _h.complete(false)
+    end
 
 class \nodoc\ iso _TestConnect is UnitTest
   """

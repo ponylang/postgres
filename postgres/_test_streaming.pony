@@ -46,13 +46,6 @@ actor \nodoc\ _StreamingSuccessTestClient is
       PreparedQuery("SELECT id FROM t", recover val Array[FieldDataTypes] end),
       2, this)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_stream_batch(session: Session, rows: Rows) =>
     _batches = _batches + 1
     _total_rows = _total_rows + rows.size()
@@ -277,13 +270,6 @@ actor \nodoc\ _StreamingEmptyTestClient is
       PreparedQuery("SELECT id FROM empty", recover val Array[FieldDataTypes] end),
       2, this)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_stream_batch(session: Session, rows: Rows) =>
     _batches = _batches + 1
 
@@ -454,13 +440,6 @@ actor \nodoc\ _StreamingEarlyStopTestClient is
     session.stream(
       PreparedQuery("SELECT id FROM t", recover val Array[FieldDataTypes] end),
       2, this)
-
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
 
   be pg_stream_batch(session: Session, rows: Rows) =>
     _batches = _batches + 1
@@ -643,13 +622,6 @@ actor \nodoc\ _StreamingServerErrorTestClient is
     session.stream(
       PreparedQuery("SELECT id FROM bad", recover val Array[FieldDataTypes] end),
       2, this)
-
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
 
   be pg_stream_batch(session: Session, rows: Rows) =>
     _h.fail("Unexpected stream batch.")
@@ -861,13 +833,6 @@ actor \nodoc\ _StreamingShutdownTestClient is
       2, this)
     session.close()
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_stream_batch(session: Session, rows: Rows) =>
     _h.fail("Unexpected stream batch.")
     _h.complete(false)
@@ -964,11 +929,10 @@ actor \nodoc\ _StreamingQueryResultsNotify is
     session.execute(
       SimpleQuery("DROP TABLE IF EXISTS streaming_test"), this)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate.")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
@@ -1060,11 +1024,11 @@ actor \nodoc\ _StreamingAfterSessionClosedNotify is
   be pg_session_authenticated(session: Session) =>
     session.close()
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unexpected authentication failure")
+    _h.fail("Connection failed before reaching authenticated state.")
+    _h.complete(false)
 
   be pg_session_shutdown(session: Session) =>
     session.stream(

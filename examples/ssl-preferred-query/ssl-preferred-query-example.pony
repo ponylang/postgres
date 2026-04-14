@@ -63,12 +63,6 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     let q = SimpleQuery("SELECT 525600::text")
     session.execute(q, this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _out.print("Failed to authenticate.")
-
   be pg_query_result(session: Session, result: Result) =>
     match result
     | let r: ResultSet =>

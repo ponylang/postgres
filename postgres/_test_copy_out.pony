@@ -42,13 +42,6 @@ actor \nodoc\ _CopyOutSuccessTestClient is
     _session = session
     session.copy_out("COPY t TO STDOUT", this)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_copy_data(session: Session, data: Array[U8] val) =>
     _chunks.push(data)
 
@@ -207,13 +200,6 @@ actor \nodoc\ _CopyOutEmptyTestClient is
     _session = session
     session.copy_out("COPY t TO STDOUT", this)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_copy_data(session: Session, data: Array[U8] val) =>
     _data_received = true
 
@@ -364,13 +350,6 @@ actor \nodoc\ _CopyOutServerErrorTestClient is
   be pg_session_authenticated(session: Session) =>
     _session = session
     session.copy_out("COPY t TO STDOUT", this)
-
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
 
   be pg_copy_data(session: Session, data: Array[U8] val) =>
     None
@@ -563,13 +542,6 @@ actor \nodoc\ _CopyOutShutdownTestClient is
     session.copy_out("COPY t2 TO STDOUT", this)
     session.close()
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_copy_data(session: Session, data: Array[U8] val) =>
     _h.fail("Unexpected copy data.")
     _h.complete(false)
@@ -658,11 +630,11 @@ actor \nodoc\ _CopyOutAfterSessionClosedNotify is
   be pg_session_authenticated(session: Session) =>
     session.close()
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unexpected authentication failure")
+    _h.fail("Connection failed before reaching authenticated state.")
+    _h.complete(false)
 
   be pg_session_shutdown(session: Session) =>
     session.copy_out("COPY t TO STDOUT", this)
@@ -725,13 +697,6 @@ actor \nodoc\ _CopyOutExportTestClient is
     _phase = 0
     session.execute(
       SimpleQuery("DROP TABLE IF EXISTS copy_out_test"), this)
-
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
 
   be pg_copy_data(session: Session, data: Array[U8] val) =>
     _copy_data.append(data)

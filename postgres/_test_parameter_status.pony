@@ -82,13 +82,6 @@ actor \nodoc\ _ParameterStatusDeliveryClient
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
 class \nodoc\ iso _TestParameterStatusDuringDataRows is UnitTest
   """
   Verifies that a ParameterStatus arriving between DataRow messages
@@ -172,13 +165,6 @@ actor \nodoc\ _ParameterStatusDuringDataRowsClient
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unable to establish connection.")
-    _h.complete(false)
-
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
     _h.complete(false)
 
 // Shared mock server infrastructure for parameter status tests
@@ -408,11 +394,10 @@ actor \nodoc\ _ParameterStatusStartupClient is SessionStatusNotify
   be pg_session_authenticated(session: Session) =>
     None
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_parameter_status(session: Session, status: ParameterStatus) =>
@@ -469,11 +454,10 @@ actor \nodoc\ _ParameterStatusSetClient
     session.execute(
       SimpleQuery("SET application_name = 'pony_test_app'"), this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>

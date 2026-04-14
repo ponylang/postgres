@@ -61,12 +61,6 @@ actor Failover is (SessionStatusNotify & ResultReceiver)
     _out.print(_label_for(session) + " — connection failed.")
     _on_failure()
 
-  be pg_session_authentication_failed(session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _out.print(_label_for(session) + " — authentication failed.")
-    _on_failure()
-
   fun ref _on_failure() =>
     _failures = _failures + 1
     if (_failures == _total) and (_winner is None) then

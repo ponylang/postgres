@@ -89,13 +89,6 @@ actor \nodoc\ _NoticeDeliveryClient
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
 class \nodoc\ iso _TestNoticeDuringDataRows is UnitTest
   """
   Verifies that a NoticeResponse arriving between DataRow messages
@@ -179,13 +172,6 @@ actor \nodoc\ _NoticeDuringDataRowsClient
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unable to establish connection.")
-    _h.complete(false)
-
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
     _h.complete(false)
 
 // Shared mock server infrastructure for notice tests
@@ -419,11 +405,10 @@ actor \nodoc\ _NoticeDropIfExistsClient
     session.execute(
       SimpleQuery("DROP TABLE IF EXISTS nonexistent_notice_test_xyz"), this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>

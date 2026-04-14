@@ -37,11 +37,10 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       recover val [as FieldDataTypes: "Pony"; I32(10); None] end)
     session.execute(q, this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _out.print("Failed to authenticate.")
+    _out.print("Connection failed.")
 
   be pg_query_result(session: Session, result: Result) =>
     match result

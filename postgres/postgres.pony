@@ -43,10 +43,12 @@ actor MyNotify is (SessionStatusNotify & ResultReceiver)
 `SessionStatusNotify` callbacks are all optional (default no-op).
 Implement the ones you need:
 
-* `pg_session_connected` / `pg_session_connection_failed` — TCP
-  connection established or failed
-* `pg_session_authenticated` / `pg_session_authentication_failed` —
-  login succeeded or failed
+* `pg_session_connected` — TCP connection established
+* `pg_session_connection_failed` — the session failed to reach the ready
+  state. Fires for any pre-ready failure: transport-level (DNS, TCP, TLS),
+  unsupported authentication method, bad password, server rejection (e.g.,
+  `max_connections` exhausted), or SCRAM server verification failure
+* `pg_session_authenticated` — login succeeded
 * `pg_transaction_status` — fires on every `ReadyForQuery` with
   `TransactionIdle`, `TransactionInBlock`, or `TransactionFailed`
 * `pg_notification` — LISTEN/NOTIFY notifications
@@ -470,16 +472,47 @@ let session = Session(
   MyNotify(env))
 ```
 
-If authentication fails, the `pg_session_authentication_failed` callback
-fires with an `AuthenticationFailureReason`:
+If authentication fails, the `pg_session_connection_failed` callback
+fires with a `ConnectionFailureReason`. Authentication-specific variants:
 
-* `InvalidAuthenticationSpecification` — nonexistent user or not
-  permitted to connect (SQLSTATE 28000)
-* `InvalidPassword` — wrong password (SQLSTATE 28P01)
+* `InvalidPassword` — wrong password (SQLSTATE 28P01). Call
+  `response()` for the full `ErrorResponseMessage`
+* `InvalidAuthorizationSpecification` — nonexistent user, user not
+  permitted to connect, or pg_hba.conf rejection (SQLSTATE 28000).
+  Call `response()` for the full `ErrorResponseMessage`
 * `UnsupportedAuthenticationMethod` — the server requested a method
   the driver doesn't support (e.g., Kerberos, GSSAPI)
 * `ServerVerificationFailed` — the server's SCRAM signature didn't
   match (possible MITM or misconfigured server)
+
+## Startup Rejection
+
+`pg_session_connection_failed` also fires for non-authentication
+rejections the server raises before the session reaches the ready state:
+
+* `TooManyConnections` — server's `max_connections` has been reached
+  (SQLSTATE 53300). Carries the full `ErrorResponseMessage`
+* `InvalidDatabaseName` — the requested database does not exist
+  (SQLSTATE 3D000). Carries the full `ErrorResponseMessage`
+* `ServerRejected` — fallback for any other server ErrorResponse during
+  startup. Call `response()` for the full `ErrorResponseMessage`; inspect
+  `response().code` (SQLSTATE) to distinguish specific failure modes
+
+## Connection and Transport Failures
+
+`pg_session_connection_failed` also fires when the session never reaches
+the server or fails to complete TLS negotiation:
+
+* `ConnectionFailedDNS` — name resolution failed
+* `ConnectionFailedTCP` — TCP connection refused or unreachable
+* `ConnectionFailedTimeout` — TCP/TLS did not complete within the
+  optional `connection_timeout`
+* `ConnectionFailedTimerError` — the connect-timeout timer could not
+  be armed
+* `SSLServerRefused` — the server refused the SSLRequest and the client
+  was configured with `SSLRequired`
+* `TLSHandshakeFailed` — the TLS handshake failed
+* `TLSAuthFailed` — TLS certificate or authentication verification failed
 
 ## Supported Features
 

@@ -34,11 +34,10 @@ actor Client is (SessionStatusNotify & ResultReceiver & PrepareReceiver)
     session.prepare("greet",
       "SELECT $1::text AS greeting, $2::text AS name", this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _out.print("Failed to authenticate.")
+    _out.print("Connection failed.")
 
   be pg_statement_prepared(session: Session, name: String) =>
     _out.print("Statement '" + name + "' prepared.")

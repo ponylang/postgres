@@ -35,11 +35,10 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     session.execute(
       SimpleQuery("SET application_name = 'pony_example'"), this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _out.print("Failed to authenticate.")
+    _out.print("Connection failed.")
 
   be pg_parameter_status(session: Session, status: ParameterStatus) =>
     _out.print("Parameter: " + status.name + " = " + status.value)

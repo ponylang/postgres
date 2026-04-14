@@ -35,7 +35,85 @@ primitive ConnectionFailedTimerError
   subscription failed.
   """
 
+primitive UnsupportedAuthenticationMethod
+  """
+  The server requested an authentication method that this driver does not
+  support.
+  """
+
+primitive ServerVerificationFailed
+  """
+  The server's SCRAM signature did not match the expected value. This may
+  indicate a man-in-the-middle attack or a misconfigured server.
+  """
+
+class val InvalidPassword
+  """
+  SQLSTATE 28P01. The server rejected the provided password. Call
+  `response()` to access the full server `ErrorResponseMessage`.
+  """
+  let _error: ErrorResponseMessage
+  new val create(response': ErrorResponseMessage) =>
+    _error = response'
+  fun val response(): ErrorResponseMessage => _error
+
+class val InvalidAuthorizationSpecification
+  """
+  SQLSTATE 28000. The server rejected the connection due to an invalid
+  authorization specification (nonexistent user, user not permitted to
+  connect to the requested database, pg_hba.conf rejection). Call
+  `response()` to access the full server `ErrorResponseMessage`.
+  """
+  let _error: ErrorResponseMessage
+  new val create(response': ErrorResponseMessage) =>
+    _error = response'
+  fun val response(): ErrorResponseMessage => _error
+
+class val TooManyConnections
+  """
+  SQLSTATE 53300. The server rejected the connection because the maximum
+  number of connections has been reached. Call `response()` to access the
+  full server `ErrorResponseMessage`.
+  """
+  let _error: ErrorResponseMessage
+  new val create(response': ErrorResponseMessage) =>
+    _error = response'
+  fun val response(): ErrorResponseMessage => _error
+
+class val InvalidDatabaseName
+  """
+  SQLSTATE 3D000. The database specified in the connection does not exist.
+  Call `response()` to access the full server `ErrorResponseMessage`.
+  """
+  let _error: ErrorResponseMessage
+  new val create(response': ErrorResponseMessage) =>
+    _error = response'
+  fun val response(): ErrorResponseMessage => _error
+
+class val ServerRejected
+  """
+  Fallback for any other server ErrorResponse during startup. Call
+  `response()` to access the full `ErrorResponseMessage`; inspect
+  `response().code` (SQLSTATE) to distinguish specific failure modes.
+  """
+  let _error: ErrorResponseMessage
+  new val create(response': ErrorResponseMessage) =>
+    _error = response'
+  fun val response(): ErrorResponseMessage => _error
+
 type ConnectionFailureReason is
-  (ConnectionFailedDNS | ConnectionFailedTCP |
-   SSLServerRefused | TLSAuthFailed | TLSHandshakeFailed |
-   ConnectionFailedTimeout | ConnectionFailedTimerError)
+  ( ConnectionFailedDNS
+  | ConnectionFailedTCP
+  | ConnectionFailedTimeout
+  | ConnectionFailedTimerError
+  | SSLServerRefused
+  | TLSHandshakeFailed
+  | TLSAuthFailed
+  | UnsupportedAuthenticationMethod
+  | ServerVerificationFailed
+  | InvalidPassword
+  | InvalidAuthorizationSpecification
+  | TooManyConnections
+  | InvalidDatabaseName
+  | ServerRejected
+  )

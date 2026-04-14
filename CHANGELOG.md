@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file. This projec
 ### Fixed
 
 - Fix session crash on server rejection during startup ([PR #207](https://github.com/ponylang/postgres/pull/207))
+- Close SCRAM mutual-authentication bypass ([PR #209](https://github.com/ponylang/postgres/pull/209))
 
 ### Added
 

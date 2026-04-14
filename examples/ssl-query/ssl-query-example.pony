@@ -50,19 +50,18 @@ actor Client is (SessionStatusNotify & ResultReceiver)
   be pg_session_connection_failed(session: Session,
     reason: ConnectionFailureReason)
   =>
-    _out.print("Connection failed (server may not support SSL).")
+    match reason
+    | SSLServerRefused | TLSHandshakeFailed | TLSAuthFailed =>
+      _out.print("Connection failed: SSL refused or TLS handshake failed.")
+    else
+      _out.print("Connection failed.")
+    end
 
   be pg_session_authenticated(session: Session) =>
     _out.print("Authenticated over SSL.")
     _out.print("Sending query....")
     let q = SimpleQuery("SELECT 525600::text")
     session.execute(q, this)
-
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _out.print("Failed to authenticate.")
 
   be pg_query_result(session: Session, result: Result) =>
     match result

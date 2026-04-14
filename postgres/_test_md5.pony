@@ -78,11 +78,10 @@ actor \nodoc\ _MD5QueryResultsReceiver is
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate with MD5 user")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>

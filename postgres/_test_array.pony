@@ -1183,12 +1183,12 @@ actor \nodoc\ _ArrayTestClient is (SessionStatusNotify & ResultReceiver)
       session.execute(SimpleQuery(_query_str), this)
     end
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Authentication failed")
+    _h.fail("Connection failed")
     _h.complete(false)
+    s.close()
 
   be pg_query_result(session: Session, result: Result) =>
     match result
@@ -1242,12 +1242,12 @@ actor \nodoc\ _ArrayRoundtripClient is (SessionStatusNotify & ResultReceiver)
     session.execute(PreparedQuery("SELECT $1::int4[] AS arr",
       recover val [as FieldDataTypes: arr] end), this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Authentication failed")
+    _h.fail("Connection failed")
     _h.complete(false)
+    s.close()
 
   be pg_query_result(session: Session, result: Result) =>
     match result
@@ -1302,12 +1302,12 @@ actor \nodoc\ _ArrayEmptyClient is (SessionStatusNotify & ResultReceiver)
     session.execute(PreparedQuery("SELECT '{}'::int4[] AS arr",
       recover val Array[FieldDataTypes] end), this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Authentication failed")
+    _h.fail("Connection failed")
     _h.complete(false)
+    s.close()
 
   be pg_query_result(session: Session, result: Result) =>
     match result
@@ -1351,12 +1351,12 @@ actor \nodoc\ _ArrayNullsClient is (SessionStatusNotify & ResultReceiver)
       "SELECT ARRAY[1,NULL,3]::int4[] AS arr",
       recover val Array[FieldDataTypes] end), this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Authentication failed")
+    _h.fail("Connection failed")
     _h.complete(false)
+    s.close()
 
   be pg_query_result(session: Session, result: Result) =>
     match result
@@ -1409,12 +1409,12 @@ actor \nodoc\ _ArrayMultiTypeClient is (SessionStatusNotify & ResultReceiver)
       "SELECT ARRAY[true,false]::bool[] AS b, ARRAY[1.5,2.5]::float8[] AS f",
       recover val Array[FieldDataTypes] end), this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Authentication failed")
+    _h.fail("Connection failed")
     _h.complete(false)
+    s.close()
 
   be pg_query_result(session: Session, result: Result) =>
     match result

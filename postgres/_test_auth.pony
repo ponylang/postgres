@@ -30,7 +30,7 @@ class \nodoc\ iso _TestSCRAMAuthenticationSuccess is UnitTest
 class \nodoc\ iso _TestSCRAMUnsupportedMechanism is UnitTest
   """
   Verifies that when the server offers only unsupported SASL mechanisms,
-  the session fires pg_session_authentication_failed with
+  the session fires pg_session_connection_failed with
   UnsupportedAuthenticationMethod.
   """
   fun name(): String =>
@@ -52,7 +52,7 @@ class \nodoc\ iso _TestSCRAMUnsupportedMechanism is UnitTest
 class \nodoc\ iso _TestSCRAMServerVerificationFailed is UnitTest
   """
   Verifies that when the server sends an incorrect signature in SASLFinal,
-  the session fires pg_session_authentication_failed with
+  the session fires pg_session_connection_failed with
   ServerVerificationFailed.
   """
   fun name(): String =>
@@ -76,7 +76,8 @@ class \nodoc\ iso _TestSCRAMErrorDuringAuth is UnitTest
   """
   Verifies that when the server sends an ErrorResponse with code 28P01
   during SCRAM authentication, the session fires
-  pg_session_authentication_failed with InvalidPassword.
+  pg_session_connection_failed with InvalidPassword carrying SQLSTATE
+  "28P01".
   """
   fun name(): String =>
     "SCRAM/ErrorDuringAuth"
@@ -97,7 +98,7 @@ class \nodoc\ iso _TestSCRAMErrorDuringAuth is UnitTest
 class \nodoc\ iso _TestUnsupportedAuthentication is UnitTest
   """
   Verifies that when the server requests an unsupported authentication type
-  (e.g., KerberosV5), the session fires pg_session_authentication_failed
+  (e.g., KerberosV5), the session fires pg_session_connection_failed
   with UnsupportedAuthenticationMethod.
   """
   fun name(): String =>
@@ -203,7 +204,8 @@ class \nodoc\ iso _TestCleartextAuthenticationSuccess is UnitTest
 class \nodoc\ iso _TestCleartextAuthenticationFailure is UnitTest
   """
   Verifies that when cleartext password authentication fails (wrong password),
-  the session fires pg_session_authentication_failed with InvalidPassword.
+  the session fires pg_session_connection_failed with InvalidPassword
+  carrying SQLSTATE "28P01".
   """
   fun name(): String =>
     "Cleartext/AuthenticationFailure"
@@ -257,7 +259,7 @@ actor \nodoc\ _CleartextTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let notify: SessionStatusNotify = if _send_error then
-      _SCRAMFailureTestNotify(_h, InvalidPassword)
+      _SCRAMFailureTestNotify(_h, _ExpectedSqlstate("28P01"))
     else
       _SCRAMSuccessTestNotify(_h)
     end
@@ -339,23 +341,36 @@ actor \nodoc\ _SCRAMSuccessTestNotify is SessionStatusNotify
   be pg_session_connection_failed(s: Session,
     reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to establish connection.")
+    _h.fail("Connection should have succeeded.")
     _h.complete(false)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Authentication should have succeeded.")
-    _h.complete(false)
+class \nodoc\ val _ExpectedSqlstate
+  """
+  Wrapper for an expected SQLSTATE code used by `_SCRAMFailureTestNotify`.
+  Distinct type — not a bare `String` — so the match arms that pair
+  expected-values with `ConnectionFailureReason` variants cannot collide
+  with any future `String`-valued variant of `ConnectionFailureReason`.
+  """
+  let code: String
+  new val create(code': String) =>
+    code = code'
 
 actor \nodoc\ _SCRAMFailureTestNotify is SessionStatusNotify
+  """
+  Asserts that `pg_session_connection_failed` fires with an expected reason.
+  Primitive variants (e.g., `UnsupportedAuthenticationMethod`) are matched by
+  identity. Class variants that wrap an `ErrorResponseMessage` are identified
+  by the SQLSTATE code they carry — pass `_ExpectedSqlstate(code)` instead
+  of constructing a placeholder class instance.
+  """
   let _h: TestHelper
-  let _expected_reason: AuthenticationFailureReason
+  let _expected: (ConnectionFailureReason | _ExpectedSqlstate)
 
-  new create(h: TestHelper, expected: AuthenticationFailureReason) =>
+  new create(h: TestHelper,
+    expected: (ConnectionFailureReason | _ExpectedSqlstate))
+  =>
     _h = h
-    _expected_reason = expected
+    _expected = expected
 
   be pg_session_authenticated(session: Session) =>
     _h.fail("Should not have authenticated.")
@@ -364,14 +379,25 @@ actor \nodoc\ _SCRAMFailureTestNotify is SessionStatusNotify
   be pg_session_connection_failed(s: Session,
     reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to establish connection.")
-    _h.complete(false)
-
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    if reason is _expected_reason then
+    let ok =
+      match (_expected, reason)
+      | (UnsupportedAuthenticationMethod, UnsupportedAuthenticationMethod) =>
+        true
+      | (ServerVerificationFailed, ServerVerificationFailed) => true
+      | (let e: _ExpectedSqlstate, let r: InvalidPassword) =>
+        r.response().code == e.code
+      | (let e: _ExpectedSqlstate, let r: InvalidAuthorizationSpecification) =>
+        r.response().code == e.code
+      | (let e: _ExpectedSqlstate, let r: TooManyConnections) =>
+        r.response().code == e.code
+      | (let e: _ExpectedSqlstate, let r: InvalidDatabaseName) =>
+        r.response().code == e.code
+      | (let e: _ExpectedSqlstate, let r: ServerRejected) =>
+        r.response().code == e.code
+      else
+        false
+      end
+    if ok then
       _h.complete(true)
     else
       _h.fail("Wrong failure reason.")
@@ -656,7 +682,7 @@ actor \nodoc\ _SCRAMErrorTestListener is lori.TCPListenerActor
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _SCRAMFailureTestNotify(_h, InvalidPassword))
+      _SCRAMFailureTestNotify(_h, _ExpectedSqlstate("28P01")))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -701,4 +727,234 @@ actor \nodoc\ _SCRAMErrorTestServer
           "password authentication failed").bytes()
         _tcp_connection.send(err)
       end
+    end
+
+primitive \nodoc\ _ConnectionFailureReasonFromErrorTestHelper
+  fun err(code: String): ErrorResponseMessage =>
+    ErrorResponseMessage("FATAL", None, code, "test message",
+      None, None, None, None, None, None, None, None, None, None, None,
+      None, None, None)
+
+class \nodoc\ iso _TestConnectionFailureReasonFromErrorInvalidPassword
+  is UnitTest
+  """
+  Verifies that _ConnectionFailureReasonFromError maps SQLSTATE 28P01 to
+  InvalidPassword, preserving the full ErrorResponseMessage.
+  """
+  fun name(): String => "ConnectionFailureReasonFromError/InvalidPassword"
+
+  fun apply(h: TestHelper) =>
+    let msg = _ConnectionFailureReasonFromErrorTestHelper.err("28P01")
+    match _ConnectionFailureReasonFromError(msg)
+    | let r: InvalidPassword =>
+      if r.response().code != "28P01" then
+        h.fail("Wrong SQLSTATE: " + r.response().code)
+      end
+    else
+      h.fail("Expected InvalidPassword for SQLSTATE 28P01.")
+    end
+
+class \nodoc\ iso
+  _TestConnectionFailureReasonFromErrorInvalidAuthorizationSpecification
+  is UnitTest
+  """
+  Verifies that _ConnectionFailureReasonFromError maps SQLSTATE 28000 to
+  InvalidAuthorizationSpecification.
+  """
+  fun name(): String =>
+    "ConnectionFailureReasonFromError/InvalidAuthorizationSpecification"
+
+  fun apply(h: TestHelper) =>
+    let msg = _ConnectionFailureReasonFromErrorTestHelper.err("28000")
+    match _ConnectionFailureReasonFromError(msg)
+    | let r: InvalidAuthorizationSpecification =>
+      if r.response().code != "28000" then
+        h.fail("Wrong SQLSTATE: " + r.response().code)
+      end
+    else
+      h.fail("Expected InvalidAuthorizationSpecification for SQLSTATE 28000.")
+    end
+
+class \nodoc\ iso _TestConnectionFailureReasonFromErrorTooManyConnections
+  is UnitTest
+  """
+  Verifies that _ConnectionFailureReasonFromError maps SQLSTATE 53300 to
+  TooManyConnections.
+  """
+  fun name(): String =>
+    "ConnectionFailureReasonFromError/TooManyConnections"
+
+  fun apply(h: TestHelper) =>
+    let msg = _ConnectionFailureReasonFromErrorTestHelper.err("53300")
+    match _ConnectionFailureReasonFromError(msg)
+    | let r: TooManyConnections =>
+      if r.response().code != "53300" then
+        h.fail("Wrong SQLSTATE: " + r.response().code)
+      end
+    else
+      h.fail("Expected TooManyConnections for SQLSTATE 53300.")
+    end
+
+class \nodoc\ iso _TestConnectionFailureReasonFromErrorInvalidDatabaseName
+  is UnitTest
+  """
+  Verifies that _ConnectionFailureReasonFromError maps SQLSTATE 3D000 to
+  InvalidDatabaseName.
+  """
+  fun name(): String =>
+    "ConnectionFailureReasonFromError/InvalidDatabaseName"
+
+  fun apply(h: TestHelper) =>
+    let msg = _ConnectionFailureReasonFromErrorTestHelper.err("3D000")
+    match _ConnectionFailureReasonFromError(msg)
+    | let r: InvalidDatabaseName =>
+      if r.response().code != "3D000" then
+        h.fail("Wrong SQLSTATE: " + r.response().code)
+      end
+    else
+      h.fail("Expected InvalidDatabaseName for SQLSTATE 3D000.")
+    end
+
+class \nodoc\ iso _TestConnectionFailureReasonFromErrorServerRejected
+  is UnitTest
+  """
+  Verifies that _ConnectionFailureReasonFromError falls back to
+  ServerRejected for any SQLSTATE not explicitly mapped.
+  """
+  fun name(): String =>
+    "ConnectionFailureReasonFromError/ServerRejected"
+
+  fun apply(h: TestHelper) =>
+    let msg = _ConnectionFailureReasonFromErrorTestHelper.err("XX000")
+    match _ConnectionFailureReasonFromError(msg)
+    | let r: ServerRejected =>
+      if r.response().code != "XX000" then
+        h.fail("Wrong SQLSTATE: " + r.response().code)
+      end
+    else
+      h.fail("Expected ServerRejected for unmapped SQLSTATE XX000.")
+    end
+
+class \nodoc\ iso _TestConnectionFailedOnServerRejection is UnitTest
+  """
+  Regression test for issue #203. When the server rejects the startup with
+  an ErrorResponse (e.g., SQLSTATE 53300 for `max_connections` exceeded)
+  before any authentication request, the driver must deliver the failure
+  via pg_session_connection_failed instead of crashing through an
+  unreachable state.
+  """
+  fun name(): String =>
+    "ConnectionFailedOnServerRejection"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "7724"
+
+    let listener = _TooManyConnectionsTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _TooManyConnectionsTestListener is lori.TCPListenerActor
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _h: TestHelper
+  let _host: String
+  let _port: String
+
+  new create(listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper)
+  =>
+    _host = host
+    _port = port
+    _h = h
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): _TooManyConnectionsTestServer =>
+    let server = _TooManyConnectionsTestServer(_server_auth, fd)
+    _h.dispose_when_done(server)
+    server
+
+  fun ref _on_listening() =>
+    let session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _TooManyConnectionsTestNotify(_h))
+    _h.dispose_when_done(session)
+
+  fun ref _on_listen_failure() =>
+    _h.fail("Unable to listen")
+    _h.complete(false)
+
+actor \nodoc\ _TooManyConnectionsTestServer
+  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  """
+  Mock server that immediately rejects the startup message with SQLSTATE
+  53300 (too_many_connections), closing the connection without requesting
+  authentication.
+  """
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _sent: Bool = false
+  let _reader: _MockMessageReader = _MockMessageReader
+
+  new create(auth: lori.TCPServerAuth, fd: U32) =>
+    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
+
+  fun ref _on_received(data: Array[U8] iso) =>
+    _reader.append(consume data)
+    if not _sent then
+      match _reader.read_startup_message()
+      | let _: Array[U8] val =>
+        _sent = true
+        let err = _IncomingErrorResponseTestMessage(
+          "FATAL", "53300",
+          "sorry, too many clients already").bytes()
+        _tcp_connection.send(err)
+        _tcp_connection.close()
+      end
+    end
+
+actor \nodoc\ _TooManyConnectionsTestNotify is SessionStatusNotify
+  let _h: TestHelper
+
+  new create(h: TestHelper) =>
+    _h = h
+
+  be pg_session_authenticated(session: Session) =>
+    _h.fail("Should not have authenticated.")
+    _h.complete(false)
+
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
+    match reason
+    | let r: TooManyConnections =>
+      if r.response().code != "53300" then
+        _h.fail("TooManyConnections carried wrong SQLSTATE code: "
+          + r.response().code)
+        _h.complete(false)
+        return
+      end
+      if r.response().message.size() == 0 then
+        _h.fail("TooManyConnections carried empty message.")
+        _h.complete(false)
+        return
+      end
+      _h.complete(true)
+    else
+      _h.fail("Expected TooManyConnections, got different reason.")
+      _h.complete(false)
     end

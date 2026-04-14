@@ -52,13 +52,6 @@ actor \nodoc\ _PipelineSuccessTestClient is
     end
     session.pipeline(queries, this)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_pipeline_result(session: Session, index: USize, result: Result) =>
     _results = _results + 1
 
@@ -234,13 +227,6 @@ actor \nodoc\ _PipelineWithFailureTestClient is
       ]
     end
     session.pipeline(queries, this)
-
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
 
   be pg_pipeline_result(session: Session, index: USize, result: Result) =>
     _results = _results + 1
@@ -419,13 +405,6 @@ actor \nodoc\ _PipelineEmptyTestClient is
     end
     session.pipeline(queries, this)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_pipeline_result(session: Session, index: USize, result: Result) =>
     _results = _results + 1
 
@@ -558,13 +537,6 @@ actor \nodoc\ _PipelineSingleQueryTestClient is
     end
     session.pipeline(queries, this)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_pipeline_result(session: Session, index: USize, result: Result) =>
     _results = _results + 1
     if index != 0 then
@@ -678,13 +650,6 @@ actor \nodoc\ _PipelineShutdownDrainsQueueTestClient is
     session.pipeline(queries, this)
     session.close()
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_pipeline_result(session: Session, index: USize, result: Result) =>
     _h.fail("Unexpected pipeline result.")
     _h.complete(false)
@@ -796,13 +761,6 @@ actor \nodoc\ _PipelineShutdownInFlightTestClient is
       ]
     end
     session.pipeline(queries, this)
-
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
 
   be pg_pipeline_result(session: Session, index: USize, result: Result) =>
     // First result arrives, then close
@@ -979,13 +937,6 @@ actor \nodoc\ _PipelineRowModifyingTestClient is
     end
     session.pipeline(queries, this)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_pipeline_result(session: Session, index: USize, result: Result) =>
     match result
     | let rm: RowModifying =>
@@ -1147,13 +1098,6 @@ actor \nodoc\ _PipelineMixedQueryTypesTestClient is
     end
     session.pipeline(queries, this)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_pipeline_result(session: Session, index: USize, result: Result) =>
     _results = _results + 1
 
@@ -1262,13 +1206,6 @@ actor \nodoc\ _PipelineAllFailTestClient is
       ]
     end
     session.pipeline(queries, this)
-
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
 
   be pg_pipeline_result(session: Session, index: USize, result: Result) =>
     _h.fail("Unexpected pipeline result.")
@@ -1412,11 +1349,10 @@ actor \nodoc\ _PipelineIntegrationNotify is
     session.execute(
       SimpleQuery("DROP TABLE IF EXISTS pipeline_test"), this)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate.")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
@@ -1527,11 +1463,10 @@ actor \nodoc\ _PipelineIntegrationWithFailureNotify is
     end
     session.pipeline(queries, this)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate.")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_pipeline_result(session: Session, index: USize, result: Result) =>

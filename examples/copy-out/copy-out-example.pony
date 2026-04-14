@@ -41,11 +41,10 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyOutReceiver)
     session.execute(
       SimpleQuery("DROP TABLE IF EXISTS copy_out_example"), this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _out.print("Failed to authenticate.")
+    _out.print("Connection failed.")
 
   be pg_copy_data(session: Session, data: Array[U8] val) =>
     _copy_data.append(data)

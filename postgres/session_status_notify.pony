@@ -16,23 +16,23 @@ interface tag SessionStatusNotify
     reason: ConnectionFailureReason)
   =>
     """
-    Called when we have failed to connect to the server before attempting to
-    authenticate.
+    Called when the session fails to reach the ready state. Fires for any
+    pre-ready failure including: transport-level errors (DNS, TCP, timeout),
+    TLS negotiation and handshake failures, unsupported authentication
+    methods, invalid passwords, invalid users, missing databases, server
+    connection-limit exhaustion, SCRAM server-verification failures, and
+    any other server rejection during startup. Inspect `reason` to
+    distinguish the cause; the class-valued variants carry the full
+    `ErrorResponseMessage`.
+
+    `pg_session_shutdown` fires immediately after this callback in all
+    cases — the session is torn down whenever connection fails.
     """
     None
 
   be pg_session_authenticated(session: Session) =>
     """
     Called when we have successfully authenticated with the server.
-    """
-    None
-
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    """
-    Called if we have failed to successfully authenicate with the server.
     """
     None
 

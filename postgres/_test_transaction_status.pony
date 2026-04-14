@@ -46,13 +46,6 @@ actor \nodoc\ _TxnStatusOnAuthClient is SessionStatusNotify
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
 class \nodoc\ iso _TestTransactionStatusDuringTransaction is UnitTest
   """
   Verifies that pg_transaction_status reports TransactionInBlock after BEGIN
@@ -134,13 +127,6 @@ actor \nodoc\ _TxnStatusDuringTxnClient is (SessionStatusNotify & ResultReceiver
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unable to establish connection.")
-    _h.complete(false)
-
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
     _h.complete(false)
 
 class \nodoc\ iso _TestTransactionStatusOnFailedTransaction is UnitTest
@@ -234,13 +220,6 @@ actor \nodoc\ _TxnStatusFailedClient is (SessionStatusNotify & ResultReceiver)
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unable to establish connection.")
-    _h.complete(false)
-
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
     _h.complete(false)
 
 // Shared infrastructure for transaction status tests
@@ -421,11 +400,10 @@ actor \nodoc\ _TransactionCommitClient is
         """),
       this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
@@ -521,11 +499,10 @@ actor \nodoc\ _TransactionRollbackClient is
     _phase = 0
     session.execute(SimpleQuery("BEGIN"), this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>

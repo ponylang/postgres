@@ -225,7 +225,7 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     | let _: lori.ConnectionFailedTimeout => ConnectionFailedTimeout
     | let _: lori.ConnectionFailedTimerError => ConnectionFailedTimerError
     end
-    state.on_failure(this, r)
+    state.on_connection_failed(this, r)
 
   fun ref _on_received(data: Array[U8] iso) =>
     state.on_received(this, consume data)
@@ -243,7 +243,7 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     | let _: lori.TLSAuthFailed => TLSAuthFailed
     | let _: lori.TLSGeneralError => TLSHandshakeFailed
     end
-    state.on_tls_failure(this, r)
+    state.on_connection_failed(this, r)
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
@@ -373,6 +373,11 @@ class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
   fun ref close_statement(s: Session ref, name: String) =>
     None
 
+  fun ref on_connection_failed(s: Session ref,
+    reason: ConnectionFailureReason)
+  =>
+    _IllegalState()
+
 class ref _SessionSSLNegotiating
   is (_NotConnectableState & _NotAuthenticableState & _NotAuthenticated)
   """
@@ -459,10 +464,21 @@ class ref _SessionSSLNegotiating
       _database_connect_info.user, _database_connect_info.database)
     s._connection().send(msg)
 
-  fun ref on_tls_failure(s: Session ref,
+  fun ref on_connection_failed(s: Session ref,
     reason: ConnectionFailureReason)
   =>
+    """
+    Entry point for failures reported by lori — currently only the TLS
+    handshake failure path (Session._on_tls_failure). Lori has already
+    closed the TCP connection on its side by the time this fires, so we
+    do not call close() ourselves.
+
+    For internally-initiated failures where the TCP connection is still
+    live (e.g., a bad SSL-negotiation response byte, StartTLSError), use
+    `_connection_failed` instead.
+    """
     _notify.pg_session_connection_failed(s, reason)
+    _notify.pg_session_shutdown(s)
     s.state = _SessionClosed
 
   fun ref execute(s: Session ref, q: Query, r: ResultReceiver,
@@ -549,8 +565,18 @@ class ref _SessionSSLNegotiating
   fun ref _connection_failed(s: Session ref,
     reason: ConnectionFailureReason)
   =>
+    """
+    Entry point for internally-initiated failures during SSL negotiation
+    (e.g., a non-'S'/'N' response byte, StartTLSError). The TCP connection
+    is still live, so this helper closes it before firing the failure and
+    shutdown callbacks.
+
+    For failures reported by lori (where lori has already closed the TCP
+    connection), use `on_connection_failed` instead.
+    """
     s._connection().close()
     _notify.pg_session_connection_failed(s, reason)
+    _notify.pg_session_shutdown(s)
     s.state = _SessionClosed
 
   fun ref _shutdown(s: Session ref) =>
@@ -667,11 +693,14 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
     s.state = _SessionLoggedIn(notify(), readbuf(), _codec_registry)
     notify().pg_session_authenticated(s)
 
-  fun ref on_authentication_failed(s: Session ref,
-    r: AuthenticationFailureReason)
+  fun ref on_connection_failed(s: Session ref,
+    reason: ConnectionFailureReason)
   =>
-    notify().pg_session_authentication_failed(s, r)
+    notify().pg_session_connection_failed(s, reason)
     shutdown(s)
+
+  fun ref on_error_response(s: Session ref, msg: ErrorResponseMessage) =>
+    on_connection_failed(s, _ConnectionFailureReasonFromError(msg))
 
   fun on_authentication_md5_password(s: Session ref,
     msg: _AuthenticationMD5PasswordMessage)
@@ -739,11 +768,6 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
   =>
     let server_final: String val = String.from_array(msg.data)
 
-    if server_final.at("e=") then
-      on_authentication_failed(s, InvalidPassword)
-      return
-    end
-
     if server_final.at("v=") then
       try
         let sig_b64_iso = server_final.substring(2)
@@ -752,7 +776,8 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
         match \exhaustive\ _expected_server_signature
         | let expected: Array[U8] val =>
           if not ConstantTimeCompare(expected, consume received_sig) then
-            on_authentication_failed(s, ServerVerificationFailed)
+            on_connection_failed(s, ServerVerificationFailed)
+            return
           end
           // If match, wait for AuthenticationOk(0) which PostgreSQL always
           // sends after a successful SASLFinal.
@@ -973,6 +998,11 @@ class _SessionLoggedIn is _AuthenticatedState
 
   fun ref on_portal_suspended(s: Session ref) =>
     query_state.on_portal_suspended(s, this)
+
+  fun ref on_connection_failed(s: Session ref,
+    reason: ConnectionFailureReason)
+  =>
+    _IllegalState()
 
   fun ref on_timer(s: Session ref, token: lori.TimerToken) =>
     match statement_timer
@@ -2552,27 +2582,21 @@ interface _SessionState
     """
     Called when a connection is established with the server.
     """
-  fun on_failure(s: Session ref, reason: ConnectionFailureReason)
-    """
-    Called if we fail to establish a connection with the server.
-    """
   fun ref on_tls_ready(s: Session ref)
     """
     Called when a TLS handshake initiated by start_tls() completes.
-    """
-  fun ref on_tls_failure(s: Session ref, reason: ConnectionFailureReason)
-    """
-    Called when a TLS handshake initiated by start_tls() fails.
     """
   fun ref on_authentication_ok(s: Session ref)
     """
     Called when we successfully authenticate with the server.
     """
-  fun ref on_authentication_failed(
-    s: Session ref,
-    reason: AuthenticationFailureReason)
+  fun ref on_connection_failed(s: Session ref,
+    reason: ConnectionFailureReason)
     """
-    Called if we failed to successfully authenticate with the server.
+    Called when the session fails to reach the ready state — any transport
+    failure, TLS failure, unsupported authentication method, or server
+    rejection during startup. Fires pg_session_connection_failed and
+    transitions to _SessionClosed.
     """
   fun on_authentication_md5_password(s: Session ref,
     msg: _AuthenticationMD5PasswordMessage)
@@ -2747,10 +2771,11 @@ interface _SessionState
 
   fun ref on_error_response(s: Session ref, msg: ErrorResponseMessage)
     """
-    Called when the server has encountered an error. Not all errors are called
-    using this callback. For example, we intercept authorization errors and
-    handle them using a specialized callback. All errors without a specialized
-    callback are handled by `on_error_response`.
+    Called when the server sends an ErrorResponse. During pre-ready startup
+    states, this routes through `_ConnectionFailureReasonFromError` to fire
+    `pg_session_connection_failed`. During the logged-in state, this flows
+    into `_QueryState` error handling so the error is delivered to the
+    failing query's receiver.
     """
 
   fun ref on_data_row(s: Session ref, msg: _DataRowMessage)
@@ -2841,9 +2866,12 @@ trait _ConnectableState is _UnconnectedState
     s.state = st
     st.send_ssl_request(s)
 
-  fun on_failure(s: Session ref, reason: ConnectionFailureReason) =>
-    s.state = _SessionClosed
+  fun ref on_connection_failed(s: Session ref,
+    reason: ConnectionFailureReason)
+  =>
     notify().pg_session_connection_failed(s, reason)
+    notify().pg_session_shutdown(s)
+    s.state = _SessionClosed
 
   fun _send_startup_message(s: Session ref) =>
     let dci = database_connect_info()
@@ -2864,9 +2892,6 @@ trait _NotConnectableState
   fun on_connected(s: Session ref) =>
     _IllegalState()
 
-  fun on_failure(s: Session ref, reason: ConnectionFailureReason) =>
-    _IllegalState()
-
 trait _ConnectedState is _NotConnectableState
   """
   A connected session. Connected sessions are not connectable as they have
@@ -2884,10 +2909,6 @@ trait _ConnectedState is _NotConnectableState
   fun ref on_tls_ready(s: Session ref) =>
     _IllegalState()
 
-  fun ref on_tls_failure(s: Session ref,
-    reason: ConnectionFailureReason)
-  =>
-    _IllegalState()
   fun ref on_received(s: Session ref, data: Array[U8] iso) =>
     readbuf().append(consume data)
     process_responses(s)
@@ -2952,10 +2973,6 @@ trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
   fun ref on_tls_ready(s: Session ref) =>
     _IllegalState()
 
-  fun ref on_tls_failure(s: Session ref,
-    reason: ConnectionFailureReason)
-  =>
-    _IllegalState()
   fun ref on_received(s: Session ref, data: Array[U8] iso) =>
     // It is possible we will continue to receive data after we have closed
     // so this isn't an invalid state. We should silently drop the data. If
@@ -3007,9 +3024,14 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
     s.state = _SessionLoggedIn(notify(), readbuf(), codec_registry())
     notify().pg_session_authenticated(s)
 
-  fun ref on_authentication_failed(s: Session ref, r: AuthenticationFailureReason) =>
-    notify().pg_session_authentication_failed(s, r)
+  fun ref on_connection_failed(s: Session ref,
+    reason: ConnectionFailureReason)
+  =>
+    notify().pg_session_connection_failed(s, reason)
     shutdown(s)
+
+  fun ref on_error_response(s: Session ref, msg: ErrorResponseMessage) =>
+    on_connection_failed(s, _ConnectionFailureReasonFromError(msg))
 
   fun on_authentication_md5_password(s: Session ref,
     msg: _AuthenticationMD5PasswordMessage)
@@ -3034,7 +3056,7 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
       end
     end
     if not found then
-      on_authentication_failed(s, UnsupportedAuthenticationMethod)
+      on_connection_failed(s, UnsupportedAuthenticationMethod)
       return
     end
 
@@ -3079,12 +3101,6 @@ trait _NotAuthenticableState
   that haven't yet been authenticated are eligible to be authenticated.
   """
   fun ref on_authentication_ok(s: Session ref) =>
-    _IllegalState()
-
-  fun ref on_authentication_failed(
-    s: Session ref,
-    r: AuthenticationFailureReason)
-  =>
     _IllegalState()
 
   fun on_authentication_md5_password(s: Session ref,

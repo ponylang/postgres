@@ -27,24 +27,14 @@ primitive _ResponseMessageParser
         | let msg: _AuthenticationSASLFinalMessage =>
           s.state.on_authentication_sasl_final(s, msg)
         | _UnsupportedAuthenticationMessage =>
-          s.state.on_authentication_failed(s, UnsupportedAuthenticationMethod)
+          s.state.on_connection_failed(s, UnsupportedAuthenticationMethod)
           return
         | let msg: _CommandCompleteMessage =>
           s.state.on_command_complete(s, msg)
         | let msg: _DataRowMessage =>
           s.state.on_data_row(s, msg)
         | let err: ErrorResponseMessage =>
-          match err.code
-          | "28000" =>
-            s.state.on_authentication_failed(s,
-              InvalidAuthenticationSpecification)
-            return
-          | "28P01" =>
-            s.state.on_authentication_failed(s, InvalidPassword)
-            return
-          else
-            s.state.on_error_response(s, err)
-          end
+          s.state.on_error_response(s, err)
         | let msg: _ReadyForQueryMessage =>
           s.state.on_ready_for_query(s, msg)
           // ReadyForQuery marks the end of a query cycle. Yield to other

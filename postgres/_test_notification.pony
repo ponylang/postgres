@@ -90,13 +90,6 @@ actor \nodoc\ _NotificationDeliveryClient
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
 class \nodoc\ iso _TestNotificationDuringDataRows is UnitTest
   """
   Verifies that a NotificationResponse arriving between DataRow messages
@@ -180,13 +173,6 @@ actor \nodoc\ _NotificationDuringDataRowsClient
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unable to establish connection.")
-    _h.complete(false)
-
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
     _h.complete(false)
 
 // Shared mock server infrastructure for notification tests
@@ -421,11 +407,10 @@ actor \nodoc\ _ListenNotifyClient
     _phase = 0
     session.execute(SimpleQuery("LISTEN " + _channel), this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>

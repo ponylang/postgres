@@ -31,11 +31,10 @@ actor \nodoc\ _ResultsIncludeOriginatingQueryReceiver is
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to establish connection")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
@@ -118,9 +117,8 @@ actor \nodoc\ _QueryAfterAuthenticationFailureNotify is
     _h.fail("Unexpected successful authentication")
     _h.complete(false)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
     session.execute(_query, this)
 
@@ -220,11 +218,11 @@ actor \nodoc\ _QueryAfterSessionHasBeenClosedNotify is
   be pg_session_authenticated(session: Session) =>
     session.close()
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unexpected authentication failure")
+    _h.fail("Connection failed before reaching authenticated state.")
+    _h.complete(false)
 
   be pg_session_shutdown(session: Session) =>
     session.execute(_query, this)
@@ -272,11 +270,10 @@ actor \nodoc\ _NonExistentTableQueryReceiver is
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to establish connection")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
@@ -392,11 +389,10 @@ actor \nodoc\ _AllSuccessQueryRunningClient is
       _h.complete(false)
     end
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to establish connection")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
@@ -458,11 +454,10 @@ actor \nodoc\ _EmptyQueryReceiver is
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to establish connection")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
@@ -514,11 +509,10 @@ actor \nodoc\ _ZeroRowSelectReceiver is
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
@@ -590,11 +584,10 @@ actor \nodoc\ _MultiStatementMixedClient is
         """),
       this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
@@ -698,11 +691,10 @@ actor \nodoc\ _PreparedQueryResultsReceiver is
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to establish connection")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
@@ -787,11 +779,10 @@ actor \nodoc\ _PreparedQueryNullParamReceiver is
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to establish connection")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
@@ -872,11 +863,10 @@ actor \nodoc\ _PreparedQueryNonExistentTableReceiver is
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to establish connection")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
@@ -936,11 +926,10 @@ actor \nodoc\ _PreparedQueryInsertAndDeleteClient is
         """),
       this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
@@ -1050,11 +1039,10 @@ actor \nodoc\ _PreparedQueryMixedClient is
     _phase = 0
     session.execute(SimpleQuery("SELECT 525600::text"), this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
@@ -1167,11 +1155,10 @@ actor \nodoc\ _PrepareStatementClient is
   be pg_session_authenticated(session: Session) =>
     session.prepare("s1", "SELECT $1::text", this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_statement_prepared(session: Session, name: String) =>
@@ -1223,11 +1210,10 @@ actor \nodoc\ _PrepareAndExecuteClient is
   be pg_session_authenticated(session: Session) =>
     session.prepare("s1", "SELECT $1::text", this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_statement_prepared(session: Session, name: String) =>
@@ -1305,11 +1291,10 @@ actor \nodoc\ _PrepareAndExecuteMultipleClient is
   be pg_session_authenticated(session: Session) =>
     session.prepare("s1", "SELECT $1::text", this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_statement_prepared(session: Session, name: String) =>
@@ -1409,11 +1394,10 @@ actor \nodoc\ _PrepareAndCloseClient is
   be pg_session_authenticated(session: Session) =>
     session.prepare("s1", "SELECT $1::text", this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_statement_prepared(session: Session, name: String) =>
@@ -1478,11 +1462,10 @@ actor \nodoc\ _PrepareFailsClient is
   be pg_session_authenticated(session: Session) =>
     session.prepare("bad", "NOT VALID SQL !!!", this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_statement_prepared(session: Session, name: String) =>
@@ -1541,11 +1524,10 @@ actor \nodoc\ _PrepareAfterCloseClient is
     _phase = 0
     session.prepare("s1", "SELECT 1::text", this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_statement_prepared(session: Session, name: String) =>
@@ -1635,11 +1617,10 @@ actor \nodoc\ _CloseNonexistentClient is
     session.close_statement("nonexistent")
     session.execute(SimpleQuery("SELECT 1"), this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
@@ -1688,11 +1669,10 @@ actor \nodoc\ _PrepareDuplicateNameClient is
     _phase = 0
     session.prepare("dup", "SELECT 1", this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_statement_prepared(session: Session, name: String) =>
@@ -1757,11 +1737,10 @@ actor \nodoc\ _MixedAllThreeClient is
     _phase = 0
     session.execute(SimpleQuery("SELECT 'simple'::text"), this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_statement_prepared(session: Session, name: String) =>
@@ -1874,11 +1853,10 @@ actor \nodoc\ _CopyInInsertClient is
         "CREATE TEMP TABLE copy_test (id INT, name TEXT)"),
       this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
@@ -1992,11 +1970,10 @@ actor \nodoc\ _CopyInAbortRollbackClient is
         "CREATE TEMP TABLE copy_abort_test (id INT, name TEXT)"),
       this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
@@ -2101,11 +2078,10 @@ actor \nodoc\ _ByteaQueryReceiver is
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate.")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
@@ -2187,11 +2163,10 @@ actor \nodoc\ _PreparedQueryTypedResultsReceiver is
       recover val Array[FieldDataTypes] end)
     session.execute(q, this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate.")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>

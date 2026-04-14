@@ -49,13 +49,6 @@ actor \nodoc\ _TimeoutTestClient is (SessionStatusNotify & ResultReceiver)
       _h.complete(false)
     end
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_query_result(session: Session, result: Result) =>
     None
 
@@ -248,13 +241,6 @@ actor \nodoc\ _TimeoutCancelledTestClient
       _h.complete(false)
     end
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_query_result(session: Session, result: Result) =>
     _h.complete(true)
 
@@ -400,11 +386,10 @@ actor \nodoc\ _TimeoutPgSleepClient is
       _h.complete(false)
     end
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to authenticate.")
+    _h.fail("Connection failed before reaching authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>

@@ -35,6 +35,7 @@ class \nodoc\ iso _TestSSLNegotiationRefused is UnitTest
 
 actor \nodoc\ _SSLRefusedTestNotify is SessionStatusNotify
   let _h: TestHelper
+  var _connection_failed: Bool = false
 
   new create(h: TestHelper) =>
     _h = h
@@ -42,15 +43,19 @@ actor \nodoc\ _SSLRefusedTestNotify is SessionStatusNotify
   be pg_session_connection_failed(s: Session,
     reason: ConnectionFailureReason)
   =>
-    _h.complete(true)
+    _connection_failed = true
 
   be pg_session_connected(s: Session) =>
     _h.fail("Should not have connected")
     _h.complete(false)
 
   be pg_session_shutdown(s: Session) =>
-    _h.fail("Should not have gotten shutdown")
-    _h.complete(false)
+    if not _connection_failed then
+      _h.fail("pg_session_shutdown fired before pg_session_connection_failed")
+      _h.complete(false)
+    else
+      _h.complete(true)
+    end
 
 actor \nodoc\ _SSLRefusedTestListener is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()

@@ -41,11 +41,10 @@ actor Client is
     session.execute(
       SimpleQuery("DROP TABLE IF EXISTS streaming_example"), this)
 
-  be pg_session_authentication_failed(
-    s: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _out.print("Failed to authenticate.")
+    _out.print("Connection failed.")
 
   be pg_query_result(session: Session, result: Result) =>
     _phase = _phase + 1

@@ -42,13 +42,6 @@ actor \nodoc\ _CopyInSuccessTestClient is
     _session = session
     session.copy_in("COPY t FROM STDIN", this)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_copy_ready(session: Session) =>
     _pulls = _pulls + 1
     if _pulls <= 2 then
@@ -215,13 +208,6 @@ actor \nodoc\ _CopyInAbortTestClient is
     _session = session
     session.copy_in("COPY t FROM STDIN", this)
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_copy_ready(session: Session) =>
     session.abort_copy("client abort")
 
@@ -379,13 +365,6 @@ actor \nodoc\ _CopyInServerErrorTestClient is
   be pg_session_authenticated(session: Session) =>
     _session = session
     session.copy_in("COPY t FROM STDIN", this)
-
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
 
   be pg_copy_ready(session: Session) =>
     let row: Array[U8] val = recover val
@@ -581,13 +560,6 @@ actor \nodoc\ _CopyInShutdownTestClient is
     session.copy_in("COPY t2 FROM STDIN", this)
     session.close()
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
-  =>
-    _h.fail("Unable to authenticate.")
-    _h.complete(false)
-
   be pg_copy_ready(session: Session) =>
     _h.fail("Unexpected copy ready.")
     _h.complete(false)
@@ -676,11 +648,11 @@ actor \nodoc\ _CopyInAfterSessionClosedNotify is
   be pg_session_authenticated(session: Session) =>
     session.close()
 
-  be pg_session_authentication_failed(
-    session: Session,
-    reason: AuthenticationFailureReason)
+  be pg_session_connection_failed(session: Session,
+    reason: ConnectionFailureReason)
   =>
-    _h.fail("Unexpected authentication failure")
+    _h.fail("Connection failed before reaching authenticated state.")
+    _h.complete(false)
 
   be pg_session_shutdown(session: Session) =>
     session.copy_in("COPY t FROM STDIN", this)

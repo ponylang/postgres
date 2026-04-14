@@ -6,12 +6,14 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Fixed
 
+- Fix session crash on server rejection during startup ([PR #207](https://github.com/ponylang/postgres/pull/207))
 
 ### Added
 
 
 ### Changed
 
+- Consolidate authentication failure into connection failure ([PR #207](https://github.com/ponylang/postgres/pull/207))
 
 ## [0.4.0] - 2026-04-12
 

@@ -4,7 +4,9 @@ use "pony_test"
 
 class \nodoc\ iso _TestHandlingJunkMessages is UnitTest
   """
-  Verifies that a session shuts down when receiving junk from the server.
+  Verifies that when the server sends unparseable bytes before auth, the
+  session reports `pg_session_connection_failed(ProtocolViolation)` and
+  then `pg_session_shutdown` — in that order.
   """
   fun name(): String =>
     "HandlingJunkMessages"
@@ -24,18 +26,30 @@ class \nodoc\ iso _TestHandlingJunkMessages is UnitTest
 
 actor \nodoc\ _HandlingJunkTestNotify is SessionStatusNotify
   let _h: TestHelper
+  var _connection_failed: Bool = false
 
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_shutdown(s: Session) =>
-    _h.complete(true)
-
   be pg_session_connection_failed(s: Session,
     reason: ConnectionFailureReason)
   =>
-    _h.fail("Unable to establish connection")
-    _h.complete(false)
+    match reason
+    | ProtocolViolation =>
+      _connection_failed = true
+    else
+      _h.fail("Expected ProtocolViolation.")
+      _h.complete(false)
+    end
+
+  be pg_session_shutdown(s: Session) =>
+    if not _connection_failed then
+      _h.fail(
+        "pg_session_shutdown fired before pg_session_connection_failed.")
+      _h.complete(false)
+      return
+    end
+    _h.complete(true)
 
 actor \nodoc\ _JunkSendingTestListener is lori.TCPListenerActor
   """

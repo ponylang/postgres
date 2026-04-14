@@ -20,10 +20,17 @@ interface tag SessionStatusNotify
     pre-ready failure including: transport-level errors (DNS, TCP, timeout),
     TLS negotiation and handshake failures, unsupported authentication
     methods, invalid passwords, invalid users, missing databases, server
-    connection-limit exhaustion, SCRAM server-verification failures, and
-    any other server rejection during startup. Inspect `reason` to
-    distinguish the cause; the class-valued variants carry the full
-    `ErrorResponseMessage`.
+    connection-limit exhaustion, SCRAM server-verification failures, server
+    protocol violations (unparseable bytes, wrong-state messages, or
+    unexpected SSL-negotiation bytes), and any other server rejection during
+    startup. Inspect `reason` to distinguish the cause; the class-valued
+    variants carry the full `ErrorResponseMessage`.
+
+    For failures that originate after the TCP connection is established
+    (TLS, authentication, protocol violation, server rejection),
+    `pg_session_connected` will have already fired. Applications that need
+    to know whether any bytes were exchanged with the server before the
+    failure can track that callback.
 
     `pg_session_shutdown` fires immediately after this callback in all
     cases — the session is torn down whenever connection fails.

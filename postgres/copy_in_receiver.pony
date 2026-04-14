@@ -32,5 +32,6 @@ interface tag CopyInReceiver
     """
     Called when the COPY operation fails. The failure is either a server error
     (ErrorResponseMessage) or a client-side error (ClientQueryError) such as
-    the session being closed or not yet authenticated.
+    the session being closed, not yet authenticated, or torn down after a
+    server protocol violation (`ProtocolViolation`).
     """

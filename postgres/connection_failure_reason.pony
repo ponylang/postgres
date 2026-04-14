@@ -111,6 +111,7 @@ type ConnectionFailureReason is
   | TLSAuthFailed
   | UnsupportedAuthenticationMethod
   | ServerVerificationFailed
+  | ProtocolViolation
   | InvalidPassword
   | InvalidAuthorizationSpecification
   | TooManyConnections

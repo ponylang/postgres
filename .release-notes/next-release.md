@@ -65,9 +65,54 @@ be pg_session_connection_failed(session: Session,
 - `UnsupportedAuthenticationMethod` and `ServerVerificationFailed` remain primitives but are now delivered via `pg_session_connection_failed`.
 - New variants: `TooManyConnections` (SQLSTATE 53300), `InvalidDatabaseName` (SQLSTATE 3D000), and `ServerRejected` (fallback for any other server ErrorResponse during startup). All three are `class val` wrappers around `ErrorResponseMessage`.
 - `pg_session_shutdown` now fires after every `pg_session_connection_failed`. Previously, transport-level and TLS-negotiation failures fired only `pg_session_connection_failed` while authentication and server-rejection failures fired both. The unified failure callback now always terminates with `pg_session_shutdown`, matching the "session is torn down" mental model regardless of which phase failed.
+
 ## Close SCRAM mutual-authentication bypass
 
 The driver now rejects SCRAM-SHA-256 exchanges in which the server skips, duplicates, or malforms authentication messages. Previously, a server could send `AuthenticationOk` without a preceding `AuthenticationSASLFinal` and the driver would authenticate the session without verifying the server's signature, defeating SCRAM's mutual-authentication property.
 
 Protocol violations during SCRAM — a skipped `AuthenticationSASLFinal`, a duplicated `AuthenticationSASLContinue`, an `AuthenticationSASLFinal` arriving before `AuthenticationSASLContinue`, malformed SASLFinal content, or a malformed or nonce-mismatched `AuthenticationSASLContinue` — now fail the connection via `pg_session_connection_failed` with `ServerVerificationFailed`, matching the existing behavior for a mismatched server signature. Previously, several of these conditions caused the session to close silently without notifying the application.
 
+## Deliver server protocol violations to the application
+
+A server can send bytes the driver can't parse, a wire-legal message that's invalid for the current connection state, or an unexpected byte during SSL negotiation. Any of those used to silently shut the session down or, worse, crash the client process through an illegal-state panic. Neither outcome gave an application trying to understand why its session died anything to work with.
+
+All three paths now route through the state machine's own error handling. A pre-ready violation fires `pg_session_connection_failed(ProtocolViolation)` followed by `pg_session_shutdown`. A logged-in session with a query in flight delivers `ProtocolViolation` to that query's receiver — `pg_query_failed`, `pg_prepare_failed`, `pg_copy_failed`, `pg_stream_failed`, or `pg_pipeline_failed` — before `pg_session_shutdown` fires. Queries that were merely queued still receive `SessionClosed`, since only the in-flight query directly observed the violation.
+
+For a pipeline, the currently-executing query receives `ProtocolViolation` and the remaining queries receive `SessionClosed`.
+
+## Add ProtocolViolation to ConnectionFailureReason and ClientQueryError
+
+`ProtocolViolation` is a new primitive that now appears in both the `ConnectionFailureReason` union (delivered via `pg_session_connection_failed`) and the `ClientQueryError` union (delivered via `pg_query_failed` and its peers). It carries no diagnostic payload. Shipping server-supplied bytes or parser state with the failure would be an attack vector for log injection, DoS amplification, and running code on hostile input during error handling. Easier to add bounded symbolic detail later if a user need emerges than to remove it once shipped.
+
+### Migration
+
+Any `match \exhaustive\` on `ConnectionFailureReason` or `ClientQueryError` needs a new arm for `ProtocolViolation`. Non-exhaustive matches (with an `else` clause or no `\exhaustive\` annotation) keep compiling without changes.
+
+Before:
+
+```pony
+be pg_session_connection_failed(session: Session,
+  reason: ConnectionFailureReason)
+=>
+  match \exhaustive\ reason
+  | ConnectionFailedDNS => _out.print("DNS")
+  | ConnectionFailedTCP => _out.print("TCP")
+  // ...
+  end
+```
+
+After:
+
+```pony
+be pg_session_connection_failed(session: Session,
+  reason: ConnectionFailureReason)
+=>
+  match \exhaustive\ reason
+  | ConnectionFailedDNS => _out.print("DNS")
+  | ConnectionFailedTCP => _out.print("TCP")
+  // ...
+  | ProtocolViolation => _out.print("Protocol violation")
+  end
+```
+
+The same applies to `ClientQueryError`: add a `| ProtocolViolation =>` arm to any exhaustive match and handle the case the way you'd handle an unrecoverable session failure on the query you dispatched.

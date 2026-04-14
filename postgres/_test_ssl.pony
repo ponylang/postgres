@@ -43,7 +43,13 @@ actor \nodoc\ _SSLRefusedTestNotify is SessionStatusNotify
   be pg_session_connection_failed(s: Session,
     reason: ConnectionFailureReason)
   =>
-    _connection_failed = true
+    match reason
+    | SSLServerRefused =>
+      _connection_failed = true
+    else
+      _h.fail("Expected SSLServerRefused.")
+      _h.complete(false)
+    end
 
   be pg_session_connected(s: Session) =>
     _h.fail("Should not have connected")

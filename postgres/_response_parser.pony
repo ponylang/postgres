@@ -72,8 +72,9 @@ primitive _ResponseParser
 
     // postgres sends the payload size as the payload plus the 4 bytes for the
     // descriptive header on the payload. We are calling `payload_size` to be
-    // only the payload, not the header as well.
-    let payload_size = buffer.peek_u32_be(1)?.usize() - 4
+    // only the payload, not the header as well. `sub_partial` errors on a
+    // server-declared length less than 4 instead of wrapping the result.
+    let payload_size = buffer.peek_u32_be(1)?.usize().sub_partial(4)?
     let message_size = payload_size + 4 + 1
 
     // The message will be `message_size` in length. If we have less than
@@ -111,7 +112,7 @@ primitive _ResponseParser
         buffer.skip(9)?
         // Parse null-terminated mechanism names from the remaining payload.
         // The list ends with a lone null byte (empty string).
-        let remaining = payload_size - 4
+        let remaining = payload_size.sub_partial(4)?
         let payload = buffer.block(remaining)?
         let reader: Reader = Reader.>append(consume payload)
         let mechanisms: Array[String] iso = recover iso Array[String] end
@@ -126,13 +127,13 @@ primitive _ResponseParser
       elseif auth_type == _AuthenticationRequestType.sasl_continue() then
         // Skip past header (5 bytes) and auth type field (4 bytes)
         buffer.skip(9)?
-        let remaining = payload_size - 4
+        let remaining = payload_size.sub_partial(4)?
         let data = buffer.block(remaining)?
         return _AuthenticationSASLContinueMessage(consume data)
       elseif auth_type == _AuthenticationRequestType.sasl_final() then
         // Skip past header (5 bytes) and auth type field (4 bytes)
         buffer.skip(9)?
-        let remaining = payload_size - 4
+        let remaining = payload_size.sub_partial(4)?
         let data = buffer.block(remaining)?
         return _AuthenticationSASLFinalMessage(consume data)
       else
@@ -154,7 +155,7 @@ primitive _ResponseParser
       // Slide past the header...
       buffer.skip(5)?
       // and only get the payload
-      let payload = buffer.block(payload_size - 1)?
+      let payload = buffer.block(payload_size.sub_partial(1)?)?
       // And skip the null terminator
       buffer.skip(1)?
       return _command_complete(consume payload)?

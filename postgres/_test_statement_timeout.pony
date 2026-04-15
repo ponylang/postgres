@@ -194,6 +194,107 @@ actor \nodoc\ _TimeoutTestServer
       // the statement timeout timer will fire.
     end
 
+class \nodoc\ iso _TestStatementTimeoutRearmOnTimerFailure is UnitTest
+  """
+  Verifies that when the statement timer's ASIO event subscription fails,
+  the driver rearms the timer with the in-flight operation's original
+  duration instead of silently dropping the timeout. The client simulates
+  the failure via `_test_trigger_on_timer_failure` immediately after
+  dispatching a query; the rearmed timer fires and a CancelRequest arrives
+  on the second connection.
+  """
+  fun name(): String =>
+    "StatementTimeout/RearmOnTimerFailure"
+
+  fun apply(h: TestHelper) =>
+    let host = "127.0.0.1"
+    let port = "7760"
+
+    let listener = _TimeoutRearmTestListener(
+      lori.TCPListenAuth(h.env.root),
+      host,
+      port,
+      h)
+
+    h.dispose_when_done(listener)
+    h.long_test(5_000_000_000)
+
+actor \nodoc\ _TimeoutRearmTestClient is (SessionStatusNotify & ResultReceiver)
+  let _h: TestHelper
+
+  new create(h: TestHelper) =>
+    _h = h
+
+  be pg_session_connection_failed(s: Session,
+    reason: ConnectionFailureReason)
+  =>
+    _h.fail("Unable to establish connection.")
+    _h.complete(false)
+
+  be pg_session_authenticated(session: Session) =>
+    // Execute a query with a 200ms timeout, then immediately simulate an
+    // ASIO subscription failure on the statement timer. The session
+    // processes `execute` first (arms the original timer), then the
+    // simulation (cancels the original token and rearms with 200ms). The
+    // rearmed timer fires and sends a CancelRequest on a second connection.
+    match lori.MakeTimerDuration(200)
+    | let d: lori.TimerDuration =>
+      session.execute(SimpleQuery("SELECT pg_sleep(100)"), this
+        where statement_timeout = d)
+      session._test_trigger_on_timer_failure()
+    | let _: ValidationFailure =>
+      _h.fail("Failed to create TimerDuration.")
+      _h.complete(false)
+    end
+
+  be pg_query_result(session: Session, result: Result) =>
+    None
+
+  be pg_query_failed(session: Session, query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    None
+
+actor \nodoc\ _TimeoutRearmTestListener is lori.TCPListenerActor
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _h: TestHelper
+  let _host: String
+  let _port: String
+  var _connection_count: USize = 0
+
+  new create(listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper)
+  =>
+    _host = host
+    _port = port
+    _h = h
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): _TimeoutTestServer =>
+    _connection_count = _connection_count + 1
+    let server = _TimeoutTestServer(_server_auth, fd, _h,
+      _connection_count > 1)
+    _h.dispose_when_done(server)
+    server
+
+  fun ref _on_listening() =>
+    let session = Session(
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      DatabaseConnectInfo("postgres", "postgres", "postgres"),
+      _TimeoutRearmTestClient(_h))
+    _h.dispose_when_done(session)
+
+  fun ref _on_listen_failure() =>
+    _h.fail("Unable to listen")
+    _h.complete(false)
+
 class \nodoc\ iso _TestStatementTimeoutCancelledOnCompletion is UnitTest
   """
   Verifies that when a query completes before its statement_timeout, the

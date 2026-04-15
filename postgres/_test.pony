@@ -156,6 +156,7 @@ actor \nodoc\ Main is TestList
     test(_TestCancelSSLPgSleep)
     test(_TestConnectionTimeoutFires)
     test(_TestStatementTimeoutFires)
+    test(_TestStatementTimeoutRearmOnTimerFailure)
     test(_TestStatementTimeoutCancelledOnCompletion)
     test(_TestStatementTimeoutPgSleep)
     test(_TestResponseParserAuthenticationSASLMessage)

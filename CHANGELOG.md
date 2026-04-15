@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file. This projec
 
 - Consolidate authentication failure into connection failure ([PR #207](https://github.com/ponylang/postgres/pull/207))
 - Add ProtocolViolation to ConnectionFailureReason and ClientQueryError ([PR #212](https://github.com/ponylang/postgres/pull/212))
+- Require SCRAM authentication by default ([PR #224](https://github.com/ponylang/postgres/pull/224))
 
 ## [0.4.0] - 2026-04-12
 

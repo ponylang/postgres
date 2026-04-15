@@ -342,7 +342,8 @@ actor \nodoc\ _SSLSuccessTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port, SSLRequired(_client_sslctx)),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port,
+        SSLRequired(_client_sslctx) where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _SSLSuccessTestNotify(_h))
     _h.dispose_when_done(session)
@@ -600,7 +601,7 @@ actor \nodoc\ _SSLPreferredFallbackTestListener is lori.TCPListenerActor
   fun ref _on_listening() =>
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port,
-        SSLPreferred(_sslctx)),
+        SSLPreferred(_sslctx) where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _SSLPreferredFallbackTestNotify(_h))
     _h.dispose_when_done(session)
@@ -754,7 +755,7 @@ actor \nodoc\ _SSLPreferredSuccessTestListener is lori.TCPListenerActor
   fun ref _on_listening() =>
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port,
-        SSLPreferred(_client_sslctx)),
+        SSLPreferred(_client_sslctx) where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _SSLPreferredSuccessTestNotify(_h))
     _h.dispose_when_done(session)
@@ -957,7 +958,7 @@ actor \nodoc\ _SSLPreferredCancelTestListener is lori.TCPListenerActor
   fun ref _on_listening() =>
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port,
-        SSLPreferred(_client_sslctx)),
+        SSLPreferred(_client_sslctx) where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _CancelTestClient(_h))
     _h.dispose_when_done(session)

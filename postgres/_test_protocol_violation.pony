@@ -222,7 +222,8 @@ actor \nodoc\ _PVParseInFlightListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PVParseInFlightClient(_h))
     _h.dispose_when_done(session)
@@ -331,7 +332,8 @@ actor \nodoc\ _PVParseIdleListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PVParseIdleClient(_h))
     _h.dispose_when_done(session)
@@ -580,7 +582,8 @@ actor \nodoc\ _PVWrongStateIdleListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PVParseIdleClient(_h))
     _h.dispose_when_done(session)
@@ -658,7 +661,8 @@ actor \nodoc\ _PVWrongStateInFlightListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PVParseInFlightClient(_h))
     _h.dispose_when_done(session)
@@ -787,7 +791,8 @@ actor \nodoc\ _PVCopyInInFlightListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PVCopyInInFlightClient(_h))
     _h.dispose_when_done(session)
@@ -883,7 +888,8 @@ actor \nodoc\ _PVCopyOutInFlightListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PVCopyOutInFlightClient(_h))
     _h.dispose_when_done(session)
@@ -975,7 +981,8 @@ actor \nodoc\ _PVPrepareInFlightListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PVPrepareInFlightClient(_h))
     _h.dispose_when_done(session)
@@ -1080,7 +1087,8 @@ actor \nodoc\ _PVStreamInFlightListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PVStreamInFlightClient(_h))
     _h.dispose_when_done(session)
@@ -1193,7 +1201,8 @@ actor \nodoc\ _PVPipelineInFlightListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PVPipelineInFlightClient(_h))
     _h.dispose_when_done(session)
@@ -1287,7 +1296,8 @@ actor \nodoc\ _PVExtendedQueryInFlightListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PVExtendedQueryInFlightClient(_h))
     _h.dispose_when_done(session)
@@ -1368,7 +1378,8 @@ actor \nodoc\ _PVCloseStatementInFlightListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PVCloseStatementInFlightClient(_h))
     _h.dispose_when_done(session)

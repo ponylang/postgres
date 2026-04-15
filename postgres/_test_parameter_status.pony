@@ -204,7 +204,8 @@ actor \nodoc\ _ParameterStatusTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _notify)
     _h.dispose_when_done(session)
@@ -291,7 +292,8 @@ actor \nodoc\ _ParameterStatusMidQueryTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _notify)
     _h.dispose_when_done(session)

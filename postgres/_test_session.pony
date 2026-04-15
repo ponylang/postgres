@@ -219,7 +219,8 @@ actor \nodoc\ _DoesntAnswerTestListener is lori.TCPListenerActor
   fun ref _on_listening() =>
     // Now that we are listening, start a client session
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _DoesntAnswerClient(_h))
     _h.dispose_when_done(session)
@@ -367,7 +368,8 @@ actor \nodoc\ _ZeroRowSelectTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _ZeroRowSelectTestClient(_h))
     _h.dispose_when_done(session)
@@ -512,7 +514,8 @@ actor \nodoc\ _PrepareShutdownTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _PrepareShutdownTestClient(_h))
     _h.dispose_when_done(session)
@@ -587,7 +590,8 @@ actor \nodoc\ _TerminateSentTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _TerminateSentTestNotify(_h))
     _h.dispose_when_done(session)
@@ -773,7 +777,8 @@ actor \nodoc\ _ByteaTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _ByteaTestClient(_h, _expected))
     _h.dispose_when_done(session)

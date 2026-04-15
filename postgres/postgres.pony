@@ -95,6 +95,54 @@ let session2 = Session(
   MyNotify(env))
 ```
 
+## Authentication
+
+The driver supports cleartext password, MD5 password, and SCRAM-SHA-256
+authentication. `ServerConnectInfo.auth_requirement` selects the client's
+policy on what the server is allowed to ask for:
+
+* **`AuthRequireSCRAM`** (default) — rejects `AuthenticationOk` (trust),
+  cleartext, and MD5 challenges with
+  `pg_session_connection_failed(AuthenticationMethodRejected)`. SCRAM is
+  the only PostgreSQL authentication method that verifies the server
+  knows the password; requiring it closes a server-driven downgrade
+  vector where a malicious or compromised server asks for a weaker
+  scheme.
+* **`AllowAnyAuth`** — accepts any authentication method the server
+  offers. Required for connecting to servers configured for MD5,
+  cleartext, or trust authentication.
+
+The default is a breaking change from earlier releases. To connect to a
+non-SCRAM server, pass `AllowAnyAuth`:
+
+```pony
+let session = Session(
+  ServerConnectInfo(
+    lori.TCPConnectAuth(env.root), "localhost", "5432",
+    SSLDisabled, AllowAnyAuth),
+  DatabaseConnectInfo("myuser", "mypassword", "mydb"),
+  MyNotify(env))
+```
+
+If authentication fails, the `pg_session_connection_failed` callback
+fires with a `ConnectionFailureReason`. Authentication-specific variants:
+
+* `AuthenticationMethodRejected` — the server-offered method is
+  disallowed by the session's `AuthRequirement` (the default
+  `AuthRequireSCRAM` rejects `AuthenticationOk`, cleartext, and MD5)
+* `InvalidPassword` — wrong password (SQLSTATE 28P01). Call
+  `response()` for the full `ErrorResponseMessage`
+* `InvalidAuthorizationSpecification` — nonexistent user, user not
+  permitted to connect, or pg_hba.conf rejection (SQLSTATE 28000).
+  Call `response()` for the full `ErrorResponseMessage`
+* `UnsupportedAuthenticationMethod` — the server requested a method
+  the driver doesn't support (e.g., Kerberos, GSSAPI). Distinct from
+  `AuthenticationMethodRejected`: that's the driver's policy refusing
+  a method it could perform; this is the driver being unable to
+  perform what the server asked for
+* `ServerVerificationFailed` — the server's SCRAM signature didn't
+  match (possible MITM or misconfigured server)
+
 ## Executing Queries
 
 Three query types are available, all executed via `session.execute()`:
@@ -457,33 +505,6 @@ end
 
 Custom types that need to participate in `Field.eq()` comparisons should
 also implement `FieldDataEquatable`.
-
-## Authentication
-
-The driver supports cleartext password, MD5 password, and SCRAM-SHA-256
-authentication. The server chooses which method to use based on its
-`pg_hba.conf` configuration — the driver detects the server's request
-and responds automatically using the credentials from `DatabaseConnectInfo`.
-
-```pony
-let session = Session(
-  ServerConnectInfo(lori.TCPConnectAuth(env.root), "localhost", "5432"),
-  DatabaseConnectInfo("myuser", "mypassword", "mydb"),
-  MyNotify(env))
-```
-
-If authentication fails, the `pg_session_connection_failed` callback
-fires with a `ConnectionFailureReason`. Authentication-specific variants:
-
-* `InvalidPassword` — wrong password (SQLSTATE 28P01). Call
-  `response()` for the full `ErrorResponseMessage`
-* `InvalidAuthorizationSpecification` — nonexistent user, user not
-  permitted to connect, or pg_hba.conf rejection (SQLSTATE 28000).
-  Call `response()` for the full `ErrorResponseMessage`
-* `UnsupportedAuthenticationMethod` — the server requested a method
-  the driver doesn't support (e.g., Kerberos, GSSAPI)
-* `ServerVerificationFailed` — the server's SCRAM signature didn't
-  match (possible MITM or misconfigured server)
 
 ## Startup Rejection
 

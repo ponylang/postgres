@@ -415,7 +415,8 @@ actor \nodoc\ _RemoteCloseLoggedInIdleListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _RemoteCloseLoggedInIdleNotify(_h))
     _h.dispose_when_done(session)
@@ -546,7 +547,8 @@ actor \nodoc\ _RemoteCloseLoggedInInFlightListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _RemoteCloseLoggedInInFlightClient(_h))
     _h.dispose_when_done(session)
@@ -692,7 +694,8 @@ actor \nodoc\ _RemoteCloseLoggedInPipelineListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _RemoteCloseLoggedInPipelineClient(_h))
     _h.dispose_when_done(session)
@@ -785,7 +788,8 @@ actor \nodoc\ _RemoteCloseExtendedQueryListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _RemoteCloseExtendedQueryClient(_h))
     _h.dispose_when_done(session)
@@ -876,7 +880,8 @@ actor \nodoc\ _RemoteClosePrepareListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _RemoteClosePrepareClient(_h))
     _h.dispose_when_done(session)
@@ -972,7 +977,8 @@ actor \nodoc\ _RemoteCloseCopyInListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _RemoteCloseCopyInClient(_h))
     _h.dispose_when_done(session)
@@ -1068,7 +1074,8 @@ actor \nodoc\ _RemoteCloseCopyOutListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _RemoteCloseCopyOutClient(_h))
     _h.dispose_when_done(session)
@@ -1165,7 +1172,8 @@ actor \nodoc\ _RemoteCloseStreamListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _RemoteCloseStreamClient(_h))
     _h.dispose_when_done(session)
@@ -1245,7 +1253,8 @@ actor \nodoc\ _RemoteClosePostAuthPreReadyListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _RemoteClosePostAuthPreReadyNotify(_h))
     _h.dispose_when_done(session)
@@ -1352,7 +1361,8 @@ actor \nodoc\ _RemoteCloseCloseStatementListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _RemoteCloseCloseStatementClient(_h))
     _h.dispose_when_done(session)
@@ -1464,7 +1474,8 @@ actor \nodoc\ _RemoteCloseAfterErrorResponseListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _RemoteCloseAfterErrorResponseClient(_h))
     _h.dispose_when_done(session)

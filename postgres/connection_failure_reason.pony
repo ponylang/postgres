@@ -52,6 +52,14 @@ primitive UnsupportedAuthenticationMethod
   support.
   """
 
+primitive AuthenticationMethodRejected
+  """
+  The server requested an authentication method that the client's
+  `AuthRequirement` policy does not allow. Distinct from
+  `UnsupportedAuthenticationMethod`, which indicates the driver cannot
+  perform the requested method at all.
+  """
+
 primitive ServerVerificationFailed
   """
   The server's SCRAM signature did not match the expected value. This may
@@ -122,6 +130,7 @@ type ConnectionFailureReason is
   | TLSHandshakeFailed
   | TLSAuthFailed
   | UnsupportedAuthenticationMethod
+  | AuthenticationMethodRejected
   | ServerVerificationFailed
   | ProtocolViolation
   | InvalidPassword

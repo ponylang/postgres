@@ -79,7 +79,8 @@ actor \nodoc\ _CancelTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _CancelTestClient(_h))
     _h.dispose_when_done(session)
@@ -270,7 +271,8 @@ actor \nodoc\ _SSLCancelTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port, SSLRequired(_client_sslctx)),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port,
+        SSLRequired(_client_sslctx) where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _CancelTestClient(_h))
     _h.dispose_when_done(session)

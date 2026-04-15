@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. This projec
 - Guard against integer underflow on server-supplied message lengths ([PR #215](https://github.com/ponylang/postgres/pull/215))
 - Detect peer-initiated TCP close during any session state ([PR #218](https://github.com/ponylang/postgres/pull/218))
 - Guard against integer overflow on server-supplied message lengths ([PR #220](https://github.com/ponylang/postgres/pull/220))
+- Fix statement timeout dropped when timer event subscription fails ([PR #223](https://github.com/ponylang/postgres/pull/223))
 
 ### Added
 

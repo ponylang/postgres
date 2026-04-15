@@ -60,6 +60,7 @@ actor \nodoc\ Main is TestList
     test(_TestResponseParserAuthenticationMD5PasswordMessage)
     test(_TestResponseParserAuthenticationOkMessage)
     test(_TestResponseParserCommandCompleteMessage)
+    test(_TestResponseParserDataRowBogusColumnLength)
     test(_TestResponseParserDataRowMessage)
     test(_TestResponseParserEmptyBuffer)
     test(_TestResponseParserEmptyQueryResponseMessage)

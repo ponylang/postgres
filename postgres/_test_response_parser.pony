@@ -524,6 +524,35 @@ class \nodoc\ iso _TestResponseParserDataRowMessage is UnitTest
       h.fail("Wrong message returned.")
     end
 
+class \nodoc\ iso _TestResponseParserDataRowBogusColumnLength is UnitTest
+  """
+  Verify that a DataRow column length whose sign bit is set (other than the
+  -1 NULL marker) errors at the validation site rather than silently
+  propagating the bogus length into the buffered read. PostgreSQL declares
+  column length as a signed Int32, so 0x80000000 through 0xFFFFFFFE are
+  protocol violations.
+  """
+  fun name(): String =>
+    "ResponseParser/DataRowBogusColumnLength"
+
+  fun apply(h: TestHelper) =>
+    for column_length in [as U32: 0x80000000; 0xFFFFFFFE].values() do
+      let cl = column_length
+      h.assert_error(
+        {()(cl) ? =>
+          let wb: Writer = Writer
+          wb.u8(_MessageType.data_row())
+          // payload size: 4 (header) + 2 (num cols) + 4 (column length)
+          wb.u32_be(10)
+          wb.u16_be(1)
+          wb.u32_be(cl)
+          let bytes = WriterToByteArray(wb)
+          let r: Reader = Reader
+          r.append(bytes)
+          _ResponseParser(r)? },
+        "column_length=" + cl.string() + " should error")
+    end
+
 class \nodoc\ val _IncomingAuthenticationOkTestMessage
     let _bytes: Array[U8] val
 

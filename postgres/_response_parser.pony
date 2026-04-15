@@ -326,6 +326,12 @@ primitive _ResponseParser
       | 0 =>
         columns.push(recover val Array[U8] end)
       else
+        // PostgreSQL declares column length as a signed Int32, so values
+        // with the sign bit set (other than the -1 NULL marker handled
+        // above) are protocol violations. Validating here surfaces the
+        // bogus length as an explicit error rather than letting it
+        // silently propagate into the buffered read.
+        if column_length > I32.max_value().u32() then error end
         let column = reader.block(column_length.usize())?
         columns.push(consume column)
       end

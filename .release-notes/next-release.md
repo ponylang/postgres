@@ -120,6 +120,10 @@ The same applies to `ClientQueryError`: add a `| ProtocolViolation =>` arm to an
 
 When a PostgreSQL server declared a message length smaller than the protocol's minimum, the driver performed an unsigned subtraction that wrapped to a huge value. The full consequences of the wrap were not fully characterized — one observed effect was silently consuming malformed bytes as a zero-payload acknowledgement before eventually reporting a protocol violation, but other downstream effects may have been reachable with different message shapes. The driver now validates length fields before arithmetic and rejects such messages as a protocol violation immediately.
 
+## Guard against malformed column lengths in data rows
+
+When a PostgreSQL server declared a DataRow column length whose sign bit was set (other than the -1 NULL marker), the driver passed the value through to a buffered read without validating it. PostgreSQL declares column length as a signed Int32, so values in that range are protocol violations. The full consequences were not fully characterized — the bogus length triggered a downstream read failure that surfaced as a protocol violation, but the validation was incidental rather than explicit. The driver now validates column lengths at the parse site and rejects such messages as a protocol violation immediately.
+
 ## Detect peer-initiated TCP close during any session state
 
 If the server closed the TCP connection at any point — during SSL negotiation, pre-auth startup, mid-SCRAM, or after the session reached the ready state — the driver would hang indefinitely without notifying the application. Peer close is now detected and delivered through the state machine's own error handling.

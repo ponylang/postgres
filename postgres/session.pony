@@ -214,6 +214,33 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   fun ref _on_timer(token: lori.TimerToken) =>
     state.on_timer(this, token)
 
+  fun ref _on_timer_failure() =>
+    state.on_timer_failure(this)
+
+  be _test_trigger_on_timer_failure() =>
+    """
+    Test-only entry point. Lori fires `_on_timer_failure` when the statement
+    timer's ASIO event subscription fails, a condition that requires kernel
+    resource pressure (e.g. ENOMEM from `kevent`/`epoll_ctl`) to trigger
+    organically. This behavior simulates the callback so unit tests can cover
+    the rearm path.
+
+    Lori's real dispatch path cancels the user timer before invoking
+    `_on_timer_failure`, so `set_timer` inside the callback succeeds. To
+    match that invariant, cancel the active statement timer (if any) before
+    invoking the callback.
+    """
+    match state
+    | let li: _SessionLoggedIn =>
+      li.cancel_statement_timer(this)
+    end
+    _on_timer_failure()
+
+  fun ref _on_idle_timer_failure() =>
+    // postgres never arms lori's idle timer, so this callback firing is a
+    // contract violation.
+    _IllegalState()
+
   fun ref _on_connected() =>
     state.on_connected(this)
 
@@ -583,6 +610,9 @@ class ref _SessionSSLNegotiating
     None
 
   fun ref on_timer(s: Session ref, token: lori.TimerToken) =>
+    None
+
+  fun ref on_timer_failure(s: Session ref) =>
     None
 
   fun ref close(s: Session ref) =>
@@ -1106,6 +1136,37 @@ class _SessionLoggedIn is _AuthenticatedState
       _CancelSender(s.server_connect_info(), backend_pid, backend_secret_key)
     end
 
+  fun ref on_timer_failure(s: Session ref) =>
+    // Lori cancelled the timer before firing this callback, so the token we
+    // held is stale. Rearm using the in-flight operation's original duration
+    // so a transient ASIO subscription failure doesn't silently drop the
+    // statement timeout. COUPLING: the per-variant timeout extraction must
+    // stay in sync with `_QueryReady.try_run_query` — adding a new
+    // `_Queued*` variant requires updating both sites.
+    statement_timer = None
+    try
+      let timeout = match \exhaustive\ query_queue(0)?
+      | let qry: _QueuedQuery => qry.statement_timeout
+      | let prep: _QueuedPrepare => prep.statement_timeout
+      | let _: _QueuedCloseStatement => None
+      | let ci: _QueuedCopyIn => ci.statement_timeout
+      | let co: _QueuedCopyOut => co.statement_timeout
+      | let sq: _QueuedStreamingQuery => sq.statement_timeout
+      | let pl: _QueuedPipeline => pl.statement_timeout
+      end
+      match timeout
+      | let d: lori.TimerDuration =>
+        match s._connection().set_timer(d)
+        | let t: lori.TimerToken => statement_timer = t
+        | let _: lori.SetTimerError => None
+        end
+      end
+    end
+    // Empty queue is an invariant violation for a real lori dispatch (the
+    // timer is only armed while a queue item is at the head), but the
+    // interface's "never illegal, silently ignore" contract still applies.
+    // Silently no-op rather than panic.
+
   fun ref cancel_statement_timer(s: Session ref) =>
     match statement_timer
     | let t: lori.TimerToken =>
@@ -1604,7 +1665,10 @@ class _QueryReady is _QueryNoQueryInFlight
 
         // Set statement timeout timer if configured on the dispatched item.
         // The queue item is still at index 0 — dequeuing happens in each
-        // in-flight state's on_ready_for_query.
+        // in-flight state's on_ready_for_query. COUPLING: the per-variant
+        // timeout extraction must stay in sync with
+        // `_SessionLoggedIn.on_timer_failure`, which rearms this timer on
+        // ASIO subscription failure.
         let timeout = match \exhaustive\ li.query_queue(0)?
         | let qry: _QueuedQuery => qry.statement_timeout
         | let prep: _QueuedPrepare => prep.statement_timeout
@@ -2918,6 +2982,15 @@ interface _SessionState
     illegal state — it should be silently ignored when not applicable.
     """
 
+  fun ref on_timer_failure(s: Session ref)
+    """
+    Lori reported that the statement timeout timer's ASIO event subscription
+    failed. Like `on_timer`, this should never be an illegal state — it
+    should be silently ignored when not applicable. `_SessionLoggedIn`
+    (the only state that arms the statement timer) rearms using the
+    in-flight operation's original duration; every other state is a no-op.
+    """
+
   fun ref cancel(s: Session ref)
     """
     The client requested query cancellation. Like `close`, this should never
@@ -3243,6 +3316,9 @@ trait _ConnectedState is _NotConnectableState
   fun ref on_timer(s: Session ref, token: lori.TimerToken) =>
     None
 
+  fun ref on_timer_failure(s: Session ref) =>
+    None
+
   fun ref cancel(s: Session ref) =>
     None
 
@@ -3309,6 +3385,9 @@ trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
     None
 
   fun ref on_timer(s: Session ref, token: lori.TimerToken) =>
+    None
+
+  fun ref on_timer_failure(s: Session ref) =>
     None
 
   fun ref cancel(s: Session ref) =>

@@ -1,0 +1,3 @@
+## Fix statement timeout dropped when timer event subscription fails
+
+A statement timeout could silently disappear if the kernel returned an error when the driver's internal timer tried to register itself with the I/O event loop (for example, `ENOMEM` under sustained resource pressure). The operation would then run without a timeout even though one had been requested. The driver now detects this failure and rearms the timer with the original duration, so a transient registration failure no longer drops the timeout. Recovery is best-effort: if the rearm itself fails to register, the timeout is still lost for that operation.

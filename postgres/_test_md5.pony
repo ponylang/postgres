@@ -16,7 +16,7 @@ class \nodoc\ iso _TestMD5Authenticate is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host,
-        info.ssl_port),
+        info.ssl_port where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo(info.md5_username, info.md5_password, info.database),
       _AuthenticateTestNotify(h, true))
 
@@ -36,7 +36,7 @@ class \nodoc\ iso _TestMD5AuthenticateFailure is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host,
-        info.ssl_port),
+        info.ssl_port where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo(info.md5_username, "wrongpassword", info.database),
       _AuthenticateTestNotify(h, false))
 
@@ -58,7 +58,7 @@ class \nodoc\ iso _TestMD5QueryResults is UnitTest
 
     let session = Session(
       ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host,
-        info.ssl_port),
+        info.ssl_port where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo(info.md5_username, info.md5_password, info.database),
       client)
 

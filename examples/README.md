@@ -2,6 +2,8 @@
 
 Each subdirectory is a self-contained Pony program demonstrating a different part of the postgres library.
 
+The default `auth_requirement` on `ServerConnectInfo` is `AuthRequireSCRAM`. These examples assume a SCRAM-SHA-256 server (the default `postgres:14.5` container). If you point them at a server configured for MD5, cleartext, or trust authentication, pass `AllowAnyAuth` as the `auth_requirement`.
+
 ## array
 
 Array types using `PreparedQuery` with binary-format results and `PgArray` parameters. Executes a SELECT that returns an `int4[]` literal, matches on `PgArray` in the result and iterates the decoded elements, then sends a `PgArray` parameter containing `NULL` elements back as a query parameter to verify the encode/decode roundtrip.

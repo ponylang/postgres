@@ -88,7 +88,8 @@ actor \nodoc\ _TimeoutTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _TimeoutTestClient(_h))
     _h.dispose_when_done(session)
@@ -286,7 +287,8 @@ actor \nodoc\ _TimeoutRearmTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _TimeoutRearmTestClient(_h))
     _h.dispose_when_done(session)
@@ -379,7 +381,8 @@ actor \nodoc\ _TimeoutCancelledTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _TimeoutCancelledTestClient(_h))
     _h.dispose_when_done(session)

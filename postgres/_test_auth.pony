@@ -405,7 +405,8 @@ actor \nodoc\ _CleartextTestListener is lori.TCPListenerActor
       _SCRAMSuccessTestNotify(_h)
     end
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       notify)
     _h.dispose_when_done(session)
@@ -524,6 +525,7 @@ actor \nodoc\ _SCRAMFailureTestNotify is SessionStatusNotify
       match (_expected, reason)
       | (UnsupportedAuthenticationMethod, UnsupportedAuthenticationMethod) =>
         true
+      | (AuthenticationMethodRejected, AuthenticationMethodRejected) => true
       | (ServerVerificationFailed, ServerVerificationFailed) => true
       | (let e: _ExpectedSqlstate, let r: InvalidPassword) =>
         r.response().code == e.code

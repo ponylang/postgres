@@ -3424,8 +3424,16 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
   to occur.
   """
   fun ref on_authentication_ok(s: Session ref) =>
-    s.state = _SessionLoggedIn(notify(), readbuf(), codec_registry())
-    notify().pg_session_authenticated(s)
+    // A server that completes startup without any authentication challenge
+    // is offering the weakest posture; the default `AuthRequireSCRAM`
+    // policy rejects it. See `AuthRequirement`.
+    match \exhaustive\ s.server_connect_info().auth_requirement
+    | AuthRequireSCRAM =>
+      on_connection_failed(s, AuthenticationMethodRejected)
+    | AllowAnyAuth =>
+      s.state = _SessionLoggedIn(notify(), readbuf(), codec_registry())
+      notify().pg_session_authenticated(s)
+    end
 
   fun ref on_connection_failed(s: Session ref,
     reason: ConnectionFailureReason)
@@ -3439,13 +3447,28 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
   fun ref on_authentication_md5_password(s: Session ref,
     msg: _AuthenticationMD5PasswordMessage)
   =>
-    let md5_password = _MD5Password(user(), password(), msg.salt)
-    let reply = _FrontendMessage.password(md5_password)
-    s._connection().send(reply)
+    // Enforces `AuthRequirement` before replying with the MD5-hashed
+    // password — under `AuthRequireSCRAM`, no credential bytes reach the
+    // wire.
+    match \exhaustive\ s.server_connect_info().auth_requirement
+    | AuthRequireSCRAM =>
+      on_connection_failed(s, AuthenticationMethodRejected)
+    | AllowAnyAuth =>
+      let md5_password = _MD5Password(user(), password(), msg.salt)
+      let reply = _FrontendMessage.password(md5_password)
+      s._connection().send(reply)
+    end
 
   fun ref on_authentication_cleartext_password(s: Session ref) =>
-    let reply = _FrontendMessage.password(password())
-    s._connection().send(reply)
+    // Enforces `AuthRequirement` before replying with the password —
+    // under `AuthRequireSCRAM`, no credential bytes reach the wire.
+    match \exhaustive\ s.server_connect_info().auth_requirement
+    | AuthRequireSCRAM =>
+      on_connection_failed(s, AuthenticationMethodRejected)
+    | AllowAnyAuth =>
+      let reply = _FrontendMessage.password(password())
+      s._connection().send(reply)
+    end
 
   fun ref on_authentication_sasl(s: Session ref,
     msg: _AuthenticationSASLMessage)

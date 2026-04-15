@@ -105,7 +105,8 @@ actor \nodoc\ _StreamingSuccessTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _StreamingSuccessTestClient(_h))
     _h.dispose_when_done(session)
@@ -322,7 +323,8 @@ actor \nodoc\ _StreamingEmptyTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _StreamingEmptyTestClient(_h))
     _h.dispose_when_done(session)
@@ -495,7 +497,8 @@ actor \nodoc\ _StreamingEarlyStopTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _StreamingEarlyStopTestClient(_h))
     _h.dispose_when_done(session)
@@ -687,7 +690,8 @@ actor \nodoc\ _StreamingServerErrorTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _StreamingServerErrorTestClient(_h))
     _h.dispose_when_done(session)
@@ -884,7 +888,8 @@ actor \nodoc\ _StreamingShutdownTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
+      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
+        where auth_requirement' = AllowAnyAuth),
       DatabaseConnectInfo("postgres", "postgres", "postgres"),
       _StreamingShutdownTestClient(_h))
     _h.dispose_when_done(session)

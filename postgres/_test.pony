@@ -190,6 +190,9 @@ actor \nodoc\ Main is TestList
     test(_TestSCRAMMalformedSASLFinal)
     test(_TestSCRAMNonceMismatch)
     test(_TestSCRAMMalformedSASLContinue)
+    test(_TestAuthRequireSCRAMRejectsAuthenticationOk)
+    test(_TestAuthRequireSCRAMRejectsCleartextPassword)
+    test(_TestAuthRequireSCRAMRejectsMD5Password)
     test(_TestConnectionFailureReasonFromErrorInvalidPassword)
     test(
       _TestConnectionFailureReasonFromErrorInvalidAuthorizationSpecification)

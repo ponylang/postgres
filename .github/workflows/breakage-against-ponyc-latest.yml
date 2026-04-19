@@ -13,7 +13,7 @@ jobs:
     name: Verify main against the latest ponyc om Linux
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/ponylang/shared-docker-ci-standard-builder-with-libressl-4.2.0:nightly
+      image: ghcr.io/ponylang/shared-docker-ci-standard-builder-with-libressl-4.2.1:nightly
     services:
       postgres:
         image: postgres:14.5

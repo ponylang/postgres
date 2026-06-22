@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Fixed
 
+- Fix connection hang after sending a large amount of data ([PR #235](https://github.com/ponylang/postgres/pull/235))
 
 ### Added
 

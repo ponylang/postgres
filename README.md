@@ -10,7 +10,7 @@ postgres is beta quality software that will change frequently. Expect breaking c
 
 * Requires ponyc 0.64.0 or later. On Windows, requires ponyc 0.66.0 or later.
 * Install [corral](https://github.com/ponylang/corral)
-* `corral add github.com/ponylang/postgres.git --version 0.6.1`
+* `corral add github.com/ponylang/postgres.git --version 0.7.0`
 * `corral fetch` to fetch your dependencies
 * `use "postgres"` to include this package
 * `corral run -- ponyc` to compile your application

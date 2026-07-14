@@ -48,13 +48,13 @@ EXAMPLES_BINARIES := $(addprefix $(BUILD_DIR)/,$(EXAMPLES))
 test: unit-tests integration-tests examples
 
 unit-tests: $(tests_binary)
-	$^ --exclude=integration/ --sequential
+	$^ --exclude=integration/ --sequential --shuffle
 
 test-one: $(tests_binary)
 	$^ --only="$(t)"
 
 integration-tests: $(tests_binary)
-	$^ --only=integration/ --sequential
+	$^ --only=integration/ --sequential --shuffle
 
 $(tests_binary): $(SOURCE_FILES) | $(BUILD_DIR)
 	$(GET_DEPENDENCIES_WITH)

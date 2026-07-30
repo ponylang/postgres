@@ -121,9 +121,10 @@ actor \nodoc\ _CopyOutSuccessTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -280,9 +281,10 @@ actor \nodoc\ _CopyOutEmptyTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -442,9 +444,10 @@ actor \nodoc\ _CopyOutServerErrorTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if _state == 0 then

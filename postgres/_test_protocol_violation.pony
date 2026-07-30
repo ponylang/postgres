@@ -117,7 +117,7 @@ actor \nodoc\ _PVParseSCRAMServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     if _phase == 0 then
       match _reader.read_startup_message()
@@ -135,6 +135,7 @@ actor \nodoc\ _PVParseSCRAMServer
         _tcp_connection.send(_IncomingJunkTestMessage.bytes())
       end
     end
+    lori.KeepReading
 
 class \nodoc\ iso _TestProtocolViolationParseInFlight is UnitTest
   """
@@ -248,7 +249,7 @@ actor \nodoc\ _PVParseInFlightServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     if not _authed then
       match _reader.read_startup_message()
@@ -263,6 +264,7 @@ actor \nodoc\ _PVParseInFlightServer
         _tcp_connection.send(_IncomingJunkTestMessage.bytes())
       end
     end
+    lori.KeepReading
 
 class \nodoc\ iso _TestProtocolViolationParseIdle is UnitTest
   """
@@ -357,7 +359,7 @@ actor \nodoc\ _PVParseIdleServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
@@ -365,6 +367,7 @@ actor \nodoc\ _PVParseIdleServer
       _tcp_connection.send(_IncomingReadyForQueryTestMessage('I').bytes())
       _tcp_connection.send(_IncomingJunkTestMessage.bytes())
     end
+    lori.KeepReading
 
 class \nodoc\ iso _TestProtocolViolationWrongStatePreAuth is UnitTest
   """
@@ -436,9 +439,9 @@ actor \nodoc\ _PVWrongStatePreAuthServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
-    if _sent then return end
+    if _sent then return lori.KeepReading end
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
       _sent = true
@@ -446,6 +449,7 @@ actor \nodoc\ _PVWrongStatePreAuthServer
         [as (String | None): "1"] end
       _tcp_connection.send(_IncomingDataRowTestMessage(cols).bytes())
     end
+    lori.KeepReading
 
 class \nodoc\ iso _TestProtocolViolationWrongStateSCRAM is UnitTest
   """
@@ -518,7 +522,7 @@ actor \nodoc\ _PVWrongStateSCRAMServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     if _phase == 0 then
       match _reader.read_startup_message()
@@ -537,6 +541,7 @@ actor \nodoc\ _PVWrongStateSCRAMServer
           _IncomingAuthenticationCleartextPasswordTestMessage.bytes())
       end
     end
+    lori.KeepReading
 
 class \nodoc\ iso _TestProtocolViolationWrongStateIdle is UnitTest
   """
@@ -607,7 +612,7 @@ actor \nodoc\ _PVWrongStateIdleServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
@@ -615,6 +620,7 @@ actor \nodoc\ _PVWrongStateIdleServer
       _tcp_connection.send(_IncomingReadyForQueryTestMessage('I').bytes())
       _tcp_connection.send(_IncomingAuthenticationOkTestMessage.bytes())
     end
+    lori.KeepReading
 
 class \nodoc\ iso _TestProtocolViolationWrongStateInFlight is UnitTest
   """
@@ -688,7 +694,7 @@ actor \nodoc\ _PVWrongStateInFlightServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     if not _authed then
       match _reader.read_startup_message()
@@ -703,6 +709,7 @@ actor \nodoc\ _PVWrongStateInFlightServer
         _tcp_connection.send(_IncomingAuthenticationOkTestMessage.bytes())
       end
     end
+    lori.KeepReading
 
 class \nodoc\ iso _TestProtocolViolationCopyInInFlight is UnitTest
   """

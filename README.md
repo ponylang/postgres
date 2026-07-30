@@ -8,14 +8,14 @@ postgres is beta quality software that will change frequently. Expect breaking c
 
 ## Installation
 
-* Requires ponyc 0.64.0 or later. On Windows, requires ponyc 0.66.0 or later.
+* Requires ponyc 0.67.0 or later.
 * Install [corral](https://github.com/ponylang/corral)
 * `corral add github.com/ponylang/postgres.git --version 0.7.0`
 * `corral fetch` to fetch your dependencies
 * `use "postgres"` to include this package
 * `corral run -- ponyc` to compile your application
 
-This library has a transitive dependency on [ponylang/ssl](https://github.com/ponylang/ssl). It requires a C SSL library to be installed. Please see the [ssl installation instructions](https://github.com/ponylang/ssl?tab=readme-ov-file#installation) for more information.
+This library depends on [ponylang/ssl](https://github.com/ponylang/ssl). It requires a C SSL library to be installed. Please see the [ssl installation instructions](https://github.com/ponylang/ssl?tab=readme-ov-file#installation) for more information.
 
 ## API Documentation
 

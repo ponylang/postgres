@@ -36,7 +36,7 @@ make start-pg-containers           # start the test PostgreSQL containers
 make stop-pg-containers            # stop them
 ```
 
-`ssl=` is required (for example `ssl=3.0.x` for OpenSSL 3.x). Tests run `--sequential`.
+`ssl=` is required, set to your installed TLS library: `4.0.x`, `3.0.x`, `1.1.x`, or `libressl`. Tests run `--sequential`.
 
 Integration tests need two PostgreSQL 14.5 containers, started by `make start-pg-containers`: a plaintext one on port 5432 (SCRAM-SHA-256 default auth) and an SSL one on port 5433. Connection parameters come from the `POSTGRES_*` environment variables read by `_ConnectionTestConfiguration` in `_test.pony`.
 

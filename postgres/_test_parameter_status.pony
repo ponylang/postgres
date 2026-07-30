@@ -230,9 +230,10 @@ actor \nodoc\ _ParameterStatusTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if not _authed then
@@ -319,9 +320,10 @@ actor \nodoc\ _ParameterStatusMidQueryTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if not _authed then

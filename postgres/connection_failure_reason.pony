@@ -62,8 +62,15 @@ primitive AuthenticationMethodRejected
 
 primitive ServerVerificationFailed
   """
-  The server's SCRAM signature did not match the expected value. This may
-  indicate a man-in-the-middle attack or a misconfigured server.
+  SCRAM authentication did not verify the server.
+
+  Either the server's signature did not match the expected value, or the
+  verification could not be carried out at all — the server sent a salt or
+  an iteration count that could not be used, or the SCRAM computation
+  failed.
+
+  A signature mismatch may indicate a man-in-the-middle attack or a
+  misconfigured server.
   """
 
 class val InvalidPassword

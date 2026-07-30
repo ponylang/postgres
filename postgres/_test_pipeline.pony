@@ -132,9 +132,10 @@ actor \nodoc\ _PipelineSuccessTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -310,9 +311,10 @@ actor \nodoc\ _PipelineWithFailureTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -485,7 +487,7 @@ actor \nodoc\ _PipelineEmptyTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
@@ -494,6 +496,7 @@ actor \nodoc\ _PipelineEmptyTestServer
       _tcp_connection.send(auth_ok)
       _tcp_connection.send(ready)
     end
+    lori.KeepReading
 
 class \nodoc\ iso _TestPipelineSingleQuery is UnitTest
   """
@@ -850,9 +853,10 @@ actor \nodoc\ _PipelineShutdownInFlightTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -1027,9 +1031,10 @@ actor \nodoc\ _PipelineRowModifyingTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -1293,9 +1298,10 @@ actor \nodoc\ _PipelineAllFailTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if _state == 0 then

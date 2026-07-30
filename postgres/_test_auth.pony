@@ -310,12 +310,13 @@ actor \nodoc\ _UnsupportedAuthenticationTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     if not _received then
       _received = true
       let msg = _IncomingUnsupportedAuthenticationTestMessage(2).bytes()
       _tcp_connection.send(msg)
     end
+    lori.KeepReading
 
 // Cleartext password authentication tests
 
@@ -435,9 +436,10 @@ actor \nodoc\ _CleartextTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -624,9 +626,10 @@ actor \nodoc\ _SCRAMTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -735,7 +738,7 @@ actor \nodoc\ _SCRAMUnsupportedTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     if not _authed then
       _authed = true
       let mechanisms: Array[String] val =
@@ -743,6 +746,7 @@ actor \nodoc\ _SCRAMUnsupportedTestServer
       let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
       _tcp_connection.send(sasl)
     end
+    lori.KeepReading
 
 actor \nodoc\ _SCRAMErrorTestListener is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
@@ -797,9 +801,10 @@ actor \nodoc\ _SCRAMErrorTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if not _authed then
@@ -882,9 +887,10 @@ actor \nodoc\ _SCRAMSkipSASLFinalTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -989,9 +995,10 @@ actor \nodoc\ _SCRAMDuplicateSASLContinueTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -1085,9 +1092,10 @@ actor \nodoc\ _SCRAMSASLFinalBeforeContinueTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -1173,9 +1181,10 @@ actor \nodoc\ _SCRAMMalformedSASLFinalTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -1270,9 +1279,10 @@ actor \nodoc\ _SCRAMNonceMismatchTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -1361,9 +1371,10 @@ actor \nodoc\ _SCRAMMalformedSASLContinueTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -1659,7 +1670,7 @@ actor \nodoc\ _TooManyConnectionsTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     if not _sent then
       match _reader.read_startup_message()
@@ -1672,6 +1683,7 @@ actor \nodoc\ _TooManyConnectionsTestServer
         _tcp_connection.close()
       end
     end
+    lori.KeepReading
 
 actor \nodoc\ _TooManyConnectionsTestNotify is SessionStatusNotify
   let _h: TestHelper

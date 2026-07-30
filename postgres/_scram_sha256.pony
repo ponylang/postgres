@@ -44,8 +44,8 @@ primitive _ScramSha256
     """
     Compute the SCRAM client proof and server signature.
 
-    Returns `(client_proof, server_signature)`. Partial because PBKDF2 can
-    fail (e.g., zero iterations).
+    Returns `(client_proof, server_signature)`. Raises when the PBKDF2 or
+    HMAC computation fails.
 
     The computation follows RFC 5802 Section 3:
     1. SaltedPassword = PBKDF2(password, salt, iterations, 32)
@@ -59,13 +59,13 @@ primitive _ScramSha256
     8. ServerSignature = HMAC(ServerKey, AuthMessage)
     """
     let salted_password = Pbkdf2Sha256(password, salt, iterations, 32)?
-    let client_key = HmacSha256(salted_password, "Client Key")
+    let client_key = HmacSha256(salted_password, "Client Key")?
     let stored_key = SHA256(client_key)
     let auth_message: String val = recover val
       client_first_bare + "," + server_first + ","
         + client_final_message_without_proof(combined_nonce)
     end
-    let client_signature = HmacSha256(stored_key, auth_message)
+    let client_signature = HmacSha256(stored_key, auth_message)?
 
     // ClientProof = ClientKey XOR ClientSignature
     let client_proof = recover iso
@@ -82,7 +82,7 @@ primitive _ScramSha256
       proof
     end
 
-    let server_key = HmacSha256(salted_password, "Server Key")
-    let server_signature: Array[U8] val = HmacSha256(server_key, auth_message)
+    let server_key = HmacSha256(salted_password, "Server Key")?
+    let server_signature: Array[U8] val = HmacSha256(server_key, auth_message)?
 
     (consume client_proof, server_signature)

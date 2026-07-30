@@ -116,9 +116,10 @@ actor \nodoc\ _SSLRefusedTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     let response: Array[U8] val = ['N']
     _tcp_connection.send(response)
+    lori.KeepReading
 
 class \nodoc\ iso _TestSSLNegotiationJunkResponse is UnitTest
   """
@@ -234,9 +235,10 @@ actor \nodoc\ _SSLJunkTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     let response: Array[U8] val = ['X']
     _tcp_connection.send(response)
+    lori.KeepReading
 
 class \nodoc\ iso _TestSSLNegotiationSuccess is UnitTest
   """
@@ -371,9 +373,10 @@ actor \nodoc\ _SSLSuccessTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if not _ssl_started then
@@ -626,9 +629,10 @@ actor \nodoc\ _SSLPreferredFallbackTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if not _ssl_refused then
@@ -785,7 +789,7 @@ class \nodoc\ iso _TestSSLPreferredTLSFailure is UnitTest
       SSLContext
         .> set_client_verify(false)
         .> set_server_verify(false)
-        .> set_min_proto_version(Tls1u3Version())?
+        .> set_min_proto_version(TLS1u3Version())?
     end
 
     let cert_path = FilePath(FileAuth(h.env.root),
@@ -798,7 +802,7 @@ class \nodoc\ iso _TestSSLPreferredTLSFailure is UnitTest
         .> set_cert(cert_path, key_path)?
         .> set_client_verify(false)
         .> set_server_verify(false)
-        .> set_max_proto_version(Tls1u2Version())?
+        .> set_max_proto_version(TLS1u2Version())?
     end
 
     let listener = _SSLPreferredTLSFailureTestListener(
@@ -994,9 +998,10 @@ actor \nodoc\ _SSLPreferredCancelTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if _is_cancel_connection then

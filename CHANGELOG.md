@@ -6,11 +6,19 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Fixed
 
+- Fix session close dropping queued writes ([PR #241](https://github.com/ponylang/postgres/pull/241))
+- Fix a hang when closing a session while handling a server message ([PR #241](https://github.com/ponylang/postgres/pull/241))
+- Fix a possible write hang under load ([PR #241](https://github.com/ponylang/postgres/pull/241))
+
 
 ### Added
 
 
+
 ### Changed
+
+- Require ponyc 0.67.0 or later ([PR #241](https://github.com/ponylang/postgres/pull/241))
+- Move to ponylang/ssl 3.0.0 ([PR #241](https://github.com/ponylang/postgres/pull/241))
 
 
 ## [0.7.0] - 2026-06-29

@@ -45,7 +45,7 @@ actor _CancelSender is (lori.TCPConnectionActor & lori.ClientLifecycleEventRecei
       _tcp_connection.send(_FrontendMessage.ssl_request())
     end
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     // Only called during SSL negotiation — server responds 'S' or 'N'.
     try
       if data(0)? == 'S' then
@@ -54,7 +54,7 @@ actor _CancelSender is (lori.TCPConnectionActor & lori.ClientLifecycleEventRecei
         | let pref: SSLPreferred => pref.ctx
         else
           _tcp_connection.close()
-          return
+          return lori.KeepReading
         end
         match \exhaustive\ _tcp_connection.start_tls(ctx, _info.host)
         | None => None  // Handshake started, wait for _on_tls_ready
@@ -77,6 +77,7 @@ actor _CancelSender is (lori.TCPConnectionActor & lori.ClientLifecycleEventRecei
     else
       _tcp_connection.close()
     end
+    lori.KeepReading
 
   fun ref _on_tls_ready() =>
     // Reset buffer_until from 1 to streaming (same pattern as

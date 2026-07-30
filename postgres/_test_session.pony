@@ -111,9 +111,10 @@ actor \nodoc\ _JunkSendingTestServer
     let junk = _IncomingJunkTestMessage.bytes()
     _tcp_connection.send(junk)
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     let junk = _IncomingJunkTestMessage.bytes()
     _tcp_connection.send(junk)
+    lori.KeepReading
 
 class \nodoc\ iso _TestUnansweredQueriesFailOnShutdown is UnitTest
   """
@@ -248,7 +249,7 @@ actor \nodoc\ _DoesntAnswerTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     """
     Sends AuthenticationOk on first contact without requiring a password.
     Intentionally does NOT send ReadyForQuery afterward — this is the
@@ -259,6 +260,7 @@ actor \nodoc\ _DoesntAnswerTestServer
       let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
       _tcp_connection.send(auth_ok)
     end
+    lori.KeepReading
 
 class \nodoc\ iso _TestZeroRowSelectReturnsResultSet is UnitTest
   """
@@ -395,9 +397,10 @@ actor \nodoc\ _ZeroRowSelectTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if not _authed then
@@ -618,9 +621,10 @@ actor \nodoc\ _TerminateSentTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if not _authed then
@@ -806,9 +810,10 @@ actor \nodoc\ _ByteaTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
+    lori.KeepReading
 
   fun ref _process() =>
     if not _authed then

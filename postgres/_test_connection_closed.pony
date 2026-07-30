@@ -114,14 +114,15 @@ actor \nodoc\ _RemoteCloseAfterSSLRequestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
-    if _closed then return end
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+    if _closed then return lori.KeepReading end
     _reader.append(consume data)
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
       _closed = true
       _tcp_connection.close()
     end
+    lori.KeepReading
 
 class \nodoc\ iso _TestRemoteClosePreAuth is UnitTest
   """
@@ -220,14 +221,15 @@ actor \nodoc\ _RemoteCloseAfterStartupServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
-    if _closed then return end
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+    if _closed then return lori.KeepReading end
     _reader.append(consume data)
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
       _closed = true
       _tcp_connection.close()
     end
+    lori.KeepReading
 
 class \nodoc\ iso _TestRemoteCloseSCRAM is UnitTest
   """
@@ -328,7 +330,7 @@ actor \nodoc\ _RemoteCloseSCRAMServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     if _phase == 0 then
       match _reader.read_startup_message()
@@ -346,6 +348,7 @@ actor \nodoc\ _RemoteCloseSCRAMServer
         _tcp_connection.close()
       end
     end
+    lori.KeepReading
 
 class \nodoc\ iso _TestRemoteCloseLoggedInIdle is UnitTest
   """
@@ -440,8 +443,8 @@ actor \nodoc\ _RemoteCloseLoggedInIdleServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
-    if _closed then return end
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+    if _closed then return lori.KeepReading end
     _reader.append(consume data)
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
@@ -450,6 +453,7 @@ actor \nodoc\ _RemoteCloseLoggedInIdleServer
       _tcp_connection.send(_IncomingReadyForQueryTestMessage('I').bytes())
       _tcp_connection.close()
     end
+    lori.KeepReading
 
 class \nodoc\ iso _TestRemoteCloseLoggedInInFlight is UnitTest
   """
@@ -574,7 +578,7 @@ actor \nodoc\ _RemoteCloseAfterQueryServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     if not _authed then
       match _reader.read_startup_message()
@@ -589,6 +593,7 @@ actor \nodoc\ _RemoteCloseAfterQueryServer
         _tcp_connection.close()
       end
     end
+    lori.KeepReading
 
 class \nodoc\ iso _TestRemoteCloseLoggedInPipeline is UnitTest
   """
@@ -1280,8 +1285,8 @@ actor \nodoc\ _RemoteClosePostAuthPreReadyServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
-    if _closed then return end
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+    if _closed then return lori.KeepReading end
     _reader.append(consume data)
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
@@ -1289,6 +1294,7 @@ actor \nodoc\ _RemoteClosePostAuthPreReadyServer
       _tcp_connection.send(_IncomingAuthenticationOkTestMessage.bytes())
       _tcp_connection.close()
     end
+    lori.KeepReading
 
 class \nodoc\ iso _TestRemoteCloseCloseStatementInFlight is UnitTest
   """
@@ -1502,8 +1508,8 @@ actor \nodoc\ _RemoteCloseAfterErrorResponseServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_received(data: Array[U8] iso) =>
-    if _closed then return end
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+    if _closed then return lori.KeepReading end
     _reader.append(consume data)
     if not _authed then
       match _reader.read_startup_message()
@@ -1522,6 +1528,7 @@ actor \nodoc\ _RemoteCloseAfterErrorResponseServer
         _tcp_connection.close()
       end
     end
+    lori.KeepReading
 
 class \nodoc\ iso _TestRemoteCloseSSLNegotiatingPreferred is UnitTest
   """

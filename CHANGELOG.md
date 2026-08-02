@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Fixed
 
+- Fix a number of SSL bugs ([PR #242](https://github.com/ponylang/postgres/pull/242))
 
 ### Added
 

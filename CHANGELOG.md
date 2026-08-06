@@ -2,19 +2,13 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a CHANGELOG](http://keepachangelog.com/).
 
-## [unreleased] - unreleased
+## [0.8.1] - 2026-08-06
 
 ### Fixed
 
 - Fix a number of SSL bugs ([PR #242](https://github.com/ponylang/postgres/pull/242))
 - Fix additional SSL connection bugs ([PR #244](https://github.com/ponylang/postgres/pull/244))
 - Fix a macOS bug where setting up a connection could close an unrelated file descriptor ([PR #244](https://github.com/ponylang/postgres/pull/244))
-
-### Added
-
-
-### Changed
-
 
 ## [0.8.0] - 2026-07-30
 

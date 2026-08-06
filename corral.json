@@ -5,11 +5,11 @@
   "deps": [
     {
       "locator": "github.com/ponylang/lori.git",
-      "version": "0.17.0"
+      "version": "0.18.0"
     },
     {
       "locator": "github.com/ponylang/ssl.git",
-      "version": "3.0.1"
+      "version": "4.0.0"
     }
   ],
   "info": {

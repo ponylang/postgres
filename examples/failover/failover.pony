@@ -1,8 +1,8 @@
 """
 Multi-host connection failover as a user-space pattern. Creates sessions to
 multiple PostgreSQL hosts in parallel and uses the first one to authenticate.
-Remaining sessions are closed. Demonstrates how to build failover on top of
-the driver's single-host `Session` without any driver modifications.
+Remaining sessions are closed. Builds failover on top of the driver's
+single-host `Session` without any driver modifications.
 
 Two of the three hosts are intentionally unreachable (127.0.0.2 on unused
 ports), so the session targeting the real server wins the race.
@@ -22,6 +22,9 @@ actor Main
     Failover(auth, server_info, env.out)
 
 actor Failover is (SessionStatusNotify & ResultReceiver)
+  """
+  Races sessions to multiple hosts and uses the first to authenticate.
+  """
   let _hosts: Array[(Session tag, String val)]
   let _out: OutStream
   let _total: USize
@@ -34,11 +37,12 @@ actor Failover is (SessionStatusNotify & ResultReceiver)
 
     // Two intentionally bad hosts plus the real one from env vars.
     // 127.0.0.2 avoids the WSL2 mirrored networking hang on 127.0.0.1.
-    let targets: Array[(String, String)] val = [
-      ("127.0.0.2", "19999")
-      ("127.0.0.2", "19998")
-      (info.host, info.port)
-    ]
+    let targets: Array[(String, String)] val =
+      [
+        ("127.0.0.2", "19999")
+        ("127.0.0.2", "19998")
+        (info.host, info.port)
+      ]
     _total = targets.size()
 
     _hosts = Array[(Session tag, String val)](targets.size())
@@ -68,7 +72,7 @@ actor Failover is (SessionStatusNotify & ResultReceiver)
     end
 
   be pg_session_authenticated(session: Session) =>
-    match _winner
+    match \exhaustive\ _winner
     | None =>
       _out.print(_label_for(session) + " — authenticated (winner).")
       _winner = session
@@ -94,13 +98,19 @@ actor Failover is (SessionStatusNotify & ResultReceiver)
     end
     session.close()
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _out.print("Query failed on winner.")
     session.close()
 
 class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
   let host: String
   let port: String
   let username: String

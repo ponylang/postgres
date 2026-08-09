@@ -1,3 +1,7 @@
+"""
+Transaction status tracking via `pg_transaction_status`. Sends BEGIN and
+COMMIT; the status changes from idle to in-transaction and back.
+"""
 use "cli"
 use "collections"
 use lori = "lori"
@@ -12,63 +16,61 @@ actor Main
 
     let client = Client(auth, server_info, env.out)
 
-// This example demonstrates LISTEN/NOTIFY. It subscribes to a channel,
-// sends a notification, receives it via the pg_notification callback,
-// then unsubscribes and shuts down.
 actor Client is (SessionStatusNotify & ResultReceiver)
+  """
+  Sends BEGIN and COMMIT to exercise transaction status callbacks.
+  """
   let _session: Session
   let _out: OutStream
   var _phase: USize = 0
 
   new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
-    _session = Session(
-      ServerConnectInfo(auth, info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(auth, info.host, info.port),
+        DatabaseConnectInfo(info.username, info.password, info.database),
+        this)
 
   be close() =>
     _session.close()
 
   be pg_session_authenticated(session: Session) =>
     _out.print("Authenticated.")
-    _out.print("Subscribing to channel 'demo'...")
-    session.execute(SimpleQuery("LISTEN demo"), this)
+    session.execute(SimpleQuery("BEGIN"), this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _out.print("Connection failed.")
 
-  be pg_notification(session: Session, notification: Notification) =>
-    _out.print("Notification received:")
-    _out.print("  channel: " + notification.channel)
-    _out.print("  payload: " + notification.payload)
-    _out.print("  pid:     " + notification.pid.string())
+  be pg_transaction_status(session: Session, status: TransactionStatus) =>
+    match \exhaustive\ status
+    | TransactionIdle => _out.print("Transaction status: idle")
+    | TransactionInBlock => _out.print("Transaction status: in transaction")
+    | TransactionFailed => _out.print("Transaction status: failed")
+    end
 
   be pg_query_result(session: Session, result: Result) =>
     _phase = _phase + 1
 
     match _phase
     | 1 =>
-      // LISTEN done, send notification
-      _out.print("Subscribed. Sending notification...")
-      _session.execute(
-        SimpleQuery("NOTIFY demo, 'hello from pony'"), this)
+      // BEGIN done. Commit to return to idle.
+      _session.execute(SimpleQuery("COMMIT"), this)
     | 2 =>
-      // NOTIFY done, unsubscribe
-      _out.print("Unsubscribing...")
-      _session.execute(SimpleQuery("UNLISTEN demo"), this)
-    | 3 =>
-      // UNLISTEN done
+      // COMMIT done.
       _out.print("Done.")
       close()
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print("Query failed: [" + e.severity + "] " + e.code + ": "
         + e.message)
@@ -78,6 +80,10 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     close()
 
 class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
   let host: String
   let port: String
   let username: String

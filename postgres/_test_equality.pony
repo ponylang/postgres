@@ -11,23 +11,27 @@ class \nodoc\ iso _TestFieldEqualityReflexive is UnitTest
   fun name(): String => "Field/Equality/Reflexive"
 
   fun apply(h: TestHelper) ? =>
-    let fields: Array[Field] val = [
-      Field("bytes", Bytea(recover val [as U8: 1; 2; 3] end))
-      Field("raw", RawBytes(recover val [as U8: 4; 5; 6] end))
-      Field("b", true)
-      Field("f32", F32(1.5))
-      Field("f64", F64(2.5))
-      Field("i16", I16(16))
-      Field("i32", I32(32))
-      Field("i64", I64(64))
-      Field("none", None)
-      Field("date", PgDate(8765))
-      Field("interval", PgInterval(3_600_000_000, 1, 2))
-      Field("time",
-        PgTime(MakePgTimeMicroseconds(52_200_000_000) as PgTimeMicroseconds))
-      Field("timestamp", PgTimestamp(788_918_400_000_000))
-      Field("str", "hello")
-    ]
+    let fields: Array[Field] val =
+      [
+        Field("bytes", Bytea(recover val [as U8: 1; 2; 3] end))
+        Field("raw", RawBytes(recover val [as U8: 4; 5; 6] end))
+        Field("b", true)
+        Field("f32", F32(1.5))
+        Field("f64", F64(2.5))
+        Field("i16", I16(16))
+        Field("i32", I32(32))
+        Field("i64", I64(64))
+        Field("none", None)
+        Field("date", PgDate(8765))
+        Field("interval", PgInterval(3_600_000_000, 1, 2))
+        Field(
+          "time",
+          PgTime(
+            MakePgTimeMicroseconds(52_200_000_000)
+              as PgTimeMicroseconds))
+        Field("timestamp", PgTimestamp(788_918_400_000_000))
+        Field("str", "hello")
+      ]
     for f in fields.values() do
       h.assert_true(f == f)
     end
@@ -55,9 +59,11 @@ class \nodoc\ iso _TestFieldEqualityStructural is UnitTest
       Field("a", PgInterval(1000, 2, 3))
         == Field("a", PgInterval(1000, 2, 3)))
     h.assert_true(
-      Field("a",
+      Field(
+        "a",
         PgTime(MakePgTimeMicroseconds(1000) as PgTimeMicroseconds))
-        == Field("a",
+        == Field(
+        "a",
         PgTime(MakePgTimeMicroseconds(1000) as PgTimeMicroseconds)))
     h.assert_true(
       Field("a", PgTimestamp(1000)) == Field("a", PgTimestamp(1000)))
@@ -145,13 +151,15 @@ class \nodoc\ iso _TestFieldInequality is UnitTest
     // Temporal type cross-type inequality
     h.assert_false(Field("a", PgDate(0)) == Field("a", I32(0)))
     h.assert_false(
-      Field("a",
+      Field(
+        "a",
         PgTime(MakePgTimeMicroseconds(0) as PgTimeMicroseconds))
         == Field("a", I64(0)))
     h.assert_false(Field("a", PgTimestamp(0)) == Field("a", I64(0)))
     h.assert_false(Field("a", PgDate(0)) == Field("a", PgTimestamp(0)))
     h.assert_false(
-      Field("a",
+      Field(
+        "a",
         PgTime(MakePgTimeMicroseconds(0) as PgTimeMicroseconds))
         == Field("a", PgTimestamp(0)))
     h.assert_false(
@@ -160,15 +168,16 @@ class \nodoc\ iso _TestFieldInequality is UnitTest
     // Temporal type same-type inequality
     h.assert_false(Field("a", PgDate(1)) == Field("a", PgDate(2)))
     h.assert_false(
-      Field("a",
+      Field(
+        "a",
         PgTime(MakePgTimeMicroseconds(1) as PgTimeMicroseconds))
-        == Field("a",
+        == Field(
+        "a",
         PgTime(MakePgTimeMicroseconds(2) as PgTimeMicroseconds)))
     h.assert_false(
       Field("a", PgTimestamp(1)) == Field("a", PgTimestamp(2)))
     h.assert_false(
       Field("a", PgInterval(1, 0, 0)) == Field("a", PgInterval(2, 0, 0)))
-
 
 class \nodoc\ iso _TestRowEquality is UnitTest
   fun name(): String => "Row/Equality"
@@ -180,18 +189,21 @@ class \nodoc\ iso _TestRowEquality is UnitTest
     h.assert_true(empty1 == empty2)
 
     // Reflexive
-    let r1 = Row(recover val
-      [Field("a", I32(1)); Field("b", "hello")]
-    end)
+    let r1 =
+      Row(recover val
+        [Field("a", I32(1)); Field("b", "hello")]
+      end)
     h.assert_true(r1 == r1)
 
     // Structural equality: same content, independent construction
-    let r2 = Row(recover val
-      [Field("a", I32(1)); Field("b", "hello")]
-    end)
-    let r3 = Row(recover val
-      [Field("a", I32(1)); Field("b", "hello")]
-    end)
+    let r2 =
+      Row(recover val
+        [Field("a", I32(1)); Field("b", "hello")]
+      end)
+    let r3 =
+      Row(recover val
+        [Field("a", I32(1)); Field("b", "hello")]
+      end)
     h.assert_true(r2 == r3)
 
 class \nodoc\ iso _TestRowInequality is UnitTest
@@ -200,9 +212,10 @@ class \nodoc\ iso _TestRowInequality is UnitTest
   fun apply(h: TestHelper) =>
     // Different sizes
     let r1 = Row(recover val [Field("a", I32(1))] end)
-    let r2 = Row(recover val
-      [Field("a", I32(1)); Field("b", I32(2))]
-    end)
+    let r2 =
+      Row(recover val
+        [Field("a", I32(1)); Field("b", I32(2))]
+      end)
     h.assert_false(r1 == r2)
 
     // Same size, different content
@@ -220,18 +233,21 @@ class \nodoc\ iso _TestRowsEquality is UnitTest
     h.assert_true(empty1 == empty2)
 
     // Reflexive
-    let rs1 = Rows(recover val
-      [Row(recover val [Field("a", I32(1))] end)]
-    end)
+    let rs1 =
+      Rows(recover val
+        [Row(recover val [Field("a", I32(1))] end)]
+      end)
     h.assert_true(rs1 == rs1)
 
     // Structural equality
-    let rs2 = Rows(recover val
-      [Row(recover val [Field("a", I32(1))] end)]
-    end)
-    let rs3 = Rows(recover val
-      [Row(recover val [Field("a", I32(1))] end)]
-    end)
+    let rs2 =
+      Rows(recover val
+        [Row(recover val [Field("a", I32(1))] end)]
+      end)
+    let rs3 =
+      Rows(recover val
+        [Row(recover val [Field("a", I32(1))] end)]
+      end)
     h.assert_true(rs2 == rs3)
 
 class \nodoc\ iso _TestRowsInequality is UnitTest
@@ -239,69 +255,72 @@ class \nodoc\ iso _TestRowsInequality is UnitTest
 
   fun apply(h: TestHelper) =>
     // Different sizes
-    let rs1 = Rows(recover val
-      [Row(recover val [Field("a", I32(1))] end)]
-    end)
+    let rs1 =
+      Rows(recover val
+        [Row(recover val [Field("a", I32(1))] end)]
+      end)
     let rs2 = Rows(recover val Array[Row] end)
     h.assert_false(rs1 == rs2)
 
     // Different content
-    let rs3 = Rows(recover val
-      [Row(recover val [Field("a", I32(1))] end)]
-    end)
-    let rs4 = Rows(recover val
-      [Row(recover val [Field("a", I32(2))] end)]
-    end)
+    let rs3 =
+      Rows(recover val
+        [Row(recover val [Field("a", I32(1))] end)]
+      end)
+    let rs4 =
+      Rows(recover val
+        [Row(recover val [Field("a", I32(2))] end)]
+      end)
     h.assert_false(rs3 == rs4)
 
 // -- Generators --
-
 primitive \nodoc\ _FieldDataGen
   fun apply(): Generator[FieldData] =>
-    Generators.frequency[FieldData]([
-      (1, Generator[FieldData](object is GenObj[FieldData]
-        fun generate(rnd: Randomness): FieldData =>
-          let size = rnd.usize(0, 10)
-          Bytea(recover val
-            let arr = Array[U8](size)
-            for _ in Range(0, size) do
-              arr.push(rnd.u8())
-            end
-            arr
-          end)
-      end))
-      (1, Generators.bool().map[FieldData]({(v) => v }))
-      (1, Generators.i32().map[FieldData]({(v) => F32.from[I32](v) }))
-      (1, Generators.i64().map[FieldData]({(v) => F64.from[I64](v) }))
-      (1, Generators.i16().map[FieldData]({(v) => v }))
-      (1, Generators.i32().map[FieldData]({(v) => v }))
-      (1, Generators.i64().map[FieldData]({(v) => v }))
-      (1, Generators.unit[None](None).map[FieldData]({(v) => v }))
-      (1, Generators.i32().map[FieldData]({(v) => PgDate(v) }))
-      (1, Generators.i64().map[FieldData](
-        {(v) => PgInterval(v, v.i32(), (v >> 32).i32()) }))
-      (1, Generators.i64().map[FieldData](
-        {(v) =>
-          try
-            PgTime(MakePgTimeMicroseconds((v.abs() % 86_400_000_000).i64())
-              as PgTimeMicroseconds)
-          else _Unreachable(); I64(0)
-          end }))
-      (1, Generators.i64().map[FieldData]({(v) => PgTimestamp(v) }))
-      (1, Generators.ascii_printable(0, 20)
-        .map[FieldData]({(v) => v }))
-      (1, Generator[FieldData](object is GenObj[FieldData]
-        fun generate(rnd: Randomness): FieldData =>
-          let size = rnd.usize(0, 10)
-          RawBytes(recover val
-            let arr = Array[U8](size)
-            for _ in Range(0, size) do
-              arr.push(rnd.u8())
-            end
-            arr
-          end)
-      end))
-    ])
+    Generators.frequency[FieldData](
+      [
+        (1, Generator[FieldData](object is GenObj[FieldData]
+          fun generate(rnd: Randomness): FieldData =>
+            let size = rnd.usize(0, 10)
+            Bytea(recover val
+              let arr = Array[U8](size)
+              for _ in Range(0, size) do
+                arr.push(rnd.u8())
+              end
+              arr
+            end)
+        end))
+        (1, Generators.bool().map[FieldData]({(v) => v }))
+        (1, Generators.i32().map[FieldData]({(v) => F32.from[I32](v) }))
+        (1, Generators.i64().map[FieldData]({(v) => F64.from[I64](v) }))
+        (1, Generators.i16().map[FieldData]({(v) => v }))
+        (1, Generators.i32().map[FieldData]({(v) => v }))
+        (1, Generators.i64().map[FieldData]({(v) => v }))
+        (1, Generators.unit[None](None).map[FieldData]({(v) => v }))
+        (1, Generators.i32().map[FieldData]({(v) => PgDate(v) }))
+        (1, Generators.i64().map[FieldData](
+          {(v) => PgInterval(v, v.i32(), (v >> 32).i32()) }))
+        (1, Generators.i64().map[FieldData](
+          {(v) =>
+            try
+              PgTime(MakePgTimeMicroseconds((v.abs() % 86_400_000_000).i64())
+                as PgTimeMicroseconds)
+            else _Unreachable(); I64(0)
+            end}))
+        (1, Generators.i64().map[FieldData]({(v) => PgTimestamp(v) }))
+        (1, Generators.ascii_printable(0, 20)
+          .map[FieldData]({(v) => v }))
+        (1, Generator[FieldData](object is GenObj[FieldData]
+          fun generate(rnd: Randomness): FieldData =>
+            let size = rnd.usize(0, 10)
+            RawBytes(recover val
+              let arr = Array[U8](size)
+              for _ in Range(0, size) do
+                arr.push(rnd.u8())
+              end
+              arr
+            end)
+        end))
+      ])
 
 primitive \nodoc\ _FieldGen
   fun apply(): Generator[Field] =>
@@ -317,8 +336,8 @@ primitive \nodoc\ _RowGen
         let size = rnd.usize(0, 5)
         let fields = recover iso Array[Field](size) end
         for i in Range(0, size) do
-          fields.push(Field("f" + i.string(),
-            _random_field_value(rnd)))
+          fields.push(
+            Field("f" + i.string(), _random_field_value(rnd)))
         end
         Row(consume fields)
 
@@ -372,8 +391,8 @@ primitive \nodoc\ _RowsGen
           let field_count = rnd.usize(0, 5)
           let fields = recover iso Array[Field](field_count) end
           for j in Range(0, field_count) do
-            fields.push(Field("f" + j.string(),
-              _random_field_value(rnd)))
+            fields.push(
+              Field("f" + j.string(), _random_field_value(rnd)))
           end
           rows.push(Row(consume fields))
         end
@@ -420,7 +439,6 @@ primitive \nodoc\ _RowsGen
     end)
 
 // -- Property Tests --
-
 class \nodoc\ iso _TestFieldReflexiveProperty is Property1[Field]
   fun name(): String => "Field/Equality/Reflexive/Property"
 
@@ -449,7 +467,9 @@ class \nodoc\ iso _TestFieldSymmetricProperty
   fun gen2(): Generator[FieldData] =>
     _FieldDataGen()
 
-  fun ref property2(arg1: FieldData, arg2: FieldData,
+  fun ref property2(
+    arg1: FieldData,
+    arg2: FieldData,
     h: PropertyHelper)
   =>
     let f1 = Field("x", arg1)

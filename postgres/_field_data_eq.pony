@@ -35,7 +35,7 @@ primitive _FieldDataEq
     `apply()` which returns `false` for unmatched types (including `None`
     passed as `FieldData`).
     """
-    match (a, b)
+    match \exhaustive\ (a, b)
     | (None, None) => true
     | (let x: FieldData, let y: FieldData) => apply(x, y)
     end

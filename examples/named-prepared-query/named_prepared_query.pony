@@ -1,3 +1,8 @@
+"""
+Named prepared statements. Prepares a parameterized query once with
+`session.prepare()`, then executes it multiple times with different
+parameter values via `NamedPreparedQuery`.
+"""
 use "cli"
 use "collections"
 use lori = "lori"
@@ -12,38 +17,63 @@ actor Main
 
     let client = Client(auth, server_info, env.out)
 
-actor Client is (SessionStatusNotify & ResultReceiver)
+actor Client is (SessionStatusNotify & ResultReceiver & PrepareReceiver)
+  """
+  Prepares a named statement and executes it with two sets of parameters.
+  """
   let _session: Session
   let _out: OutStream
+  var _executions_remaining: U32 = 2
 
   new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
-    _session = Session(
-      ServerConnectInfo(auth, info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(auth, info.host, info.port),
+        DatabaseConnectInfo(info.username, info.password, info.database),
+        this)
 
   be close() =>
     _session.close()
 
   be pg_session_authenticated(session: Session) =>
     _out.print("Authenticated.")
-    _out.print("Sending prepared query....")
-    // Parameters are $1, $2, etc. in the query string.
-    // Values are typed — the driver sends OIDs so the server knows each type.
-    // Use None for NULL parameters.
-    let q = PreparedQuery(
-      "SELECT $1::text AS name, $2::int4 AS age, $3::text AS note",
-      recover val [as FieldDataTypes: "Pony"; I32(10); None] end)
-    session.execute(q, this)
+    _out.print("Preparing statement 'greet'...")
+    // Prepare a named statement once; execute it multiple times later.
+    session.prepare(
+      "greet",
+      "SELECT $1::text AS greeting, $2::text AS name",
+      this)
 
   be pg_session_connection_failed(session: Session,
     reason: ConnectionFailureReason)
   =>
     _out.print("Connection failed.")
 
+  be pg_statement_prepared(session: Session, name: String) =>
+    _out.print("Statement '" + name + "' prepared.")
+    // Execute the same prepared statement with different parameters.
+    _session.execute(
+      NamedPreparedQuery(
+        "greet",
+        recover val [as FieldDataTypes: "Hello"; "Pony"] end),
+      this)
+    _session.execute(
+      NamedPreparedQuery(
+        "greet",
+        recover val [as FieldDataTypes: "Hi"; "World"] end),
+      this)
+
+  be pg_prepare_failed(
+    session: Session,
+    name: String,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _out.print("Failed to prepare statement '" + name + "'.")
+    close()
+
   be pg_query_result(session: Session, result: Result) =>
-    match result
+    match \exhaustive\ result
     | let r: ResultSet =>
       _out.print("ResultSet (" + r.rows().size().string() + " rows):")
       for row in r.rows().values() do
@@ -72,15 +102,26 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     | let r: SimpleResult =>
       _out.print("Query executed.")
     end
-    close()
+    _executions_remaining = _executions_remaining - 1
+    if _executions_remaining == 0 then
+      _out.print("All executions complete. Closing statement...")
+      _session.close_statement("greet")
+      close()
+    end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _out.print("Query failed.")
     close()
 
 class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
   let host: String
   let port: String
   let username: String

@@ -12,14 +12,18 @@ class \nodoc\ iso _TestConnectionTimeoutFires is UnitTest
     "ConnectionTimeout/Fires"
 
   fun apply(h: TestHelper) =>
-    match lori.MakeConnectionTimeout(100)
+    match \exhaustive\ lori.MakeConnectionTimeout(100)
     | let ct: lori.ConnectionTimeout =>
-      let session = Session(
-        ServerConnectInfo(lori.TCPConnectAuth(h.env.root),
-          "192.0.2.1", "9999"
-          where connection_timeout' = ct),
-        DatabaseConnectInfo("postgres", "postgres", "postgres"),
-        _ConnectionTimeoutTestClient(h))
+      let session =
+        Session(
+          ServerConnectInfo(
+            lori.TCPConnectAuth(h.env.root),
+            "192.0.2.1",
+            "9999"
+            where connection_timeout' = ct),
+          DatabaseConnectInfo(
+            "postgres", "postgres", "postgres"),
+          _ConnectionTimeoutTestClient(h))
       h.dispose_when_done(session)
     | let _: ValidationFailure =>
       h.fail("Failed to create ConnectionTimeout.")

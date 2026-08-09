@@ -21,14 +21,20 @@ class \nodoc\ iso _TestRemoteCloseSSLNegotiating is UnitTest
     let host = "127.0.0.1"
     let port = "7745"
 
-    let sslctx = recover val
-      SSLContext
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let sslctx =
+      recover val
+        SSLContext
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
-    let listener = _RemoteCloseSSLNegotiatingListener(
-      lori.TCPListenAuth(h.env.root), host, port, h, sslctx)
+    let listener =
+      _RemoteCloseSSLNegotiatingListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        sslctx)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -69,8 +75,12 @@ actor \nodoc\ _RemoteCloseSSLNegotiatingListener is lori.TCPListenerActor
   let _port: String
   let _sslctx: SSLContext val
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
-    h: TestHelper, sslctx: SSLContext val)
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper,
+    sslctx: SSLContext val)
   =>
     _host = host
     _port = port
@@ -88,11 +98,15 @@ actor \nodoc\ _RemoteCloseSSLNegotiatingListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port,
-        SSLRequired(_sslctx)),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _RemoteCloseSSLNegotiatingNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port,
+          SSLRequired(_sslctx)),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _RemoteCloseSSLNegotiatingNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -137,8 +151,9 @@ class \nodoc\ iso _TestRemoteClosePreAuth is UnitTest
     let host = "127.0.0.1"
     let port = "7746"
 
-    let listener = _RemoteClosePreAuthListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _RemoteClosePreAuthListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -178,7 +193,10 @@ actor \nodoc\ _RemoteClosePreAuthListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -196,10 +214,12 @@ actor \nodoc\ _RemoteClosePreAuthListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _RemoteClosePreAuthNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root), _host, _port),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _RemoteClosePreAuthNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -245,8 +265,9 @@ class \nodoc\ iso _TestRemoteCloseSCRAM is UnitTest
     let host = "127.0.0.1"
     let port = "7747"
 
-    let listener = _RemoteCloseSCRAMListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _RemoteCloseSCRAMListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -286,7 +307,10 @@ actor \nodoc\ _RemoteCloseSCRAMListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -304,10 +328,12 @@ actor \nodoc\ _RemoteCloseSCRAMListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _RemoteCloseSCRAMNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root), _host, _port),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _RemoteCloseSCRAMNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -336,8 +362,8 @@ actor \nodoc\ _RemoteCloseSCRAMServer
       match _reader.read_startup_message()
       | let _: Array[U8] val =>
         _phase = 1
-        let mechanisms: Array[String] val = recover val
-          ["SCRAM-SHA-256"] end
+        let mechanisms: Array[String] val =
+          recover val ["SCRAM-SHA-256"] end
         _tcp_connection.send(
           _IncomingAuthenticationSASLTestMessage(mechanisms).bytes())
       end
@@ -362,8 +388,9 @@ class \nodoc\ iso _TestRemoteCloseLoggedInIdle is UnitTest
     let host = "127.0.0.1"
     let port = "7748"
 
-    let listener = _RemoteCloseLoggedInIdleListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _RemoteCloseLoggedInIdleListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -399,7 +426,10 @@ actor \nodoc\ _RemoteCloseLoggedInIdleListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -417,11 +447,15 @@ actor \nodoc\ _RemoteCloseLoggedInIdleListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _RemoteCloseLoggedInIdleNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _RemoteCloseLoggedInIdleNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -449,8 +483,10 @@ actor \nodoc\ _RemoteCloseLoggedInIdleServer
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
       _closed = true
-      _tcp_connection.send(_IncomingAuthenticationOkTestMessage.bytes())
-      _tcp_connection.send(_IncomingReadyForQueryTestMessage('I').bytes())
+      _tcp_connection.send(
+        _IncomingAuthenticationOkTestMessage.bytes())
+      _tcp_connection.send(
+        _IncomingReadyForQueryTestMessage('I').bytes())
       _tcp_connection.close()
     end
     lori.KeepReading
@@ -467,8 +503,9 @@ class \nodoc\ iso _TestRemoteCloseLoggedInInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7749"
 
-    let listener = _RemoteCloseLoggedInInFlightListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _RemoteCloseLoggedInInFlightListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -499,7 +536,9 @@ actor \nodoc\ _RemoteCloseLoggedInInFlightClient is
     _h.fail("Expected pg_query_failed, not pg_query_result.")
     _h.complete(false)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     match failure
@@ -525,14 +564,18 @@ actor \nodoc\ _RemoteCloseLoggedInInFlightClient is
     end
     _h.complete(true)
 
-actor \nodoc\ _RemoteCloseLoggedInInFlightListener is lori.TCPListenerActor
+actor \nodoc\ _RemoteCloseLoggedInInFlightListener
+  is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _server_auth: lori.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -550,11 +593,15 @@ actor \nodoc\ _RemoteCloseLoggedInInFlightListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _RemoteCloseLoggedInInFlightClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _RemoteCloseLoggedInInFlightClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -584,8 +631,10 @@ actor \nodoc\ _RemoteCloseAfterQueryServer
       match _reader.read_startup_message()
       | let _: Array[U8] val =>
         _authed = true
-        _tcp_connection.send(_IncomingAuthenticationOkTestMessage.bytes())
-        _tcp_connection.send(_IncomingReadyForQueryTestMessage('I').bytes())
+        _tcp_connection.send(
+          _IncomingAuthenticationOkTestMessage.bytes())
+        _tcp_connection.send(
+          _IncomingReadyForQueryTestMessage('I').bytes())
       end
     else
       match _reader.read_message()
@@ -608,8 +657,9 @@ class \nodoc\ iso _TestRemoteCloseLoggedInPipeline is UnitTest
     let host = "127.0.0.1"
     let port = "7750"
 
-    let listener = _RemoteCloseLoggedInPipelineListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _RemoteCloseLoggedInPipelineListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -633,14 +683,22 @@ actor \nodoc\ _RemoteCloseLoggedInPipelineClient is
     let q1 = PreparedQuery("SELECT 1", recover val [] end)
     let q2 = PreparedQuery("SELECT 2", recover val [] end)
     let queries: Array[(PreparedQuery | NamedPreparedQuery)] val =
-      recover val [as (PreparedQuery | NamedPreparedQuery): q1; q2] end
+      recover val
+        [as (PreparedQuery | NamedPreparedQuery): q1; q2]
+      end
     session.pipeline(queries, this)
 
-  be pg_pipeline_result(session: Session, index: USize, result: Result) =>
+  be pg_pipeline_result(
+    session: Session,
+    index: USize,
+    result: Result)
+  =>
     _h.fail("Expected pg_pipeline_failed, not pg_pipeline_result.")
     _h.complete(false)
 
-  be pg_pipeline_failed(session: Session, index: USize,
+  be pg_pipeline_failed(
+    session: Session,
+    index: USize,
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
@@ -649,7 +707,8 @@ actor \nodoc\ _RemoteCloseLoggedInPipelineClient is
     | (1, SessionClosed) => _got_index_1 = true
     else
       _h.fail(
-        "Unexpected pipeline failure at index " + index.string() + ".")
+        "Unexpected pipeline failure at index "
+          + index.string() + ".")
       _h.complete(false)
     end
 
@@ -670,14 +729,18 @@ actor \nodoc\ _RemoteCloseLoggedInPipelineClient is
     end
     _h.complete(true)
 
-actor \nodoc\ _RemoteCloseLoggedInPipelineListener is lori.TCPListenerActor
+actor \nodoc\ _RemoteCloseLoggedInPipelineListener
+  is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _server_auth: lori.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -698,11 +761,15 @@ actor \nodoc\ _RemoteCloseLoggedInPipelineListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _RemoteCloseLoggedInPipelineClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _RemoteCloseLoggedInPipelineClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -722,15 +789,17 @@ class \nodoc\ iso _TestRemoteCloseExtendedQueryInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7751"
 
-    let listener = _RemoteCloseExtendedQueryListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _RemoteCloseExtendedQueryListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
 actor \nodoc\ _RemoteCloseExtendedQueryClient is
   (SessionStatusNotify & ResultReceiver)
   let _h: TestHelper
-  let _query: PreparedQuery = PreparedQuery("SELECT 1", recover val [] end)
+  let _query: PreparedQuery =
+    PreparedQuery("SELECT 1", recover val [] end)
   var _query_failed: Bool = false
 
   new create(h: TestHelper) =>
@@ -749,7 +818,9 @@ actor \nodoc\ _RemoteCloseExtendedQueryClient is
     _h.fail("Expected pg_query_failed, not pg_query_result.")
     _h.complete(false)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     match failure
@@ -767,14 +838,18 @@ actor \nodoc\ _RemoteCloseExtendedQueryClient is
     end
     _h.complete(true)
 
-actor \nodoc\ _RemoteCloseExtendedQueryListener is lori.TCPListenerActor
+actor \nodoc\ _RemoteCloseExtendedQueryListener
+  is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _server_auth: lori.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -792,11 +867,15 @@ actor \nodoc\ _RemoteCloseExtendedQueryListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _RemoteCloseExtendedQueryClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _RemoteCloseExtendedQueryClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -815,8 +894,9 @@ class \nodoc\ iso _TestRemoteClosePrepareInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7752"
 
-    let listener = _RemoteClosePrepareListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _RemoteClosePrepareListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -841,7 +921,9 @@ actor \nodoc\ _RemoteClosePrepareClient is
     _h.fail("Expected pg_prepare_failed, not pg_statement_prepared.")
     _h.complete(false)
 
-  be pg_prepare_failed(session: Session, name: String,
+  be pg_prepare_failed(
+    session: Session,
+    name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     match failure
@@ -866,7 +948,10 @@ actor \nodoc\ _RemoteClosePrepareListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -884,11 +969,15 @@ actor \nodoc\ _RemoteClosePrepareListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _RemoteClosePrepareClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _RemoteClosePrepareClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -908,8 +997,9 @@ class \nodoc\ iso _TestRemoteCloseCopyInInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7753"
 
-    let listener = _RemoteCloseCopyInListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _RemoteCloseCopyInListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -963,7 +1053,10 @@ actor \nodoc\ _RemoteCloseCopyInListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -981,11 +1074,15 @@ actor \nodoc\ _RemoteCloseCopyInListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _RemoteCloseCopyInClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _RemoteCloseCopyInClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1005,8 +1102,9 @@ class \nodoc\ iso _TestRemoteCloseCopyOutInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7754"
 
-    let listener = _RemoteCloseCopyOutListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _RemoteCloseCopyOutListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1060,7 +1158,10 @@ actor \nodoc\ _RemoteCloseCopyOutListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -1078,11 +1179,15 @@ actor \nodoc\ _RemoteCloseCopyOutListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _RemoteCloseCopyOutClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _RemoteCloseCopyOutClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1091,8 +1196,9 @@ actor \nodoc\ _RemoteCloseCopyOutListener is lori.TCPListenerActor
 
 class \nodoc\ iso _TestRemoteCloseStreamInFlight is UnitTest
   """
-  Peer close during an in-flight `stream` (state `_StreamingQueryInFlight`).
-  Asserts `pg_stream_failed(SessionClosed)` before `pg_session_shutdown`.
+  Peer close during an in-flight `stream` (state
+  `_StreamingQueryInFlight`). Asserts `pg_stream_failed(SessionClosed)`
+  before `pg_session_shutdown`.
   """
   fun name(): String =>
     "RemoteClose/StreamInFlight"
@@ -1101,15 +1207,17 @@ class \nodoc\ iso _TestRemoteCloseStreamInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7755"
 
-    let listener = _RemoteCloseStreamListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _RemoteCloseStreamListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
 actor \nodoc\ _RemoteCloseStreamClient is
   (SessionStatusNotify & StreamingResultReceiver)
   let _h: TestHelper
-  let _query: PreparedQuery = PreparedQuery("SELECT 1", recover val [] end)
+  let _query: PreparedQuery =
+    PreparedQuery("SELECT 1", recover val [] end)
   var _stream_failed: Bool = false
 
   new create(h: TestHelper) =>
@@ -1158,7 +1266,10 @@ actor \nodoc\ _RemoteCloseStreamListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -1176,11 +1287,15 @@ actor \nodoc\ _RemoteCloseStreamListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _RemoteCloseStreamClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _RemoteCloseStreamClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1189,11 +1304,12 @@ actor \nodoc\ _RemoteCloseStreamListener is lori.TCPListenerActor
 
 class \nodoc\ iso _TestRemoteClosePostAuthPreReady is UnitTest
   """
-  Peer close after `AuthenticationOk` but before the first `ReadyForQuery`.
-  The session is `_SessionLoggedIn` with `query_state = _QueryNotReady` —
-  no query in flight, no ReadyForQuery observed. Asserts
-  `pg_session_authenticated` fires, then `pg_session_shutdown` fires with
-  no `pg_query_failed` in between (nothing was queued).
+  Peer close after `AuthenticationOk` but before the first
+  `ReadyForQuery`. The session is `_SessionLoggedIn` with
+  `query_state = _QueryNotReady` — no query in flight, no ReadyForQuery
+  observed. Asserts `pg_session_authenticated` fires, then
+  `pg_session_shutdown` fires with no `pg_query_failed` in between
+  (nothing was queued).
   """
   fun name(): String =>
     "RemoteClose/PostAuthPreReady"
@@ -1202,8 +1318,9 @@ class \nodoc\ iso _TestRemoteClosePostAuthPreReady is UnitTest
     let host = "127.0.0.1"
     let port = "7756"
 
-    let listener = _RemoteClosePostAuthPreReadyListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _RemoteClosePostAuthPreReadyListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1232,14 +1349,18 @@ actor \nodoc\ _RemoteClosePostAuthPreReadyNotify is SessionStatusNotify
     end
     _h.complete(true)
 
-actor \nodoc\ _RemoteClosePostAuthPreReadyListener is lori.TCPListenerActor
+actor \nodoc\ _RemoteClosePostAuthPreReadyListener
+  is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _server_auth: lori.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -1252,16 +1373,21 @@ actor \nodoc\ _RemoteClosePostAuthPreReadyListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _RemoteClosePostAuthPreReadyServer =>
-    let server = _RemoteClosePostAuthPreReadyServer(_server_auth, fd)
+    let server =
+      _RemoteClosePostAuthPreReadyServer(_server_auth, fd)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _RemoteClosePostAuthPreReadyNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _RemoteClosePostAuthPreReadyNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1291,7 +1417,8 @@ actor \nodoc\ _RemoteClosePostAuthPreReadyServer
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
       _closed = true
-      _tcp_connection.send(_IncomingAuthenticationOkTestMessage.bytes())
+      _tcp_connection.send(
+        _IncomingAuthenticationOkTestMessage.bytes())
       _tcp_connection.close()
     end
     lori.KeepReading
@@ -1310,8 +1437,9 @@ class \nodoc\ iso _TestRemoteCloseCloseStatementInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7757"
 
-    let listener = _RemoteCloseCloseStatementListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _RemoteCloseCloseStatementListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1341,14 +1469,18 @@ actor \nodoc\ _RemoteCloseCloseStatementClient is SessionStatusNotify
     end
     _h.complete(true)
 
-actor \nodoc\ _RemoteCloseCloseStatementListener is lori.TCPListenerActor
+actor \nodoc\ _RemoteCloseCloseStatementListener
+  is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _server_auth: lori.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -1366,11 +1498,15 @@ actor \nodoc\ _RemoteCloseCloseStatementListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _RemoteCloseCloseStatementClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _RemoteCloseCloseStatementClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1380,11 +1516,12 @@ actor \nodoc\ _RemoteCloseCloseStatementListener is lori.TCPListenerActor
 class \nodoc\ iso _TestRemoteCloseAfterErrorResponse is UnitTest
   """
   Server sends `ErrorResponse` then closes the TCP connection before
-  `ReadyForQuery`. `on_error_response` already sets the in-flight state's
-  `_error = true` and delivers `pg_query_failed(ErrorResponseMessage)`, so
-  the subsequent `on_closed` must NOT double-deliver the query failure.
-  Uses counters to assert exactly-once delivery on both `pg_query_failed`
-  and `pg_session_shutdown`.
+  `ReadyForQuery`. `on_error_response` already sets the in-flight
+  state's `_error = true` and delivers
+  `pg_query_failed(ErrorResponseMessage)`, so the subsequent `on_closed`
+  must NOT double-deliver the query failure. Uses counters to assert
+  exactly-once delivery on both `pg_query_failed` and
+  `pg_session_shutdown`.
   """
   fun name(): String =>
     "RemoteClose/AfterErrorResponse"
@@ -1393,8 +1530,9 @@ class \nodoc\ iso _TestRemoteCloseAfterErrorResponse is UnitTest
     let host = "127.0.0.1"
     let port = "7758"
 
-    let listener = _RemoteCloseAfterErrorResponseListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _RemoteCloseAfterErrorResponseListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1422,7 +1560,9 @@ actor \nodoc\ _RemoteCloseAfterErrorResponseClient is
     _h.fail("Expected pg_query_failed, not pg_query_result.")
     _h.complete(false)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _query_failed_count = _query_failed_count + 1
@@ -1441,27 +1581,33 @@ actor \nodoc\ _RemoteCloseAfterErrorResponseClient is
       return
     end
     if _query_failed_count != 1 then
-      _h.fail("pg_query_failed fired " + _query_failed_count.string()
+      _h.fail("pg_query_failed fired "
+        + _query_failed_count.string()
         + " times; expected exactly 1.")
       _h.complete(false)
       return
     end
     if _shutdown_count != 1 then
-      _h.fail("pg_session_shutdown fired " + _shutdown_count.string()
+      _h.fail("pg_session_shutdown fired "
+        + _shutdown_count.string()
         + " times; expected exactly 1.")
       _h.complete(false)
       return
     end
     _h.complete(true)
 
-actor \nodoc\ _RemoteCloseAfterErrorResponseListener is lori.TCPListenerActor
+actor \nodoc\ _RemoteCloseAfterErrorResponseListener
+  is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _server_auth: lori.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -1474,16 +1620,21 @@ actor \nodoc\ _RemoteCloseAfterErrorResponseListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _RemoteCloseAfterErrorResponseServer =>
-    let server = _RemoteCloseAfterErrorResponseServer(_server_auth, fd)
+    let server =
+      _RemoteCloseAfterErrorResponseServer(_server_auth, fd)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _RemoteCloseAfterErrorResponseClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _RemoteCloseAfterErrorResponseClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1515,8 +1666,10 @@ actor \nodoc\ _RemoteCloseAfterErrorResponseServer
       match _reader.read_startup_message()
       | let _: Array[U8] val =>
         _authed = true
-        _tcp_connection.send(_IncomingAuthenticationOkTestMessage.bytes())
-        _tcp_connection.send(_IncomingReadyForQueryTestMessage('I').bytes())
+        _tcp_connection.send(
+          _IncomingAuthenticationOkTestMessage.bytes())
+        _tcp_connection.send(
+          _IncomingReadyForQueryTestMessage('I').bytes())
       end
     else
       match _reader.read_message()
@@ -1545,14 +1698,20 @@ class \nodoc\ iso _TestRemoteCloseSSLNegotiatingPreferred is UnitTest
     let host = "127.0.0.1"
     let port = "7759"
 
-    let sslctx = recover val
-      SSLContext
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let sslctx =
+      recover val
+        SSLContext
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
-    let listener = _RemoteCloseSSLNegotiatingPreferredListener(
-      lori.TCPListenAuth(h.env.root), host, port, h, sslctx)
+    let listener =
+      _RemoteCloseSSLNegotiatingPreferredListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        sslctx)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1565,8 +1724,12 @@ actor \nodoc\ _RemoteCloseSSLNegotiatingPreferredListener
   let _port: String
   let _sslctx: SSLContext val
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
-    h: TestHelper, sslctx: SSLContext val)
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper,
+    sslctx: SSLContext val)
   =>
     _host = host
     _port = port
@@ -1579,16 +1742,21 @@ actor \nodoc\ _RemoteCloseSSLNegotiatingPreferredListener
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _RemoteCloseAfterSSLRequestServer =>
-    let server = _RemoteCloseAfterSSLRequestServer(_server_auth, fd)
+    let server =
+      _RemoteCloseAfterSSLRequestServer(_server_auth, fd)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port,
-        SSLPreferred(_sslctx)),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _RemoteCloseSSLNegotiatingNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port,
+          SSLPreferred(_sslctx)),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _RemoteCloseSSLNegotiatingNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>

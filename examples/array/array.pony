@@ -1,3 +1,8 @@
+"""
+Queries and sends PostgreSQL int4[] arrays using PreparedQuery for
+binary-format encoding and decoding.
+"""
+
 use "cli"
 use "collections"
 use lori = "lori"
@@ -13,16 +18,21 @@ actor Main
     let client = Client(auth, server_info, env.out)
 
 actor Client is (SessionStatusNotify & ResultReceiver)
+  """
+  Runs a two-step array roundtrip: fetches a literal int4[] from the
+  server, then sends a PgArray parameter and reads back the result.
+  """
   let _session: Session
   let _out: OutStream
   var _step: USize = 0
 
   new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
-    _session = Session(
-      ServerConnectInfo(auth, info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(auth, info.host, info.port),
+        DatabaseConnectInfo(info.username, info.password, info.database),
+        this)
 
   be close() =>
     _session.close()
@@ -32,11 +42,14 @@ actor Client is (SessionStatusNotify & ResultReceiver)
 
     // Step 1: SELECT a literal array via PreparedQuery (binary decode).
     _out.print("Querying int4[] via PreparedQuery...")
-    session.execute(PreparedQuery(
-      "SELECT ARRAY[10, 20, 30]::int4[] AS nums",
-      recover val Array[FieldDataTypes] end), this)
+    session.execute(
+      PreparedQuery(
+        "SELECT ARRAY[10, 20, 30]::int4[] AS nums",
+        recover val Array[FieldDataTypes] end),
+      this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _out.print("Connection failed.")
@@ -69,23 +82,37 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     end
 
     if _step == 1 then
-      // Step 2: Send a PgArray as a query parameter (encode + decode roundtrip).
+      // Step 2: Send a PgArray as a query parameter
+      // (encode + decode roundtrip).
       _out.print("Sending int4[] parameter via PreparedQuery...")
-      let arr = PgArray(23,
-        recover val [as (FieldData | None): I32(100); None; I32(300)] end)
-      session.execute(PreparedQuery("SELECT $1::int4[] AS roundtrip",
-        recover val [as FieldDataTypes: arr] end), this)
+      let arr =
+        PgArray(
+          23,
+          recover val
+            [as (FieldData | None): I32(100); None; I32(300)]
+          end)
+      session.execute(
+        PreparedQuery(
+          "SELECT $1::int4[] AS roundtrip",
+          recover val [as FieldDataTypes: arr] end),
+        this)
     else
       close()
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _out.print("Query failed.")
     close()
 
 class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
   let host: String
   let port: String
   let username: String

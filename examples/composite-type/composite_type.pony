@@ -2,11 +2,11 @@
 Composite type support via `CodecRegistry.with_composite_type()`. Creates a
 PostgreSQL composite type, discovers its OID from `pg_type`, registers it
 with field descriptors, and queries it with `PreparedQuery` to get
-`PgComposite` results. Uses two sessions to demonstrate the typical
-two-phase pattern for dynamic OIDs: the first session discovers the OID,
-the second uses a `CodecRegistry` built with that OID.
+`PgComposite` results. Uses two sessions for the typical two-phase pattern
+for dynamic OIDs: the first session discovers the OID, the second uses a
+`CodecRegistry` built with that OID.
 
-Shows positional access via `apply()`, named access via `field()`, and
+Covers positional access via `apply()`, named access via `field()`, and
 sending a `PgComposite` as a query parameter.
 """
 use "cli"
@@ -23,6 +23,11 @@ actor Main
     Client(auth, server_info, env.out)
 
 actor Client is (SessionStatusNotify & ResultReceiver)
+  """
+  Two-phase composite type workflow: discovers the OID in one session,
+  then reconnects with a composite-aware registry to query and send
+  PgComposite values.
+  """
   let _auth: lori.TCPConnectAuth
   let _info: ServerInfo
   let _out: OutStream
@@ -34,10 +39,12 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     _auth = auth
     _info = info
     _out = out
-    _session = Session(
-      ServerConnectInfo(_auth, _info.host, _info.port),
-      DatabaseConnectInfo(_info.username, _info.password, _info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(_auth, _info.host, _info.port),
+        DatabaseConnectInfo(
+          _info.username, _info.password, _info.database),
+        this)
 
   be close() =>
     _session.close()
@@ -51,13 +58,17 @@ actor Client is (SessionStatusNotify & ResultReceiver)
         SimpleQuery("DROP TYPE IF EXISTS address"), this)
     | 4 =>
       // Phase 2: query with composite-aware registry.
-      _out.print("Authenticated (phase 2: query with registered composite).")
+      _out.print(
+        "Authenticated (phase 2: query with registered composite).")
       _phase = 5
 
       // SELECT a composite literal
-      session.execute(PreparedQuery(
-        "SELECT ROW('123 Main St','Springfield',62704)::address AS addr",
-        recover val Array[FieldDataTypes] end), this)
+      session.execute(
+        PreparedQuery(
+          "SELECT ROW('123 Main St','Springfield',62704)"
+            + "::address AS addr",
+          recover val Array[FieldDataTypes] end),
+        this)
     end
 
   be pg_session_connection_failed(session: Session,
@@ -72,14 +83,17 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     | 1 =>
       // Old type dropped. Create the composite type.
       _out.print("Creating composite type 'address'...")
-      session.execute(SimpleQuery(
-        "CREATE TYPE address AS (street text, city text, zip_code int4)"),
+      session.execute(
+        SimpleQuery(
+          "CREATE TYPE address AS "
+            + "(street text, city text, zip_code int4)"),
         this)
     | 2 =>
       // Type created. Query its OID from pg_type.
       _out.print("Querying composite OID from pg_type...")
       session.execute(
-        SimpleQuery("SELECT oid FROM pg_type WHERE typname = 'address'"),
+        SimpleQuery(
+          "SELECT oid FROM pg_type WHERE typname = 'address'"),
         this)
     | 3 =>
       // Got the OID. Parse it.
@@ -103,8 +117,9 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       // Register and query the array OID too if needed
       _out.print("Querying array OID from pg_type...")
       session.execute(
-        SimpleQuery("SELECT typarray FROM pg_type WHERE oid = "
-          + oid.string()),
+        SimpleQuery(
+          "SELECT typarray FROM pg_type WHERE oid = "
+            + oid.string()),
         this)
     | 4 =>
       // Got the array OID. Build registry, close, reconnect.
@@ -118,32 +133,38 @@ actor Client is (SessionStatusNotify & ResultReceiver)
         end
       end
 
-      let descriptors: Array[(String, U32)] val = recover val
-        [as (String, U32): ("street", 25); ("city", 25); ("zip_code", 23)]
-      end
-      let registry = try
-        let r = CodecRegistry
-          .with_composite_type(_composite_oid, descriptors)?
-        if array_oid > 0 then
-          r.with_array_type(array_oid, _composite_oid)?
-        else
-          r
+      let descriptors: Array[(String, U32)] val =
+        recover val
+          [ as (String, U32):
+            ("street", 25); ("city", 25); ("zip_code", 23)]
         end
-      else
-        _out.print("Failed to register composite type.")
-        close()
-        return
-      end
+      let registry =
+        try
+          let r = CodecRegistry
+            .with_composite_type(_composite_oid, descriptors)?
+          if array_oid > 0 then
+            r.with_array_type(array_oid, _composite_oid)?
+          else
+            r
+          end
+        else
+          _out.print("Failed to register composite type.")
+          close()
+          return
+        end
       session.close()
-      _session = Session(
-        ServerConnectInfo(_auth, _info.host, _info.port),
-        DatabaseConnectInfo(_info.username, _info.password, _info.database),
-        this where registry = registry)
+      _session =
+        Session(
+          ServerConnectInfo(_auth, _info.host, _info.port),
+          DatabaseConnectInfo(
+            _info.username, _info.password, _info.database),
+          this where registry = registry)
     | 6 =>
       // PreparedQuery result. The composite value arrives as PgComposite.
       match result
       | let rs: ResultSet =>
-        _out.print("ResultSet (" + rs.rows().size().string() + " rows):")
+        _out.print(
+          "ResultSet (" + rs.rows().size().string() + " rows):")
         for row in rs.rows().values() do
           for field in row.fields.values() do
             match field.value
@@ -152,14 +173,16 @@ actor Client is (SessionStatusNotify & ResultReceiver)
               // Positional access
               try
                 match c(0)?
-                | let s: String => _out.print("    [0] street = " + s)
+                | let s: String =>
+                  _out.print("    [0] street = " + s)
                 | None => _out.print("    [0] street = NULL")
                 end
               end
               // Named access
               try
                 match c.field("city")?
-                | let s: String => _out.print("    city = " + s)
+                | let s: String =>
+                  _out.print("    city = " + s)
                 | None => _out.print("    city = NULL")
                 end
               end
@@ -172,7 +195,8 @@ actor Client is (SessionStatusNotify & ResultReceiver)
               end
               // String representation
               _out.print("    string() = " + c.string())
-            | None => _out.print("  " + field.name + " = NULL")
+            | None =>
+              _out.print("  " + field.name + " = NULL")
             end
           end
         end
@@ -180,16 +204,20 @@ actor Client is (SessionStatusNotify & ResultReceiver)
 
       // Now send a PgComposite as a parameter
       _out.print("Sending PgComposite as query parameter...")
-      let addr = PgComposite.from_fields(_composite_oid,
-        recover val
-          [as (String, U32, (FieldData | None)):
-            ("street", 25, "42 Elm St")
-            ("city", 25, "Portland")
-            ("zip_code", 23, I32(97201))]
-        end)
-      session.execute(PreparedQuery(
-        "SELECT $1::address AS roundtrip",
-        recover val [as FieldDataTypes: addr] end), this)
+      let addr =
+        PgComposite.from_fields(
+          _composite_oid,
+          recover val
+            [ as (String, U32, (FieldData | None)):
+              ("street", 25, "42 Elm St")
+              ("city", 25, "Portland")
+              ("zip_code", 23, I32(97201))]
+          end)
+      session.execute(
+        PreparedQuery(
+          "SELECT $1::address AS roundtrip",
+          recover val [as FieldDataTypes: addr] end),
+        this)
     | 7 =>
       // Roundtrip result
       match result
@@ -210,13 +238,16 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       close()
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
-      _out.print("Query failed: [" + e.severity + "] " + e.code + ": "
-        + e.message)
+      _out.print(
+        "Query failed: [" + e.severity + "] " + e.code + ": "
+          + e.message)
     | let _: SessionClosed =>
       return
     | let e: ClientQueryError =>
@@ -225,6 +256,10 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     close()
 
 class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
   let host: String
   let port: String
   let username: String

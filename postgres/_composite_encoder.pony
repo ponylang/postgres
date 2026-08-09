@@ -17,11 +17,12 @@ primitive _CompositeEncoder
   """
   fun apply(c: PgComposite, registry: CodecRegistry): Array[U8] val ? =>
     // Encode each field first
-    let encoded: Array[(Array[U8] val | None)] val = recover val
+    let encoded: Array[(Array[U8] val | None)] val =
+      recover val
       let enc = Array[(Array[U8] val | None)](c.fields.size())
       var i: USize = 0
       while i < c.fields.size() do
-        match c.fields(i)?
+        match \exhaustive\ c.fields(i)?
         | None => enc.push(None)
         | let fd: FieldData =>
           enc.push(_encode_field(fd, c.field_oids(i)?, registry)?)
@@ -59,7 +60,7 @@ primitive _CompositeEncoder
         end
         offset = offset + 4
 
-        match encoded(i)?
+        match \exhaustive\ encoded(i)?
         | None =>
           // NULL: length = -1
           ifdef bigendian then
@@ -83,7 +84,9 @@ primitive _CompositeEncoder
       msg
     end
 
-  fun _encode_field(fd: FieldData, field_oid: U32,
+  fun _encode_field(
+    fd: FieldData,
+    field_oid: U32,
     registry: CodecRegistry): Array[U8] val ?
   =>
     match fd
@@ -103,8 +106,8 @@ primitive _CompositeEncoder
     | let v: String =>
       // Route by field_oid for string-producing types
       match field_oid
-      | 2950 => _UuidBinaryCodec.encode(v)?
-      | 3802 => _JsonbBinaryCodec.encode(v)?
+      | 2950 => _UUIDBinaryCodec.encode(v)?
+      | 3802 => _JSONBBinaryCodec.encode(v)?
       | 26 => _OidBinaryCodec.encode(v)?
       | 1700 => _NumericBinaryCodec.encode(v)?
       else

@@ -79,8 +79,10 @@ class val InvalidPassword
   `response()` to access the full server `ErrorResponseMessage`.
   """
   let _error: ErrorResponseMessage
+
   new val create(response': ErrorResponseMessage) =>
     _error = response'
+
   fun val response(): ErrorResponseMessage => _error
 
 class val InvalidAuthorizationSpecification
@@ -91,8 +93,10 @@ class val InvalidAuthorizationSpecification
   `response()` to access the full server `ErrorResponseMessage`.
   """
   let _error: ErrorResponseMessage
+
   new val create(response': ErrorResponseMessage) =>
     _error = response'
+
   fun val response(): ErrorResponseMessage => _error
 
 class val TooManyConnections
@@ -102,8 +106,10 @@ class val TooManyConnections
   full server `ErrorResponseMessage`.
   """
   let _error: ErrorResponseMessage
+
   new val create(response': ErrorResponseMessage) =>
     _error = response'
+
   fun val response(): ErrorResponseMessage => _error
 
 class val InvalidDatabaseName
@@ -112,8 +118,10 @@ class val InvalidDatabaseName
   Call `response()` to access the full server `ErrorResponseMessage`.
   """
   let _error: ErrorResponseMessage
+
   new val create(response': ErrorResponseMessage) =>
     _error = response'
+
   fun val response(): ErrorResponseMessage => _error
 
 class val ServerRejected
@@ -123,8 +131,10 @@ class val ServerRejected
   `response().code` (SQLSTATE) to distinguish specific failure modes.
   """
   let _error: ErrorResponseMessage
+
   new val create(response': ErrorResponseMessage) =>
     _error = response'
+
   fun val response(): ErrorResponseMessage => _error
 
 type ConnectionFailureReason is

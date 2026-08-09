@@ -16,11 +16,12 @@ class \nodoc\ iso _TestCancelQueryInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7675"
 
-    let listener = _CancelTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _CancelTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -44,7 +45,9 @@ actor \nodoc\ _CancelTestClient is (SessionStatusNotify & ResultReceiver)
   be pg_query_result(session: Session, result: Result) =>
     None
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     None
@@ -57,7 +60,8 @@ actor \nodoc\ _CancelTestListener is lori.TCPListenerActor
   let _port: String
   var _connection_count: USize = 0
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(
+    listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -73,16 +77,23 @@ actor \nodoc\ _CancelTestListener is lori.TCPListenerActor
 
   fun ref _on_accept(fd: U32): _CancelTestServer =>
     _connection_count = _connection_count + 1
-    let server = _CancelTestServer(_server_auth, fd, _h, _connection_count > 1)
+    let server =
+      _CancelTestServer(
+        _server_auth, fd, _h, _connection_count > 1)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _CancelTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _CancelTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -102,7 +113,10 @@ actor \nodoc\ _CancelTestServer
   var _authed: Bool = false
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32, h: TestHelper,
+  new create(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    h: TestHelper,
     is_cancel: Bool)
   =>
     _h = h
@@ -171,28 +185,29 @@ actor \nodoc\ _CancelTestServer
         | let _: Array[U8] val =>
           _authed = true
           let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-          let bkd = _IncomingBackendKeyDataTestMessage(12345, 67890).bytes()
-          let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+          let bkd =
+            _IncomingBackendKeyDataTestMessage(12345, 67890).bytes()
+          let ready =
+            _IncomingReadyForQueryTestMessage('I').bytes()
           // Send all auth messages in a single write so the Session
-          // processes them atomically. If sent separately, TCP may deliver
-          // them in different reads, causing ReadyForQuery to arrive after
-          // the client has already called cancel() (which would see
-          // _QueryNotReady).
-          let combined: Array[U8] val = recover val
-            let arr = Array[U8]
-            arr.append(auth_ok)
-            arr.append(bkd)
-            arr.append(ready)
-            arr
-          end
+          // processes them atomically. If sent separately, TCP may
+          // deliver them in different reads, causing ReadyForQuery to
+          // arrive after the client has already called cancel() (which
+          // would see _QueryNotReady).
+          let combined: Array[U8] val =
+            recover val
+              Array[U8]
+                .> append(auth_ok)
+                .> append(bkd)
+                .> append(ready)
+            end
           _tcp_connection.send(combined)
         end
       end
       // After auth, receive query data and hold (don't respond)
     end
 
-// SSL cancel query unit test
-
+// Cancel SSL unit test
 class \nodoc\ iso _TestSSLCancelQueryInFlight is UnitTest
   """
   Verifies that calling cancel() on an SSL session opens a separate
@@ -206,31 +221,34 @@ class \nodoc\ iso _TestSSLCancelQueryInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7676"
 
-    let cert_path = FilePath(FileAuth(h.env.root),
-      "assets/test-cert.pem")
-    let key_path = FilePath(FileAuth(h.env.root),
-      "assets/test-key.pem")
+    let cert_path =
+      FilePath(FileAuth(h.env.root), "assets/test-cert.pem")
+    let key_path =
+      FilePath(FileAuth(h.env.root), "assets/test-key.pem")
 
-    let client_sslctx = recover val
-      SSLContext
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let client_sslctx =
+      recover val
+        SSLContext
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
-    let server_sslctx = recover val
-      SSLContext
-        .> set_cert(cert_path, key_path)?
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let server_sslctx =
+      recover val
+        SSLContext
+          .> set_cert(cert_path, key_path)?
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
-    let listener = _SSLCancelTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h,
-      client_sslctx,
-      server_sslctx)
+    let listener =
+      _SSLCancelTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        client_sslctx,
+        server_sslctx)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -245,7 +263,8 @@ actor \nodoc\ _SSLCancelTestListener is lori.TCPListenerActor
   let _server_sslctx: SSLContext val
   var _connection_count: USize = 0
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(
+    listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
@@ -265,17 +284,28 @@ actor \nodoc\ _SSLCancelTestListener is lori.TCPListenerActor
 
   fun ref _on_accept(fd: U32): _SSLCancelTestServer =>
     _connection_count = _connection_count + 1
-    let server = _SSLCancelTestServer(_server_auth, _server_sslctx, fd, _h,
-      _connection_count > 1)
+    let server =
+      _SSLCancelTestServer(
+        _server_auth,
+        _server_sslctx,
+        fd,
+        _h,
+        _connection_count > 1)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port,
-        SSLRequired(_client_sslctx) where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _CancelTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port,
+          SSLRequired(_client_sslctx)
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _CancelTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -297,8 +327,12 @@ actor \nodoc\ _SSLCancelTestServer
   var _authed: Bool = false
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, sslctx: SSLContext val, fd: U32,
-    h: TestHelper, is_cancel: Bool)
+  new create(
+    auth: lori.TCPServerAuth,
+    sslctx: SSLContext val,
+    fd: U32,
+    h: TestHelper,
+    is_cancel: Bool)
   =>
     _sslctx = sslctx
     _h = h
@@ -379,17 +413,20 @@ actor \nodoc\ _SSLCancelTestServer
         | let _: Array[U8] val =>
           _authed = true
           let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-          let bkd = _IncomingBackendKeyDataTestMessage(12345, 67890).bytes()
-          let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+          let bkd =
+            _IncomingBackendKeyDataTestMessage(12345, 67890).bytes()
+          let ready =
+            _IncomingReadyForQueryTestMessage('I').bytes()
           // Send all auth messages in a single write so the Session
-          // processes them atomically (same reason as _CancelTestServer).
-          let combined: Array[U8] val = recover val
-            let arr = Array[U8]
-            arr.append(auth_ok)
-            arr.append(bkd)
-            arr.append(ready)
-            arr
-          end
+          // processes them atomically (same reason as
+          // _CancelTestServer).
+          let combined: Array[U8] val =
+            recover val
+              Array[U8]
+                .> append(auth_ok)
+                .> append(bkd)
+                .> append(ready)
+            end
           _tcp_connection.send(combined)
         end
       end
@@ -397,7 +434,6 @@ actor \nodoc\ _SSLCancelTestServer
     end
 
 // Cancel integration tests
-
 class \nodoc\ iso _TestCancelPgSleep is UnitTest
   """
   Verifies that cancelling a long-running query on a real PostgreSQL server
@@ -411,10 +447,15 @@ class \nodoc\ iso _TestCancelPgSleep is UnitTest
 
     let client = _CancelPgSleepClient(h)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        client)
 
     h.dispose_when_done(session)
     h.long_test(10_000_000_000)
@@ -443,7 +484,9 @@ actor \nodoc\ _CancelPgSleepClient is
     _h.fail("Expected query to be cancelled, but got a result.")
     _h.complete(false)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if query isnt _query then
@@ -461,7 +504,8 @@ actor \nodoc\ _CancelPgSleepClient is
         _h.complete(false)
       end
     | let ce: ClientQueryError =>
-      _h.fail("Expected ErrorResponseMessage but got ClientQueryError.")
+      _h.fail(
+        "Expected ErrorResponseMessage but got ClientQueryError.")
       _h.complete(false)
     end
 
@@ -477,18 +521,25 @@ class \nodoc\ iso _TestCancelSSLPgSleep is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let sslctx = recover val
-      SSLContext
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let sslctx =
+      recover val
+        SSLContext
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
     let client = _CancelPgSleepClient(h)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host, info.ssl_port, SSLRequired(sslctx)),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.ssl_host,
+          info.ssl_port,
+          SSLRequired(sslctx)),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        client)
 
     h.dispose_when_done(session)
     h.long_test(10_000_000_000)

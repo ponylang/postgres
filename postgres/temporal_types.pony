@@ -243,11 +243,12 @@ class val PgInterval is Equatable[PgInterval]
       if negative_time then
         // Guard: -I64.min_value() wraps to itself in two's complement.
         // Clamp to I64.max_value() (loses 1us on a ~292M year interval).
-        time_us = if time_us == I64.min_value() then
-          I64.max_value()
-        else
-          -time_us
-        end
+        time_us =
+          if time_us == I64.min_value() then
+            I64.max_value()
+          else
+            -time_us
+          end
       end
 
       let hour = time_us / us_per_hour

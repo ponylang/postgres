@@ -1,4 +1,5 @@
-class val PgComposite is (FieldData & FieldDataEquatable & Equatable[PgComposite])
+class val PgComposite is
+  (FieldData & FieldDataEquatable & Equatable[PgComposite])
   """
   A PostgreSQL composite type (user-defined structured type created with
   `CREATE TYPE ... AS (...)`). Contains the composite's own type OID,
@@ -47,7 +48,9 @@ class val PgComposite is (FieldData & FieldDataEquatable & Equatable[PgComposite
   let field_names: Array[String] val
   let fields: Array[(FieldData | None)] val
 
-  new val create(type_oid': U32, field_oids': Array[U32] val,
+  new val create(
+    type_oid': U32,
+    field_oids': Array[U32] val,
     field_names': Array[String] val,
     fields': Array[(FieldData | None)] val) ?
   =>
@@ -86,27 +89,30 @@ class val PgComposite is (FieldData & FieldDataEquatable & Equatable[PgComposite
     ```
     """
     type_oid = type_oid'
-    field_names = recover val
-      let n = Array[String](descriptors.size())
-      for (name, _, _) in descriptors.values() do
-        n.push(name)
+    field_names =
+      recover val
+        let n = Array[String](descriptors.size())
+        for (name, _, _) in descriptors.values() do
+          n.push(name)
+        end
+        n
       end
-      n
-    end
-    field_oids = recover val
-      let o = Array[U32](descriptors.size())
-      for (_, oid, _) in descriptors.values() do
-        o.push(oid)
+    field_oids =
+      recover val
+        let o = Array[U32](descriptors.size())
+        for (_, oid, _) in descriptors.values() do
+          o.push(oid)
+        end
+        o
       end
-      o
-    end
-    fields = recover val
-      let f = Array[(FieldData | None)](descriptors.size())
-      for (_, _, value) in descriptors.values() do
-        f.push(value)
+    fields =
+      recover val
+        let f = Array[(FieldData | None)](descriptors.size())
+        for (_, _, value) in descriptors.values() do
+          f.push(value)
+        end
+        f
       end
-      f
-    end
 
   fun size(): USize =>
     """
@@ -189,7 +195,7 @@ class val PgComposite is (FieldData & FieldDataEquatable & Equatable[PgComposite
       var first = true
       for elem in fields.values() do
         if first then first = false else s.push(',') end
-        match elem
+        match \exhaustive\ elem
         | None => None // empty position = NULL
         | let fd: FieldData =>
           let v: String val = fd.string()

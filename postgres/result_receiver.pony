@@ -9,7 +9,9 @@ interface tag ResultReceiver
     Called when a query completes successfully.
     """
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
     """
     Called when a query fails. The failure is either a server error

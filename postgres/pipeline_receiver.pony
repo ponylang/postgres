@@ -16,7 +16,9 @@ interface tag PipelineReceiver
     `session.pipeline()`.
     """
 
-  be pg_pipeline_failed(session: Session, index: USize,
+  be pg_pipeline_failed(
+    session: Session,
+    index: USize,
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
     """

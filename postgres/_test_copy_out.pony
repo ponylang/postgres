@@ -14,11 +14,12 @@ class \nodoc\ iso _TestCopyOutSuccess is UnitTest
     let host = "127.0.0.1"
     let port = "7698"
 
-    let listener = _CopyOutSuccessTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _CopyOutSuccessTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -54,7 +55,8 @@ actor \nodoc\ _CopyOutSuccessTestClient is
       _close_and_complete(false)
     end
 
-  be pg_copy_failed(session: Session,
+  be pg_copy_failed(
+    session: Session,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected copy failure.")
@@ -93,11 +95,15 @@ actor \nodoc\ _CopyOutSuccessTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _CopyOutSuccessTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _CopyOutSuccessTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -174,11 +180,12 @@ class \nodoc\ iso _TestCopyOutEmpty is UnitTest
     let host = "127.0.0.1"
     let port = "7699"
 
-    let listener = _CopyOutEmptyTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _CopyOutEmptyTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -214,7 +221,8 @@ actor \nodoc\ _CopyOutEmptyTestClient is
       _close_and_complete(false)
     end
 
-  be pg_copy_failed(session: Session,
+  be pg_copy_failed(
+    session: Session,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected copy failure.")
@@ -253,11 +261,15 @@ actor \nodoc\ _CopyOutEmptyTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _CopyOutEmptyTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _CopyOutEmptyTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -327,11 +339,12 @@ class \nodoc\ iso _TestCopyOutServerError is UnitTest
     let host = "127.0.0.1"
     let port = "7700"
 
-    let listener = _CopyOutServerErrorTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _CopyOutServerErrorTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -362,7 +375,8 @@ actor \nodoc\ _CopyOutServerErrorTestClient is
     _h.fail("Unexpected copy complete.")
     _close_and_complete(false)
 
-  be pg_copy_failed(session: Session,
+  be pg_copy_failed(
+    session: Session,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _copy_failed = true
@@ -377,7 +391,9 @@ actor \nodoc\ _CopyOutServerErrorTestClient is
       _close_and_complete(false)
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Follow-up query failed.")
@@ -416,11 +432,15 @@ actor \nodoc\ _CopyOutServerErrorTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _CopyOutServerErrorTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _CopyOutServerErrorTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -483,14 +503,12 @@ actor \nodoc\ _CopyOutServerErrorTestServer
       | let msg: Array[U8] val =>
         try
           if msg(0)? == 'Q' then
-            let columns: Array[(String, U32, U16)] val = recover val
-              [("?column?", U32(25), U16(0))]
-            end
+            let columns: Array[(String, U32, U16)] val =
+              recover val [("?column?", U32(25), U16(0))] end
             let row_desc =
               _IncomingRowDescriptionTestMessage(columns).bytes()
-            let data_row_cols: Array[(String | None)] val = recover val
-              [as (String | None): "1"]
-            end
+            let data_row_cols: Array[(String | None)] val =
+              recover val [as (String | None): "1"] end
             let data_row =
               _IncomingDataRowTestMessage(data_row_cols).bytes()
             let cmd_complete =
@@ -519,11 +537,12 @@ class \nodoc\ iso _TestCopyOutShutdownDrainsCopyQueue is UnitTest
     let host = "127.0.0.1"
     let port = "7701"
 
-    let listener = _CopyOutShutdownTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _CopyOutShutdownTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -556,7 +575,8 @@ actor \nodoc\ _CopyOutShutdownTestClient is
     _h.fail("Unexpected copy complete.")
     _h.complete(false)
 
-  be pg_copy_failed(session: Session,
+  be pg_copy_failed(
+    session: Session,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     match failure
@@ -597,11 +617,15 @@ actor \nodoc\ _CopyOutShutdownTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _CopyOutShutdownTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _CopyOutShutdownTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -619,10 +643,15 @@ class \nodoc\ iso _TestCopyOutAfterSessionClosed is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      _CopyOutAfterSessionClosedNotify(h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        _CopyOutAfterSessionClosedNotify(h))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -654,7 +683,8 @@ actor \nodoc\ _CopyOutAfterSessionClosedNotify is
     _h.fail("Unexpected copy complete.")
     _h.complete(false)
 
-  be pg_copy_failed(session: Session,
+  be pg_copy_failed(
+    session: Session,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if failure is SessionClosed then
@@ -675,10 +705,15 @@ class \nodoc\ iso _TestCopyOutExport is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      _CopyOutExportTestClient(h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        _CopyOutExportTestClient(h))
 
     h.dispose_when_done(session)
     h.long_test(10_000_000_000)
@@ -715,8 +750,9 @@ actor \nodoc\ _CopyOutExportTestClient is
       return
     end
     // Verify the data contains 3 lines
-    let received: String val = String.from_iso_array(
-      _copy_data = recover iso Array[U8] end)
+    let received: String val =
+      String.from_iso_array(
+        _copy_data = recover iso Array[U8] end)
     let lines: Array[String] val = received.split("\n")
     // split produces a trailing empty string after the final newline
     var non_empty: USize = 0
@@ -734,7 +770,8 @@ actor \nodoc\ _CopyOutExportTestClient is
       _close_and_complete(false)
     end
 
-  be pg_copy_failed(session: Session,
+  be pg_copy_failed(
+    session: Session,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected copy failure.")
@@ -754,7 +791,8 @@ actor \nodoc\ _CopyOutExportTestClient is
       // Table created. Insert 3 rows.
       session.execute(
         SimpleQuery(
-          "INSERT INTO copy_out_test VALUES (1, 'alice'), (2, 'bob'), (3, 'charlie')"),
+          "INSERT INTO copy_out_test VALUES "
+            + "(1, 'alice'), (2, 'bob'), (3, 'charlie')"),
         this)
     | 3 =>
       // Rows inserted. Start COPY OUT.
@@ -765,7 +803,9 @@ actor \nodoc\ _CopyOutExportTestClient is
       _close_and_complete(true)
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     match \exhaustive\ failure

@@ -35,10 +35,16 @@ primitive _ScramSha256
     """
     Returns the complete client-final-message with proof appended.
     """
-    client_final_message_without_proof(combined_nonce) + ",p=" + client_proof_b64
+    client_final_message_without_proof(combined_nonce)
+      + ",p=" + client_proof_b64
 
-  fun compute_proof(password: String, salt: Array[U8] val, iterations: U32,
-    client_first_bare: String, server_first: String, combined_nonce: String)
+  fun compute_proof(
+    password: String,
+    salt: Array[U8] val,
+    iterations: U32,
+    client_first_bare: String,
+    server_first: String,
+    combined_nonce: String)
     : (Array[U8] val, Array[U8] val) ?
   =>
     """
@@ -61,14 +67,16 @@ primitive _ScramSha256
     let salted_password = Pbkdf2Sha256(password, salt, iterations, 32)?
     let client_key = HmacSha256(salted_password, "Client Key")?
     let stored_key = SHA256(client_key)
-    let auth_message: String val = recover val
-      client_first_bare + "," + server_first + ","
-        + client_final_message_without_proof(combined_nonce)
-    end
+    let auth_message: String val =
+      recover val
+        client_first_bare + "," + server_first + ","
+          + client_final_message_without_proof(combined_nonce)
+      end
     let client_signature = HmacSha256(stored_key, auth_message)?
 
     // ClientProof = ClientKey XOR ClientSignature
-    let client_proof = recover iso
+    let client_proof =
+      recover iso
       let proof = Array[U8](32)
       var i: USize = 0
       while i < 32 do

@@ -1,3 +1,8 @@
+"""
+Row streaming with pull-based paged result consumption. Creates a table
+with 7 rows, streams them with a window size of 3 (producing batches of
+3, 3, and 1), then drops the table.
+"""
 use "cli"
 use "collections"
 use lori = "lori"
@@ -12,25 +17,25 @@ actor Main
 
     let client = Client(auth, server_info, env.out)
 
-// This example demonstrates row streaming for pull-based paged result
-// consumption. It creates a table with 7 rows, streams them with a window
-// size of 3 (producing batches of 3, 3, and 1), then drops the table.
-//
 // The streaming protocol uses a pull-based flow: the session delivers a
 // batch via pg_stream_batch, then the client calls fetch_more() to request
 // the next batch. When no more rows remain, pg_stream_complete fires.
 actor Client is
   (SessionStatusNotify & ResultReceiver & StreamingResultReceiver)
+  """
+  Streams rows in batches of 3 and prints each batch as it arrives.
+  """
   let _session: Session
   let _out: OutStream
   var _phase: USize = 0
 
   new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
-    _session = Session(
-      ServerConnectInfo(auth, info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(auth, info.host, info.port),
+        DatabaseConnectInfo(info.username, info.password, info.database),
+        this)
 
   be close() =>
     _session.close()
@@ -41,7 +46,8 @@ actor Client is
     session.execute(
       SimpleQuery("DROP TABLE IF EXISTS streaming_example"), this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _out.print("Connection failed.")
@@ -76,16 +82,19 @@ actor Client is
         PreparedQuery(
           "SELECT id, name FROM streaming_example ORDER BY id",
           recover val Array[FieldDataTypes] end),
-        3, this)
+        3,
+        this)
     | 5 =>
       _out.print("Done.")
       close()
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print("Query failed: [" + e.severity + "] " + e.code + ": "
         + e.message)
@@ -115,17 +124,21 @@ actor Client is
     session.fetch_more()
 
   be pg_stream_complete(session: Session) =>
+    """
+    Drops the example table after the stream finishes.
+    """
     _out.print("Stream complete.")
     _out.print("Dropping table...")
     _phase = _phase + 1
     _session.execute(
       SimpleQuery("DROP TABLE streaming_example"), this)
 
-  be pg_stream_failed(session: Session,
+  be pg_stream_failed(
+    session: Session,
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print("Stream failed: [" + e.severity + "] " + e.code + ": "
         + e.message)
@@ -135,6 +148,10 @@ actor Client is
     close()
 
 class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
   let host: String
   let port: String
   let username: String

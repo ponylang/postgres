@@ -16,11 +16,12 @@ class \nodoc\ iso _TestStatementTimeoutFires is UnitTest
     let host = "127.0.0.1"
     let port = "7720"
 
-    let listener = _TimeoutTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _TimeoutTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -40,9 +41,11 @@ actor \nodoc\ _TimeoutTestClient is (SessionStatusNotify & ResultReceiver)
   be pg_session_authenticated(session: Session) =>
     // Execute a query with a 100ms timeout. The mock server will hold
     // (not respond), so the timer will fire and send a CancelRequest.
-    match lori.MakeTimerDuration(100)
+    match \exhaustive\ lori.MakeTimerDuration(100)
     | let d: lori.TimerDuration =>
-      session.execute(SimpleQuery("SELECT pg_sleep(100)"), this
+      session.execute(
+        SimpleQuery("SELECT pg_sleep(100)"),
+        this
         where statement_timeout = d)
     | let _: ValidationFailure =>
       _h.fail("Failed to create TimerDuration.")
@@ -52,7 +55,9 @@ actor \nodoc\ _TimeoutTestClient is (SessionStatusNotify & ResultReceiver)
   be pg_query_result(session: Session, result: Result) =>
     None
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     None
@@ -81,17 +86,23 @@ actor \nodoc\ _TimeoutTestListener is lori.TCPListenerActor
 
   fun ref _on_accept(fd: U32): _TimeoutTestServer =>
     _connection_count = _connection_count + 1
-    let server = _TimeoutTestServer(_server_auth, fd, _h,
-      _connection_count > 1)
+    let server =
+      _TimeoutTestServer(
+        _server_auth, fd, _h, _connection_count > 1)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _TimeoutTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _TimeoutTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -111,7 +122,10 @@ actor \nodoc\ _TimeoutTestServer
   var _authed: Bool = false
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32, h: TestHelper,
+  new create(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    h: TestHelper,
     is_cancel: Bool)
   =>
     _h = h
@@ -182,13 +196,13 @@ actor \nodoc\ _TimeoutTestServer
           let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
           let bkd = _IncomingBackendKeyDataTestMessage(12345, 67890).bytes()
           let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-          let combined: Array[U8] val = recover val
-            let arr = Array[U8]
-            arr.append(auth_ok)
-            arr.append(bkd)
-            arr.append(ready)
-            arr
-          end
+          let combined: Array[U8] val =
+            recover val
+              Array[U8]
+                .> append(auth_ok)
+                .> append(bkd)
+                .> append(ready)
+            end
           _tcp_connection.send(combined)
         end
       end
@@ -212,11 +226,12 @@ class \nodoc\ iso _TestStatementTimeoutRearmOnTimerFailure is UnitTest
     let host = "127.0.0.1"
     let port = "7760"
 
-    let listener = _TimeoutRearmTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _TimeoutRearmTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -239,9 +254,11 @@ actor \nodoc\ _TimeoutRearmTestClient is (SessionStatusNotify & ResultReceiver)
     // processes `execute` first (arms the original timer), then the
     // simulation (cancels the original token and rearms with 200ms). The
     // rearmed timer fires and sends a CancelRequest on a second connection.
-    match lori.MakeTimerDuration(200)
+    match \exhaustive\ lori.MakeTimerDuration(200)
     | let d: lori.TimerDuration =>
-      session.execute(SimpleQuery("SELECT pg_sleep(100)"), this
+      session.execute(
+        SimpleQuery("SELECT pg_sleep(100)"),
+        this
         where statement_timeout = d)
       session._test_trigger_on_timer_failure()
     | let _: ValidationFailure =>
@@ -252,7 +269,9 @@ actor \nodoc\ _TimeoutRearmTestClient is (SessionStatusNotify & ResultReceiver)
   be pg_query_result(session: Session, result: Result) =>
     None
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     None
@@ -281,17 +300,23 @@ actor \nodoc\ _TimeoutRearmTestListener is lori.TCPListenerActor
 
   fun ref _on_accept(fd: U32): _TimeoutTestServer =>
     _connection_count = _connection_count + 1
-    let server = _TimeoutTestServer(_server_auth, fd, _h,
-      _connection_count > 1)
+    let server =
+      _TimeoutTestServer(
+        _server_auth, fd, _h, _connection_count > 1)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _TimeoutRearmTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _TimeoutRearmTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -311,11 +336,12 @@ class \nodoc\ iso _TestStatementTimeoutCancelledOnCompletion is UnitTest
     let host = "127.0.0.1"
     let port = "7721"
 
-    let listener = _TimeoutCancelledTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _TimeoutCancelledTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -336,9 +362,11 @@ actor \nodoc\ _TimeoutCancelledTestClient
   be pg_session_authenticated(session: Session) =>
     // Execute with a long timeout (5s). The mock server responds immediately,
     // so the timer should be cancelled and pg_query_result should fire.
-    match lori.MakeTimerDuration(5000)
+    match \exhaustive\ lori.MakeTimerDuration(5000)
     | let d: lori.TimerDuration =>
-      session.execute(SimpleQuery("SELECT 1"), this
+      session.execute(
+        SimpleQuery("SELECT 1"),
+        this
         where statement_timeout = d)
     | let _: ValidationFailure =>
       _h.fail("Failed to create TimerDuration.")
@@ -348,7 +376,9 @@ actor \nodoc\ _TimeoutCancelledTestClient
   be pg_query_result(session: Session, result: Result) =>
     _h.complete(true)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Query should have completed successfully.")
@@ -381,11 +411,16 @@ actor \nodoc\ _TimeoutCancelledTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _TimeoutCancelledTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _TimeoutCancelledTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -423,13 +458,13 @@ actor \nodoc\ _TimeoutCancelledTestServer
         let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
         let bkd = _IncomingBackendKeyDataTestMessage(12345, 67890).bytes()
         let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-        let combined: Array[U8] val = recover val
-          let arr = Array[U8]
-          arr.append(auth_ok)
-          arr.append(bkd)
-          arr.append(ready)
-          arr
-        end
+        let combined: Array[U8] val =
+          recover val
+            Array[U8]
+              .> append(auth_ok)
+              .> append(bkd)
+              .> append(ready)
+          end
         _tcp_connection.send(combined)
       end
     else
@@ -439,18 +474,17 @@ actor \nodoc\ _TimeoutCancelledTestServer
         // Respond immediately with CommandComplete + ReadyForQuery
         let cc = _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
         let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-        let combined: Array[U8] val = recover val
-          let arr = Array[U8]
-          arr.append(cc)
-          arr.append(ready)
-          arr
-        end
+        let combined: Array[U8] val =
+          recover val
+            Array[U8]
+              .> append(cc)
+              .> append(ready)
+          end
         _tcp_connection.send(combined)
       end
     end
 
 // Integration tests
-
 class \nodoc\ iso _TestStatementTimeoutPgSleep is UnitTest
   """
   Verifies that executing a long-running query with a short statement_timeout
@@ -465,10 +499,15 @@ class \nodoc\ iso _TestStatementTimeoutPgSleep is UnitTest
 
     let client = _TimeoutPgSleepClient(h)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        client)
 
     h.dispose_when_done(session)
     h.long_test(10_000_000_000)
@@ -484,7 +523,7 @@ actor \nodoc\ _TimeoutPgSleepClient is
     _query = SimpleQuery("SELECT pg_sleep(30)")
 
   be pg_session_authenticated(session: Session) =>
-    match lori.MakeTimerDuration(1000)
+    match \exhaustive\ lori.MakeTimerDuration(1000)
     | let d: lori.TimerDuration =>
       session.execute(_query, this where statement_timeout = d)
     | let _: ValidationFailure =>
@@ -502,7 +541,9 @@ actor \nodoc\ _TimeoutPgSleepClient is
     _h.fail("Expected query to be cancelled by timeout, but got a result.")
     _h.complete(false)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if query isnt _query then

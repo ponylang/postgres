@@ -17,18 +17,20 @@ class \nodoc\ iso _TestSSLNegotiationRefused is UnitTest
     let host = "127.0.0.1"
     let port = "7671"
 
-    let sslctx = recover val
-      SSLContext
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let sslctx =
+      recover val
+        SSLContext
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
-    let listener = _SSLRefusedTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h,
-      sslctx)
+    let listener =
+      _SSLRefusedTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        sslctx)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -93,10 +95,16 @@ actor \nodoc\ _SSLRefusedTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port, SSLRequired(_sslctx)),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _SSLRefusedTestNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port,
+          SSLRequired(_sslctx)),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _SSLRefusedTestNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -135,18 +143,20 @@ class \nodoc\ iso _TestSSLNegotiationJunkResponse is UnitTest
     let host = "127.0.0.1"
     let port = "7672"
 
-    let sslctx = recover val
-      SSLContext
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let sslctx =
+      recover val
+        SSLContext
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
-    let listener = _SSLJunkTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h,
-      sslctx)
+    let listener =
+      _SSLJunkTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        sslctx)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -212,10 +222,16 @@ actor \nodoc\ _SSLJunkTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port, SSLRequired(_sslctx)),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _SSLJunkTestNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port,
+          SSLRequired(_sslctx)),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _SSLJunkTestNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -253,31 +269,34 @@ class \nodoc\ iso _TestSSLNegotiationSuccess is UnitTest
     let host = "127.0.0.1"
     let port = "7673"
 
-    let cert_path = FilePath(FileAuth(h.env.root),
-      "assets/test-cert.pem")
-    let key_path = FilePath(FileAuth(h.env.root),
-      "assets/test-key.pem")
+    let cert_path =
+      FilePath(FileAuth(h.env.root), "assets/test-cert.pem")
+    let key_path =
+      FilePath(FileAuth(h.env.root), "assets/test-key.pem")
 
-    let client_sslctx = recover val
-      SSLContext
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let client_sslctx =
+      recover val
+        SSLContext
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
-    let server_sslctx = recover val
-      SSLContext
-        .> set_cert(cert_path, key_path)?
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let server_sslctx =
+      recover val
+        SSLContext
+          .> set_cert(cert_path, key_path)?
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
-    let listener = _SSLSuccessTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h,
-      client_sslctx,
-      server_sslctx)
+    let listener =
+      _SSLSuccessTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        client_sslctx,
+        server_sslctx)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -343,11 +362,17 @@ actor \nodoc\ _SSLSuccessTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port,
-        SSLRequired(_client_sslctx) where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _SSLSuccessTestNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port,
+          SSLRequired(_client_sslctx)
+            where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _SSLSuccessTestNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -403,7 +428,6 @@ actor \nodoc\ _SSLSuccessTestServer
     end
 
 // SSL integration tests
-
 class \nodoc\ iso _TestSSLConnect is UnitTest
   """
   Verifies that connecting with SSLRequired to a PostgreSQL server with SSL
@@ -415,16 +439,23 @@ class \nodoc\ iso _TestSSLConnect is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let sslctx = recover val
-      SSLContext
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let sslctx =
+      recover val
+        SSLContext
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host, info.ssl_port, SSLRequired(sslctx)),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      _ConnectTestNotify(h, true))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.ssl_host,
+          info.ssl_port,
+          SSLRequired(sslctx)),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        _ConnectTestNotify(h, true))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -440,16 +471,23 @@ class \nodoc\ iso _TestSSLAuthenticate is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let sslctx = recover val
-      SSLContext
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let sslctx =
+      recover val
+        SSLContext
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host, info.ssl_port, SSLRequired(sslctx)),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      _AuthenticateTestNotify(h, true))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.ssl_host,
+          info.ssl_port,
+          SSLRequired(sslctx)),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        _AuthenticateTestNotify(h, true))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -465,18 +503,25 @@ class \nodoc\ iso _TestSSLQueryResults is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let sslctx = recover val
-      SSLContext
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let sslctx =
+      recover val
+        SSLContext
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
     let client = _ResultsIncludeOriginatingQueryReceiver(h)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host, info.ssl_port, SSLRequired(sslctx)),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.ssl_host,
+          info.ssl_port,
+          SSLRequired(sslctx)),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -494,22 +539,28 @@ class \nodoc\ iso _TestSSLRefused is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let sslctx = recover val
-      SSLContext
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let sslctx =
+      recover val
+        SSLContext
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port, SSLRequired(sslctx)),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      _ConnectTestNotify(h, false))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port,
+          SSLRequired(sslctx)),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        _ConnectTestNotify(h, false))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
 
 // SSLPreferred unit tests
-
 class \nodoc\ iso _TestSSLPreferredFallback is UnitTest
   """
   Verifies that when using SSLPreferred and the server responds 'N' to an
@@ -523,18 +574,20 @@ class \nodoc\ iso _TestSSLPreferredFallback is UnitTest
     let host = "127.0.0.1"
     let port = "7707"
 
-    let sslctx = recover val
-      SSLContext
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let sslctx =
+      recover val
+        SSLContext
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
-    let listener = _SSLPreferredFallbackTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h,
-      sslctx)
+    let listener =
+      _SSLPreferredFallbackTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        sslctx)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -602,11 +655,17 @@ actor \nodoc\ _SSLPreferredFallbackTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port,
-        SSLPreferred(_sslctx) where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _SSLPreferredFallbackTestNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port,
+          SSLPreferred(_sslctx)
+            where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _SSLPreferredFallbackTestNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -668,31 +727,34 @@ class \nodoc\ iso _TestSSLPreferredSuccess is UnitTest
     let host = "127.0.0.1"
     let port = "7708"
 
-    let cert_path = FilePath(FileAuth(h.env.root),
-      "assets/test-cert.pem")
-    let key_path = FilePath(FileAuth(h.env.root),
-      "assets/test-key.pem")
+    let cert_path =
+      FilePath(FileAuth(h.env.root), "assets/test-cert.pem")
+    let key_path =
+      FilePath(FileAuth(h.env.root), "assets/test-key.pem")
 
-    let client_sslctx = recover val
-      SSLContext
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let client_sslctx =
+      recover val
+        SSLContext
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
-    let server_sslctx = recover val
-      SSLContext
-        .> set_cert(cert_path, key_path)?
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let server_sslctx =
+      recover val
+        SSLContext
+          .> set_cert(cert_path, key_path)?
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
-    let listener = _SSLPreferredSuccessTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h,
-      client_sslctx,
-      server_sslctx)
+    let listener =
+      _SSLPreferredSuccessTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        client_sslctx,
+        server_sslctx)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -757,11 +819,17 @@ actor \nodoc\ _SSLPreferredSuccessTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port,
-        SSLPreferred(_client_sslctx) where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _SSLPreferredSuccessTestNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port,
+          SSLPreferred(_client_sslctx)
+            where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _SSLPreferredSuccessTestNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -785,33 +853,36 @@ class \nodoc\ iso _TestSSLPreferredTLSFailure is UnitTest
     // Client requires TLS 1.3 minimum, server only offers TLS 1.2 max.
     // This creates an incompatible TLS configuration that will cause the
     // handshake to fail.
-    let client_sslctx = recover val
-      SSLContext
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-        .> set_min_proto_version(TLS1u3Version())?
-    end
+    let client_sslctx =
+      recover val
+        SSLContext
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+          .> set_min_proto_version(TLS1u3Version())?
+      end
 
-    let cert_path = FilePath(FileAuth(h.env.root),
-      "assets/test-cert.pem")
-    let key_path = FilePath(FileAuth(h.env.root),
-      "assets/test-key.pem")
+    let cert_path =
+      FilePath(FileAuth(h.env.root), "assets/test-cert.pem")
+    let key_path =
+      FilePath(FileAuth(h.env.root), "assets/test-key.pem")
 
-    let server_sslctx = recover val
-      SSLContext
-        .> set_cert(cert_path, key_path)?
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-        .> set_max_proto_version(TLS1u2Version())?
-    end
+    let server_sslctx =
+      recover val
+        SSLContext
+          .> set_cert(cert_path, key_path)?
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+          .> set_max_proto_version(TLS1u2Version())?
+      end
 
-    let listener = _SSLPreferredTLSFailureTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h,
-      client_sslctx,
-      server_sslctx)
+    let listener =
+      _SSLPreferredTLSFailureTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        client_sslctx,
+        server_sslctx)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -870,11 +941,16 @@ actor \nodoc\ _SSLPreferredTLSFailureTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port,
-        SSLPreferred(_client_sslctx)),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _SSLPreferredTLSFailureTestNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port,
+          SSLPreferred(_client_sslctx)),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _SSLPreferredTLSFailureTestNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -895,31 +971,34 @@ class \nodoc\ iso _TestSSLPreferredCancelFallback is UnitTest
     let host = "127.0.0.1"
     let port = "7710"
 
-    let cert_path = FilePath(FileAuth(h.env.root),
-      "assets/test-cert.pem")
-    let key_path = FilePath(FileAuth(h.env.root),
-      "assets/test-key.pem")
+    let cert_path =
+      FilePath(FileAuth(h.env.root), "assets/test-cert.pem")
+    let key_path =
+      FilePath(FileAuth(h.env.root), "assets/test-key.pem")
 
-    let client_sslctx = recover val
-      SSLContext
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let client_sslctx =
+      recover val
+        SSLContext
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
-    let server_sslctx = recover val
-      SSLContext
-        .> set_cert(cert_path, key_path)?
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let server_sslctx =
+      recover val
+        SSLContext
+          .> set_cert(cert_path, key_path)?
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
-    let listener = _SSLPreferredCancelTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h,
-      client_sslctx,
-      server_sslctx)
+    let listener =
+      _SSLPreferredCancelTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        client_sslctx,
+        server_sslctx)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -954,17 +1033,28 @@ actor \nodoc\ _SSLPreferredCancelTestListener is lori.TCPListenerActor
 
   fun ref _on_accept(fd: U32): _SSLPreferredCancelTestServer =>
     _connection_count = _connection_count + 1
-    let server = _SSLPreferredCancelTestServer(_server_auth, _server_sslctx,
-      fd, _h, _connection_count > 1)
+    let server =
+      _SSLPreferredCancelTestServer(
+        _server_auth,
+        _server_sslctx,
+        fd,
+        _h,
+        _connection_count > 1)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port,
-        SSLPreferred(_client_sslctx) where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _CancelTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port,
+          SSLPreferred(_client_sslctx)
+            where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _CancelTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -987,8 +1077,12 @@ actor \nodoc\ _SSLPreferredCancelTestServer
   var _authed: Bool = false
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, sslctx: SSLContext val, fd: U32,
-    h: TestHelper, is_cancel: Bool)
+  new create(
+    auth: lori.TCPServerAuth,
+    sslctx: SSLContext val,
+    fd: U32,
+    h: TestHelper,
+    is_cancel: Bool)
   =>
     _sslctx = sslctx
     _h = h
@@ -1083,13 +1177,13 @@ actor \nodoc\ _SSLPreferredCancelTestServer
           let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
           let bkd = _IncomingBackendKeyDataTestMessage(12345, 67890).bytes()
           let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-          let combined: Array[U8] val = recover val
-            let arr = Array[U8]
-            arr.append(auth_ok)
-            arr.append(bkd)
-            arr.append(ready)
-            arr
-          end
+          let combined: Array[U8] val =
+            recover val
+              Array[U8]
+                .> append(auth_ok)
+                .> append(bkd)
+                .> append(ready)
+            end
           _tcp_connection.send(combined)
         end
       end
@@ -1097,7 +1191,6 @@ actor \nodoc\ _SSLPreferredCancelTestServer
     end
 
 // SSLPreferred integration tests
-
 class \nodoc\ iso _TestSSLPreferredWithSSLServer is UnitTest
   """
   Verifies that connecting with SSLPreferred to an SSL-enabled PostgreSQL
@@ -1109,17 +1202,23 @@ class \nodoc\ iso _TestSSLPreferredWithSSLServer is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let sslctx = recover val
-      SSLContext
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let sslctx =
+      recover val
+        SSLContext
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host,
-        info.ssl_port, SSLPreferred(sslctx)),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      _AuthenticateTestNotify(h, true))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.ssl_host,
+          info.ssl_port,
+          SSLPreferred(sslctx)),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        _AuthenticateTestNotify(h, true))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -1136,17 +1235,23 @@ class \nodoc\ iso _TestSSLPreferredWithPlainServer is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let sslctx = recover val
-      SSLContext
-        .> set_client_verify(false)
-        .> set_server_verify(false)
-    end
+    let sslctx =
+      recover val
+        SSLContext
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host,
-        info.port, SSLPreferred(sslctx)),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      _AuthenticateTestNotify(h, true))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port,
+          SSLPreferred(sslctx)),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        _AuthenticateTestNotify(h, true))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)

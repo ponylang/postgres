@@ -3,9 +3,9 @@ use "pony_test"
 
 class \nodoc\ iso _TestParameterStatusDelivery is UnitTest
   """
-  Verifies that pg_parameter_status fires with the correct name and value
-  when the server sends a ParameterStatus message between CommandComplete
-  and ReadyForQuery.
+  Verifies that pg_parameter_status fires with the correct name and
+  value when the server sends a ParameterStatus message between
+  CommandComplete and ReadyForQuery.
   """
   fun name(): String =>
     "ParameterStatus/Delivery"
@@ -14,12 +14,13 @@ class \nodoc\ iso _TestParameterStatusDelivery is UnitTest
     let host = "127.0.0.1"
     let port = "7696"
 
-    let listener = _ParameterStatusTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      _ParameterStatusDeliveryClient(h),
-      h)
+    let listener =
+      _ParameterStatusTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        _ParameterStatusDeliveryClient(h),
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -39,32 +40,40 @@ actor \nodoc\ _ParameterStatusDeliveryClient
   be pg_query_result(session: Session, result: Result) =>
     _got_result = true
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure.")
     _h.complete(false)
 
-  be pg_parameter_status(session: Session, status: ParameterStatus) =>
+  be pg_parameter_status(
+    session: Session,
+    status: ParameterStatus)
+  =>
     _got_status = true
     if status.name != "application_name" then
-      _h.fail("Expected name 'application_name' but got '" +
-        status.name + "'")
+      _h.fail(
+        "Expected name 'application_name' but got '"
+          + status.name + "'")
       session.close()
       _h.complete(false)
       return
     end
     if status.value != "test_app" then
-      _h.fail("Expected value 'test_app' but got '" +
-        status.value + "'")
+      _h.fail(
+        "Expected value 'test_app' but got '"
+          + status.value + "'")
       session.close()
       _h.complete(false)
       return
     end
 
-  be pg_transaction_status(session: Session, status: TransactionStatus) =>
-    // The first pg_transaction_status is from auth ReadyForQuery — skip it.
-    // The second one (after query) should have both result and status.
+  be pg_transaction_status(
+    session: Session,
+    status: TransactionStatus)
+  =>
     if _got_result then
       if not _got_status then
         _h.fail("Got query result but no parameter status.")
@@ -85,8 +94,8 @@ actor \nodoc\ _ParameterStatusDeliveryClient
 class \nodoc\ iso _TestParameterStatusDuringDataRows is UnitTest
   """
   Verifies that a ParameterStatus arriving between DataRow messages
-  still delivers both the complete query result (with all data rows) and the
-  parameter status.
+  still delivers both the complete query result (with all data rows)
+  and the parameter status.
   """
   fun name(): String =>
     "ParameterStatus/DuringDataRows"
@@ -95,12 +104,13 @@ class \nodoc\ iso _TestParameterStatusDuringDataRows is UnitTest
     let host = "127.0.0.1"
     let port = "7697"
 
-    let listener = _ParameterStatusMidQueryTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      _ParameterStatusDuringDataRowsClient(h),
-      h)
+    let listener =
+      _ParameterStatusMidQueryTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        _ParameterStatusDuringDataRowsClient(h),
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -122,7 +132,9 @@ actor \nodoc\ _ParameterStatusDuringDataRowsClient
     match result
     | let r: ResultSet =>
       if r.rows().size() != 2 then
-        _h.fail("Expected 2 rows but got " + r.rows().size().string())
+        _h.fail(
+          "Expected 2 rows but got "
+            + r.rows().size().string())
         session.close()
         _h.complete(false)
       end
@@ -132,24 +144,31 @@ actor \nodoc\ _ParameterStatusDuringDataRowsClient
       _h.complete(false)
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure.")
     _h.complete(false)
 
-  be pg_parameter_status(session: Session, status: ParameterStatus) =>
+  be pg_parameter_status(
+    session: Session,
+    status: ParameterStatus)
+  =>
     _got_status = true
     if status.name != "application_name" then
-      _h.fail("Expected name 'application_name' but got '" +
-        status.name + "'")
+      _h.fail(
+        "Expected name 'application_name' but got '"
+          + status.name + "'")
       session.close()
       _h.complete(false)
     end
 
-  be pg_transaction_status(session: Session, status: TransactionStatus) =>
-    // The first pg_transaction_status is from auth ReadyForQuery — skip it.
-    // The second one (after query) should have both result and status.
+  be pg_transaction_status(
+    session: Session,
+    status: TransactionStatus)
+  =>
     if _got_result then
       if not _got_status then
         _h.fail("Got query result but no parameter status.")
@@ -168,11 +187,10 @@ actor \nodoc\ _ParameterStatusDuringDataRowsClient
     _h.complete(false)
 
 // Shared mock server infrastructure for parameter status tests
-
 actor \nodoc\ _ParameterStatusTestListener is lori.TCPListenerActor
   """
-  Mock server that authenticates, waits for a query, then responds with
-  CommandComplete + ParameterStatus + ReadyForQuery.
+  Mock server that authenticates, waits for a query, then responds
+  with CommandComplete + ParameterStatus + ReadyForQuery.
   """
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _server_auth: lori.TCPServerAuth
@@ -181,7 +199,8 @@ actor \nodoc\ _ParameterStatusTestListener is lori.TCPListenerActor
   let _port: String
   let _notify: (SessionStatusNotify & ResultReceiver)
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(
+    listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     notify: (SessionStatusNotify & ResultReceiver),
@@ -198,16 +217,22 @@ actor \nodoc\ _ParameterStatusTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _ParameterStatusTestServer =>
-    let server = _ParameterStatusTestServer(_server_auth, fd)
+    let server =
+      _ParameterStatusTestServer(_server_auth, fd)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _notify)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _notify)
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -240,8 +265,10 @@ actor \nodoc\ _ParameterStatusTestServer
       match _reader.read_startup_message()
       | let _: Array[U8] val =>
         _authed = true
-        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        let auth_ok =
+          _IncomingAuthenticationOkTestMessage.bytes()
+        let ready =
+          _IncomingReadyForQueryTestMessage('I').bytes()
         _tcp_connection.send(auth_ok)
         _tcp_connection.send(ready)
         _process()
@@ -249,17 +276,22 @@ actor \nodoc\ _ParameterStatusTestServer
     else
       match _reader.read_message()
       | let _: Array[U8] val =>
-        let cmd = _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
-        let ps = _IncomingParameterStatusTestMessage(
-          "application_name", "test_app").bytes()
-        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        let cmd =
+          _IncomingCommandCompleteTestMessage(
+            "SELECT 1").bytes()
+        let ps =
+          _IncomingParameterStatusTestMessage(
+            "application_name", "test_app").bytes()
+        let ready =
+          _IncomingReadyForQueryTestMessage('I').bytes()
         _tcp_connection.send(cmd)
         _tcp_connection.send(ps)
         _tcp_connection.send(ready)
       end
     end
 
-actor \nodoc\ _ParameterStatusMidQueryTestListener is lori.TCPListenerActor
+actor \nodoc\ _ParameterStatusMidQueryTestListener
+  is lori.TCPListenerActor
   """
   Mock server listener for the mid-query parameter status test.
   """
@@ -270,7 +302,8 @@ actor \nodoc\ _ParameterStatusMidQueryTestListener is lori.TCPListenerActor
   let _port: String
   let _notify: (SessionStatusNotify & ResultReceiver)
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(
+    listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     notify: (SessionStatusNotify & ResultReceiver),
@@ -287,16 +320,22 @@ actor \nodoc\ _ParameterStatusMidQueryTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _ParameterStatusMidQueryTestServer =>
-    let server = _ParameterStatusMidQueryTestServer(_server_auth, fd)
+    let server =
+      _ParameterStatusMidQueryTestServer(_server_auth, fd)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _notify)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _notify)
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -330,8 +369,10 @@ actor \nodoc\ _ParameterStatusMidQueryTestServer
       match _reader.read_startup_message()
       | let _: Array[U8] val =>
         _authed = true
-        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        let auth_ok =
+          _IncomingAuthenticationOkTestMessage.bytes()
+        let ready =
+          _IncomingReadyForQueryTestMessage('I').bytes()
         _tcp_connection.send(auth_ok)
         _tcp_connection.send(ready)
         _process()
@@ -342,18 +383,27 @@ actor \nodoc\ _ParameterStatusMidQueryTestServer
         let columns: Array[(String, U32, U16)] val =
           [("col", U32(25), U16(0))]
         let row_desc =
-          _IncomingRowDescriptionTestMessage(columns).bytes()
+          _IncomingRowDescriptionTestMessage(
+            columns).bytes()
 
-        let row1_cols: Array[(String | None)] val = ["row1"]
-        let data_row_1 = _IncomingDataRowTestMessage(row1_cols).bytes()
-        let row2_cols: Array[(String | None)] val = ["row2"]
-        let data_row_2 = _IncomingDataRowTestMessage(row2_cols).bytes()
+        let row1_cols: Array[(String | None)] val =
+          ["row1"]
+        let data_row_1 =
+          _IncomingDataRowTestMessage(row1_cols).bytes()
+        let row2_cols: Array[(String | None)] val =
+          ["row2"]
+        let data_row_2 =
+          _IncomingDataRowTestMessage(row2_cols).bytes()
 
-        let ps = _IncomingParameterStatusTestMessage(
-          "application_name", "test_app").bytes()
+        let ps =
+          _IncomingParameterStatusTestMessage(
+            "application_name", "test_app").bytes()
 
-        let cmd = _IncomingCommandCompleteTestMessage("SELECT 2").bytes()
-        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+        let cmd =
+          _IncomingCommandCompleteTestMessage(
+            "SELECT 2").bytes()
+        let ready =
+          _IncomingReadyForQueryTestMessage('I').bytes()
 
         _tcp_connection.send(row_desc)
         _tcp_connection.send(data_row_1)
@@ -365,11 +415,11 @@ actor \nodoc\ _ParameterStatusMidQueryTestServer
     end
 
 // Integration tests
-
 class \nodoc\ iso _TestParameterStatusOnStartup is UnitTest
   """
-  Verifies that pg_parameter_status fires during startup with at least the
-  server_version parameter when connecting to a real PostgreSQL server.
+  Verifies that pg_parameter_status fires during startup with at
+  least the server_version parameter when connecting to a real
+  PostgreSQL server.
   """
   fun name(): String =>
     "integration/ParameterStatus/Startup"
@@ -387,13 +437,21 @@ actor \nodoc\ _ParameterStatusStartupClient is SessionStatusNotify
   let _session: Session
   var _got_server_version: Bool = false
 
-  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+  new create(
+    h: TestHelper,
+    info: _ConnectionTestConfiguration)
+  =>
     _h = h
 
-    _session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
 
   be pg_session_authenticated(session: Session) =>
     None
@@ -401,18 +459,26 @@ actor \nodoc\ _ParameterStatusStartupClient is SessionStatusNotify
   be pg_session_connection_failed(session: Session,
     reason: ConnectionFailureReason)
   =>
-    _h.fail("Connection failed before reaching authenticated state.")
+    _h.fail(
+      "Connection failed before authenticated state.")
     _h.complete(false)
 
-  be pg_parameter_status(session: Session, status: ParameterStatus) =>
+  be pg_parameter_status(
+    session: Session,
+    status: ParameterStatus)
+  =>
     if status.name == "server_version" then
       _got_server_version = true
     end
 
-  be pg_transaction_status(session: Session, status: TransactionStatus) =>
-    // ReadyForQuery fires after all startup ParameterStatus messages.
+  be pg_transaction_status(
+    session: Session,
+    status: TransactionStatus)
+  =>
     if not _got_server_version then
-      _h.fail("No server_version ParameterStatus received during startup.")
+      _h.fail(
+        "No server_version ParameterStatus received"
+          + " during startup.")
       _session.close()
       _h.complete(false)
       return
@@ -425,8 +491,8 @@ actor \nodoc\ _ParameterStatusStartupClient is SessionStatusNotify
 
 class \nodoc\ iso _TestParameterStatusOnSet is UnitTest
   """
-  Verifies that pg_parameter_status fires when a SET command changes a
-  reporting parameter on a real PostgreSQL server.
+  Verifies that pg_parameter_status fires when a SET command changes
+  a reporting parameter on a real PostgreSQL server.
   """
   fun name(): String =>
     "integration/ParameterStatus/Set"
@@ -446,45 +512,65 @@ actor \nodoc\ _ParameterStatusSetClient
   var _got_result: Bool = false
   var _got_app_name: Bool = false
 
-  new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
+  new create(
+    h: TestHelper,
+    info: _ConnectionTestConfiguration)
+  =>
     _h = h
 
-    _session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
 
   be pg_session_authenticated(session: Session) =>
     session.execute(
-      SimpleQuery("SET application_name = 'pony_test_app'"), this)
+      SimpleQuery(
+        "SET application_name = 'pony_test_app'"),
+      this)
 
   be pg_session_connection_failed(session: Session,
     reason: ConnectionFailureReason)
   =>
-    _h.fail("Connection failed before reaching authenticated state.")
+    _h.fail(
+      "Connection failed before authenticated state.")
     _h.complete(false)
 
   be pg_query_result(session: Session, result: Result) =>
     _got_result = true
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure.")
     _h.complete(false)
 
-  be pg_parameter_status(session: Session, status: ParameterStatus) =>
+  be pg_parameter_status(
+    session: Session,
+    status: ParameterStatus)
+  =>
     if (status.name == "application_name")
       and (status.value == "pony_test_app")
     then
       _got_app_name = true
     end
 
-  be pg_transaction_status(session: Session, status: TransactionStatus) =>
+  be pg_transaction_status(
+    session: Session,
+    status: TransactionStatus)
+  =>
     if _got_result then
       if not _got_app_name then
         _h.fail(
-          "SET completed but no application_name ParameterStatus received.")
+          "SET completed but no application_name"
+            + " ParameterStatus received.")
         _session.close()
         _h.complete(false)
         return

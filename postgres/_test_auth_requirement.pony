@@ -10,13 +10,13 @@ use "pony_test"
 // and — critically — that no password bytes reach the wire before rejection.
 //
 // Each test uses two expected actions:
-//   - "client-rejected" — the notify saw
-//     `pg_session_connection_failed(AuthenticationMethodRejected)` then
-//     `pg_session_shutdown`.
-//   - "no-password-leak" — the server saw the client's Terminate without
-//     any preceding PasswordMessage. Without this action, a regression
-//     that sent the password and *then* called the rejection callback
-//     would still pass the callback contract.
+// - "client-rejected" — the notify saw
+// `pg_session_connection_failed(AuthenticationMethodRejected)`
+// then `pg_session_shutdown`.
+// - "no-password-leak" — the server saw the client's Terminate
+// without any preceding PasswordMessage. Without this action, a
+// regression that sent the password and *then* called the
+// rejection callback would still pass the callback contract.
 //
 // The counterpart — default `AuthRequireSCRAM` accepting SCRAM — is already
 // covered by `_TestSCRAMAuthenticationSuccess` in `_test_auth.pony`, which
@@ -45,8 +45,13 @@ class \nodoc\ iso _TestAuthRequireSCRAMRejectsAuthenticationOk is UnitTest
     h.expect_action("client-rejected")
     h.expect_action("no-password-leak")
 
-    let listener = _AuthMethodRejectedTestListener(
-      lori.TCPListenAuth(h.env.root), host, port, h, _AuthReplyOk)
+    let listener =
+      _AuthMethodRejectedTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        _AuthReplyOk)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -67,8 +72,13 @@ class \nodoc\ iso _TestAuthRequireSCRAMRejectsCleartextPassword is UnitTest
     h.expect_action("client-rejected")
     h.expect_action("no-password-leak")
 
-    let listener = _AuthMethodRejectedTestListener(
-      lori.TCPListenAuth(h.env.root), host, port, h, _AuthReplyCleartext)
+    let listener =
+      _AuthMethodRejectedTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        _AuthReplyCleartext)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -89,8 +99,13 @@ class \nodoc\ iso _TestAuthRequireSCRAMRejectsMD5Password is UnitTest
     h.expect_action("client-rejected")
     h.expect_action("no-password-leak")
 
-    let listener = _AuthMethodRejectedTestListener(
-      lori.TCPListenAuth(h.env.root), host, port, h, _AuthReplyMD5)
+    let listener =
+      _AuthMethodRejectedTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        _AuthReplyMD5)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -115,8 +130,12 @@ actor \nodoc\ _AuthMethodRejectedTestListener is lori.TCPListenerActor
   let _port: String
   let _kind: _AuthReplyKind
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
-    h: TestHelper, kind: _AuthReplyKind)
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    h: TestHelper,
+    kind: _AuthReplyKind)
   =>
     _host = host
     _port = port
@@ -134,10 +153,14 @@ actor \nodoc\ _AuthMethodRejectedTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _AuthMethodRejectedTestNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _AuthMethodRejectedTestNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -162,7 +185,10 @@ actor \nodoc\ _AuthMethodRejectedTestServer
   var _state: U8 = 0
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32, h: TestHelper,
+  new create(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    h: TestHelper,
     kind: _AuthReplyKind)
   =>
     _h = h
@@ -182,7 +208,7 @@ actor \nodoc\ _AuthMethodRejectedTestServer
       match _reader.read_startup_message()
       | let _: Array[U8] val =>
         let reply =
-          match _kind
+          match \exhaustive\ _kind
           | _AuthReplyOk =>
             _IncomingAuthenticationOkTestMessage.bytes()
           | _AuthReplyCleartext =>
@@ -201,7 +227,8 @@ actor \nodoc\ _AuthMethodRejectedTestServer
           let type_byte = msg(0)?
           if type_byte == 'p' then
             _h.fail(
-              "Client sent PasswordMessage despite AuthenticationMethodRejected")
+              "Client sent PasswordMessage despite "
+                + "AuthenticationMethodRejected")
             _h.complete(false)
           elseif type_byte == 'X' then
             _h.complete_action("no-password-leak")

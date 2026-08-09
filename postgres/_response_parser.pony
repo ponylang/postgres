@@ -45,8 +45,9 @@ primitive _UnsupportedMessage
 primitive _ResponseParser
   """
   Takes a reader that contains buffered responses from a Postgres server and
-  extract a single message. To process a full buffer, `apply` should be called in a loop until it returns `None` rather than a message type. The input
-  buffer is modified.
+  extract a single message. To process a full buffer, `apply` should be
+  called in a loop until it returns `None` rather than a message type. The
+  input buffer is modified.
 
   Throws an error if an unrecoverable error is encountered. The session should
   be shut down in response.
@@ -100,13 +101,14 @@ primitive _ResponseParser
         buffer.skip(message_size)?
         return _AuthenticationCleartextPasswordMessage
       elseif auth_type == _AuthenticationRequestType.md5_password() then
-        let salt = String.from_array(
-          recover val
-            [ buffer.peek_u8(9)?
-              buffer.peek_u8(10)?
-              buffer.peek_u8(11)?
-              buffer.peek_u8(12)? ]
-          end)
+        let salt =
+          String.from_array(
+            recover val
+              [ buffer.peek_u8(9)?
+                buffer.peek_u8(10)?
+                buffer.peek_u8(11)?
+                buffer.peek_u8(12)? ]
+            end)
         // discard the message now that we've extracted the salt.
         buffer.skip(message_size)?
 
@@ -118,7 +120,7 @@ primitive _ResponseParser
         // The list ends with a lone null byte (empty string).
         let remaining = payload_size.sub_partial(4)?
         let payload = buffer.block(remaining)?
-        let reader: Reader = Reader.>append(consume payload)
+        let reader: Reader = Reader .> append(consume payload)
         let mechanisms: Array[String] iso = recover iso Array[String] end
         while reader.size() > 0 do
           let name_bytes = reader.read_until(0)?
@@ -265,7 +267,8 @@ primitive _ResponseParser
       // Find the field terminator. All fields are null terminated.
       let null_index = payload.find(0, index)?
       let field_index = index + 1
-      let field_data = String.from_array(recover
+      let field_data =
+        String.from_array(recover
           payload.slice(field_index, null_index)
         end)
 
@@ -312,11 +315,12 @@ primitive _ResponseParser
     Parse a data row message. Column data is kept as raw bytes — decoding
     to typed values happens later in `_RowsBuilder` using `CodecRegistry`.
     """
-    let reader: Reader = Reader.>append(payload)
+    let reader: Reader = Reader .> append(payload)
     let number_of_columns = reader.u16_be()?.usize()
-    let columns: Array[(Array[U8] val | None)] iso = recover iso
-      columns.create(number_of_columns)
-    end
+    let columns: Array[(Array[U8] val | None)] iso =
+      recover iso
+        columns.create(number_of_columns)
+      end
 
     for column_index in Range(0, number_of_columns) do
       let column_length = reader.u32_be()?
@@ -345,11 +349,12 @@ primitive _ResponseParser
     binary=1) for each column, used by `_RowsBuilder` to select the right
     codec for decoding.
     """
-    let reader: Reader = Reader.>append(payload)
+    let reader: Reader = Reader .> append(payload)
     let number_of_columns = reader.u16_be()?.usize()
-    let columns: Array[(String, U32, U16)] iso = recover iso
-      columns.create(number_of_columns)
-    end
+    let columns: Array[(String, U32, U16)] iso =
+      recover iso
+        columns.create(number_of_columns)
+      end
 
     for column_index in Range(0, number_of_columns) do
       // column name is a null terminated string
@@ -426,7 +431,7 @@ primitive _ResponseParser
     Parse a ParameterStatus message. Payload is two null-terminated strings:
     parameter name followed by parameter value.
     """
-    let reader: Reader = Reader.>append(payload)
+    let reader: Reader = Reader .> append(payload)
     let name_bytes = reader.read_until(0)?
     let name = String.from_array(consume name_bytes)
     let value_bytes = reader.read_until(0)?
@@ -439,7 +444,7 @@ primitive _ResponseParser
     """
     Parse a notification response message.
     """
-    let reader: Reader = Reader.>append(payload)
+    let reader: Reader = Reader .> append(payload)
     let pid = reader.i32_be()?
     let channel_bytes = reader.read_until(0)?
     let channel = String.from_array(consume channel_bytes)
@@ -453,7 +458,7 @@ primitive _ResponseParser
     """
     Parse a CopyInResponse message.
     """
-    let reader: Reader = Reader.>append(payload)
+    let reader: Reader = Reader .> append(payload)
     let format = reader.u8()?
     let num_cols = reader.u16_be()?.usize()
     let col_fmts: Array[U8] iso = recover iso Array[U8](num_cols) end
@@ -470,7 +475,7 @@ primitive _ResponseParser
     """
     Parse a CopyOutResponse message. Same wire format as CopyInResponse.
     """
-    let reader: Reader = Reader.>append(payload)
+    let reader: Reader = Reader .> append(payload)
     let format = reader.u8()?
     let num_cols = reader.u16_be()?.usize()
     let col_fmts: Array[U8] iso = recover iso Array[U8](num_cols) end
@@ -487,7 +492,7 @@ primitive _ResponseParser
     """
     Parse a parameter description message.
     """
-    let reader: Reader = Reader.>append(payload)
+    let reader: Reader = Reader .> append(payload)
     let num_params = reader.u16_be()?.usize()
     let oids: Array[U32] iso = recover iso Array[U32](num_params) end
 

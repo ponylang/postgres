@@ -1,3 +1,8 @@
+"""
+Cancels a long-running query. Starts a `pg_sleep(10)`, immediately
+calls `session.cancel()`, and checks for SQLSTATE 57014
+(query_canceled) in the error response.
+"""
 use "cli"
 use "collections"
 use lori = "lori"
@@ -13,20 +18,27 @@ actor Main
     let client = Client(auth, server_info, env.out)
 
 actor Client is (SessionStatusNotify & ResultReceiver)
+  """
+  Starts a pg_sleep query and cancels it immediately.
+  """
   let _session: Session
   let _out: OutStream
 
   new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
-    _session = Session(
-      ServerConnectInfo(auth, info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(auth, info.host, info.port),
+        DatabaseConnectInfo(info.username, info.password, info.database),
+        this)
 
   be close() =>
     _session.close()
 
   be pg_session_authenticated(session: Session) =>
+    """
+    Sends a 10-second sleep query, then cancels it.
+    """
     _out.print("Authenticated.")
     _out.print("Sending long-running query....")
     let q = SimpleQuery("SELECT pg_sleep(10)")
@@ -44,10 +56,12 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     _out.print("Query completed (was not cancelled).")
     close()
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let err: ErrorResponseMessage =>
       if err.code == "57014" then
         _out.print("Query was cancelled (SQLSTATE 57014).")
@@ -60,6 +74,10 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     close()
 
 class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
   let host: String
   let port: String
   let username: String

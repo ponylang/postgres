@@ -51,7 +51,7 @@ primitive _FrontendMessage
           msg.update_u32(1, payload_length.bswap())?
         end
         msg.copy_from(pwd.array(), 0, 5, pwd.size())
-        //  space for null left here
+        // space for null left here
         msg
       end
     else
@@ -73,7 +73,7 @@ primitive _FrontendMessage
           msg.update_u32(1, payload_length.bswap())?
         end
         msg.copy_from(string.array(), 0, 5, string.size())
-        //  space for null left here
+        // space for null left here
         msg
       end
     else
@@ -81,8 +81,11 @@ primitive _FrontendMessage
       []
     end
 
-  fun parse(name: String, query_string: String,
-    param_type_oids: Array[U32] val): Array[U8] val
+  fun parse(
+    name: String,
+    query_string: String,
+    param_type_oids: Array[U32] val)
+    : Array[U8] val
   =>
     """
     Build a Parse message for the extended query protocol.
@@ -131,9 +134,12 @@ primitive _FrontendMessage
       []
     end
 
-  fun bind(portal: String, stmt: String,
+  fun bind(
+    portal: String,
+    stmt: String,
     params: Array[FieldDataTypes] val,
-    registry: CodecRegistry): Array[U8] val ?
+    registry: CodecRegistry)
+    : Array[U8] val ?
   =>
     """
     Build a Bind message for the extended query protocol.
@@ -155,7 +161,8 @@ primitive _FrontendMessage
     // Pre-encode PgArray and PgComposite parameters before the recover block.
     // _ArrayEncoder and _CompositeEncoder need codec access that isn't
     // available inside recover.
-    let pre_encoded: Array[(Array[U8] val | None)] val = recover val
+    let pre_encoded: Array[(Array[U8] val | None)] val =
+      recover val
       let pe = Array[(Array[U8] val | None)](params.size())
       for p in params.values() do
         match p
@@ -174,7 +181,7 @@ primitive _FrontendMessage
       var pi: USize = 0
       for p in params.values() do
         params_data_size = params_data_size + 4 // val_len field
-        match p
+        match \exhaustive\ p
         | let s: String => params_data_size = params_data_size + s.size()
         | let _: I16 => params_data_size = params_data_size + 2
         | let _: I32 => params_data_size = params_data_size + 4
@@ -230,12 +237,13 @@ primitive _FrontendMessage
       offset = offset + 2
       // Per-parameter format codes
       for p in params.values() do
-        let fmt: U16 = match p
-        | let _: String => 0
-        | None => 0
-        else
-          1 // binary for all typed values (including PgArray)
-        end
+        let fmt: U16 =
+          match p
+          | let _: String => 0
+          | None => 0
+          else
+            1 // binary for all typed values (including PgArray)
+          end
         ifdef bigendian then
           msg.update_u16(offset, fmt)?
         else
@@ -252,7 +260,7 @@ primitive _FrontendMessage
       offset = offset + 2
       pi = 0
       for p in params.values() do
-        match p
+        match \exhaustive\ p
         | let s: String =>
           ifdef bigendian then
             msg.update_u32(offset, s.size().u32())?

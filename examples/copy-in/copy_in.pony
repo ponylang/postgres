@@ -1,3 +1,10 @@
+"""
+COPY IN for bulk data loading. Creates a table, uses COPY FROM STDIN to
+load three rows of tab-delimited text data, verifies with a SELECT, then
+drops the table. The COPY IN protocol uses a pull-based flow: the session
+calls `pg_copy_ready` after each `send_copy_data`, letting the client send
+the next chunk. Call `finish_copy` when all data is sent.
+"""
 use "cli"
 use "collections"
 use lori = "lori"
@@ -12,14 +19,11 @@ actor Main
 
     let client = Client(auth, server_info, env.out)
 
-// This example demonstrates COPY IN for bulk data loading. It creates a table,
-// uses COPY FROM STDIN to load three rows of tab-delimited text data, verifies
-// the data with a SELECT query, then drops the table.
-//
-// The COPY IN protocol uses a pull-based flow: the session calls pg_copy_ready
-// after each send_copy_data, letting the client send the next chunk. When all
-// data is sent, call finish_copy to complete the operation.
 actor Client is (SessionStatusNotify & ResultReceiver & CopyInReceiver)
+  """
+  Creates a table, loads rows via COPY IN, verifies with SELECT, and
+  drops the table.
+  """
   let _session: Session
   let _out: OutStream
   var _phase: USize = 0
@@ -27,10 +31,11 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyInReceiver)
 
   new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
-    _session = Session(
-      ServerConnectInfo(auth, info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(auth, info.host, info.port),
+        DatabaseConnectInfo(info.username, info.password, info.database),
+        this)
 
   be close() =>
     _session.close()
@@ -50,10 +55,11 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyInReceiver)
     _rows_sent = _rows_sent + 1
     if _rows_sent <= 3 then
       // Send one row per callback. Tab-delimited, newline-terminated.
-      let row: Array[U8] val = recover val
-        ("row" + _rows_sent.string() + "\t" + (_rows_sent * 10).string()
-          + "\n").array()
-      end
+      let row: Array[U8] val =
+        recover val
+          ("row" + _rows_sent.string() + "\t"
+            + (_rows_sent * 10).string() + "\n").array()
+        end
       _out.print("  Sending row " + _rows_sent.string() + "...")
       session.send_copy_data(row)
     else
@@ -66,16 +72,18 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyInReceiver)
     // Verify with a SELECT
     _out.print("Verifying with SELECT...")
     _session.execute(
-      SimpleQuery("SELECT name, value FROM copy_in_example ORDER BY name"),
+      SimpleQuery(
+        "SELECT name, value FROM copy_in_example ORDER BY name"),
       this)
 
   be pg_copy_failed(session: Session,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
-      _out.print("COPY failed: [" + e.severity + "] " + e.code + ": "
-        + e.message)
+      _out.print(
+        "COPY failed: [" + e.severity + "] " + e.code + ": "
+          + e.message)
     | let e: ClientQueryError =>
       _out.print("COPY failed: client error")
     end
@@ -106,7 +114,8 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyInReceiver)
       // SELECT done. Print results and drop table.
       match result
       | let r: ResultSet =>
-        _out.print("ResultSet (" + r.rows().size().string() + " rows):")
+        _out.print(
+          "ResultSet (" + r.rows().size().string() + " rows):")
         for row in r.rows().values() do
           _out.write(" ")
           for field in row.fields.values() do
@@ -133,19 +142,26 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyInReceiver)
       close()
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
-      _out.print("Query failed: [" + e.severity + "] " + e.code + ": "
-        + e.message)
+      _out.print(
+        "Query failed: [" + e.severity + "] " + e.code + ": "
+          + e.message)
     | let e: ClientQueryError =>
       _out.print("Query failed: client error")
     end
     close()
 
 class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
   let host: String
   let port: String
   let username: String

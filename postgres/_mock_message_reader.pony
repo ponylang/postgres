@@ -6,8 +6,7 @@ class \nodoc\ _MockMessageReader
 
   `_on_received` fires per TCP segment, not per protocol message. A single
   message can split across segments, or multiple messages can arrive in one
-  segment. This class buffers incoming data and provides methods to extract
-  complete messages by parsing their length headers.
+  segment.
 
   Two PostgreSQL frontend message formats are supported:
 

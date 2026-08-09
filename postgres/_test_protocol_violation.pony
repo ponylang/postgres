@@ -35,8 +35,9 @@ class \nodoc\ iso _TestProtocolViolationParseInSCRAM is UnitTest
     let host = "127.0.0.1"
     let port = "7737"
 
-    let listener = _PVParseSCRAMListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _PVParseSCRAMListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -47,7 +48,8 @@ actor \nodoc\ _PVParseSCRAMNotify is SessionStatusNotify
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     match reason
@@ -72,7 +74,10 @@ actor \nodoc\ _PVParseSCRAMListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -90,10 +95,15 @@ actor \nodoc\ _PVParseSCRAMListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PVParseSCRAMNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PVParseSCRAMNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -123,8 +133,8 @@ actor \nodoc\ _PVParseSCRAMServer
       match _reader.read_startup_message()
       | let _: Array[U8] val =>
         _phase = 1
-        let mechanisms: Array[String] val = recover val
-          ["SCRAM-SHA-256"] end
+        let mechanisms: Array[String] val =
+          recover val ["SCRAM-SHA-256"] end
         _tcp_connection.send(
           _IncomingAuthenticationSASLTestMessage(mechanisms).bytes())
       end
@@ -150,8 +160,9 @@ class \nodoc\ iso _TestProtocolViolationParseInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7731"
 
-    let listener = _PVParseInFlightListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _PVParseInFlightListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -165,7 +176,8 @@ actor \nodoc\ _PVParseInFlightClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unexpected pre-ready failure.")
@@ -179,7 +191,9 @@ actor \nodoc\ _PVParseInFlightClient is
     _h.fail("Expected pg_query_failed, not pg_query_result.")
     _h.complete(false)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     match failure
@@ -204,7 +218,10 @@ actor \nodoc\ _PVParseInFlightListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -222,11 +239,16 @@ actor \nodoc\ _PVParseInFlightListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PVParseInFlightClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PVParseInFlightClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -278,8 +300,9 @@ class \nodoc\ iso _TestProtocolViolationParseIdle is UnitTest
     let host = "127.0.0.1"
     let port = "7732"
 
-    let listener = _PVParseIdleListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _PVParseIdleListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -290,7 +313,8 @@ actor \nodoc\ _PVParseIdleClient is SessionStatusNotify
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unexpected pre-ready failure.")
@@ -315,7 +339,10 @@ actor \nodoc\ _PVParseIdleListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -333,11 +360,16 @@ actor \nodoc\ _PVParseIdleListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PVParseIdleClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PVParseIdleClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -383,8 +415,9 @@ class \nodoc\ iso _TestProtocolViolationWrongStatePreAuth is UnitTest
     let host = "127.0.0.1"
     let port = "7733"
 
-    let listener = _PVWrongStatePreAuthListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _PVWrongStatePreAuthListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -395,7 +428,10 @@ actor \nodoc\ _PVWrongStatePreAuthListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -413,10 +449,15 @@ actor \nodoc\ _PVWrongStatePreAuthListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PVParseSCRAMNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PVParseSCRAMNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -445,8 +486,8 @@ actor \nodoc\ _PVWrongStatePreAuthServer
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
       _sent = true
-      let cols: Array[(String | None)] val = recover val
-        [as (String | None): "1"] end
+      let cols: Array[(String | None)] val =
+        recover val [as (String | None): "1"] end
       _tcp_connection.send(_IncomingDataRowTestMessage(cols).bytes())
     end
     lori.KeepReading
@@ -466,8 +507,9 @@ class \nodoc\ iso _TestProtocolViolationWrongStateSCRAM is UnitTest
     let host = "127.0.0.1"
     let port = "7734"
 
-    let listener = _PVWrongStateSCRAMListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _PVWrongStateSCRAMListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -478,7 +520,10 @@ actor \nodoc\ _PVWrongStateSCRAMListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -496,10 +541,15 @@ actor \nodoc\ _PVWrongStateSCRAMListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PVParseSCRAMNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PVParseSCRAMNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -528,8 +578,8 @@ actor \nodoc\ _PVWrongStateSCRAMServer
       match _reader.read_startup_message()
       | let _: Array[U8] val =>
         _phase = 1
-        let mechanisms: Array[String] val = recover val
-          ["SCRAM-SHA-256"] end
+        let mechanisms: Array[String] val =
+          recover val ["SCRAM-SHA-256"] end
         _tcp_connection.send(
           _IncomingAuthenticationSASLTestMessage(mechanisms).bytes())
       end
@@ -556,8 +606,9 @@ class \nodoc\ iso _TestProtocolViolationWrongStateIdle is UnitTest
     let host = "127.0.0.1"
     let port = "7735"
 
-    let listener = _PVWrongStateIdleListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _PVWrongStateIdleListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -568,7 +619,10 @@ actor \nodoc\ _PVWrongStateIdleListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -586,11 +640,16 @@ actor \nodoc\ _PVWrongStateIdleListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PVParseIdleClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PVParseIdleClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -636,8 +695,9 @@ class \nodoc\ iso _TestProtocolViolationWrongStateInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7736"
 
-    let listener = _PVWrongStateInFlightListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _PVWrongStateInFlightListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -648,7 +708,10 @@ actor \nodoc\ _PVWrongStateInFlightListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -666,11 +729,16 @@ actor \nodoc\ _PVWrongStateInFlightListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PVParseInFlightClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PVParseInFlightClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -724,8 +792,9 @@ class \nodoc\ iso _TestProtocolViolationCopyInInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7738"
 
-    let listener = _PVCopyInInFlightListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _PVCopyInInFlightListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -737,7 +806,8 @@ actor \nodoc\ _PVCopyInInFlightClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unexpected pre-ready failure.")
@@ -754,7 +824,8 @@ actor \nodoc\ _PVCopyInInFlightClient is
     _h.fail("Expected pg_copy_failed, not pg_copy_complete.")
     _h.complete(false)
 
-  be pg_copy_failed(session: Session,
+  be pg_copy_failed(
+    session: Session,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     match failure
@@ -779,7 +850,10 @@ actor \nodoc\ _PVCopyInInFlightListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -797,11 +871,16 @@ actor \nodoc\ _PVCopyInInFlightListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PVCopyInInFlightClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PVCopyInInFlightClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -821,8 +900,9 @@ class \nodoc\ iso _TestProtocolViolationCopyOutInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7739"
 
-    let listener = _PVCopyOutInFlightListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _PVCopyOutInFlightListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -834,7 +914,8 @@ actor \nodoc\ _PVCopyOutInFlightClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unexpected pre-ready failure.")
@@ -851,7 +932,8 @@ actor \nodoc\ _PVCopyOutInFlightClient is
     _h.fail("Expected pg_copy_failed, not pg_copy_complete.")
     _h.complete(false)
 
-  be pg_copy_failed(session: Session,
+  be pg_copy_failed(
+    session: Session,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     match failure
@@ -876,7 +958,10 @@ actor \nodoc\ _PVCopyOutInFlightListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -894,11 +979,16 @@ actor \nodoc\ _PVCopyOutInFlightListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PVCopyOutInFlightClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PVCopyOutInFlightClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -918,8 +1008,9 @@ class \nodoc\ iso _TestProtocolViolationPrepareInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7740"
 
-    let listener = _PVPrepareInFlightListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _PVPrepareInFlightListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -931,7 +1022,8 @@ actor \nodoc\ _PVPrepareInFlightClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unexpected pre-ready failure.")
@@ -944,7 +1036,9 @@ actor \nodoc\ _PVPrepareInFlightClient is
     _h.fail("Expected pg_prepare_failed, not pg_statement_prepared.")
     _h.complete(false)
 
-  be pg_prepare_failed(session: Session, name: String,
+  be pg_prepare_failed(
+    session: Session,
+    name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     match failure
@@ -969,7 +1063,10 @@ actor \nodoc\ _PVPrepareInFlightListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -987,11 +1084,16 @@ actor \nodoc\ _PVPrepareInFlightListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PVPrepareInFlightClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PVPrepareInFlightClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1011,8 +1113,9 @@ class \nodoc\ iso _TestProtocolViolationStreamInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7741"
 
-    let listener = _PVStreamInFlightListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _PVStreamInFlightListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1025,7 +1128,8 @@ actor \nodoc\ _PVStreamInFlightClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unexpected pre-ready failure.")
@@ -1042,7 +1146,8 @@ actor \nodoc\ _PVStreamInFlightClient is
     _h.fail("Expected pg_stream_failed, not pg_stream_complete.")
     _h.complete(false)
 
-  be pg_stream_failed(session: Session,
+  be pg_stream_failed(
+    session: Session,
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
@@ -1075,7 +1180,10 @@ actor \nodoc\ _PVStreamInFlightListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -1093,11 +1201,16 @@ actor \nodoc\ _PVStreamInFlightListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PVStreamInFlightClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PVStreamInFlightClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1120,8 +1233,9 @@ class \nodoc\ iso _TestProtocolViolationPipelineInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7742"
 
-    let listener = _PVPipelineInFlightListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _PVPipelineInFlightListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1135,7 +1249,8 @@ actor \nodoc\ _PVPipelineInFlightClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unexpected pre-ready failure.")
@@ -1152,7 +1267,9 @@ actor \nodoc\ _PVPipelineInFlightClient is
     _h.fail("Expected pg_pipeline_failed, not pg_pipeline_result.")
     _h.complete(false)
 
-  be pg_pipeline_failed(session: Session, index: USize,
+  be pg_pipeline_failed(
+    session: Session,
+    index: USize,
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
@@ -1189,7 +1306,10 @@ actor \nodoc\ _PVPipelineInFlightListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -1207,11 +1327,16 @@ actor \nodoc\ _PVPipelineInFlightListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PVPipelineInFlightClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PVPipelineInFlightClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1232,8 +1357,9 @@ class \nodoc\ iso _TestProtocolViolationExtendedQueryInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7743"
 
-    let listener = _PVExtendedQueryInFlightListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _PVExtendedQueryInFlightListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1246,7 +1372,8 @@ actor \nodoc\ _PVExtendedQueryInFlightClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unexpected pre-ready failure.")
@@ -1259,7 +1386,9 @@ actor \nodoc\ _PVExtendedQueryInFlightClient is
     _h.fail("Expected pg_query_failed, not pg_query_result.")
     _h.complete(false)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     match failure
@@ -1284,7 +1413,10 @@ actor \nodoc\ _PVExtendedQueryInFlightListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -1302,11 +1434,16 @@ actor \nodoc\ _PVExtendedQueryInFlightListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PVExtendedQueryInFlightClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PVExtendedQueryInFlightClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1328,8 +1465,9 @@ class \nodoc\ iso _TestProtocolViolationCloseStatementInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7744"
 
-    let listener = _PVCloseStatementInFlightListener(
-      lori.TCPListenAuth(h.env.root), host, port, h)
+    let listener =
+      _PVCloseStatementInFlightListener(
+        lori.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1340,7 +1478,8 @@ actor \nodoc\ _PVCloseStatementInFlightClient is SessionStatusNotify
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unexpected pre-ready failure.")
@@ -1366,7 +1505,10 @@ actor \nodoc\ _PVCloseStatementInFlightListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth, host: String, port: String,
+  new create(
+    listen_auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
     h: TestHelper)
   =>
     _host = host
@@ -1384,11 +1526,16 @@ actor \nodoc\ _PVCloseStatementInFlightListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PVCloseStatementInFlightClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PVCloseStatementInFlightClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>

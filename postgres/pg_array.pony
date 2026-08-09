@@ -101,7 +101,7 @@ class val PgArray is (FieldData & FieldDataEquatable & Equatable[PgArray])
       var first = true
       for elem in elements.values() do
         if first then first = false else s.push(',') end
-        match elem
+        match \exhaustive\ elem
         | None => s.append("NULL")
         | let fd: FieldData =>
           let v: String val = fd.string()
@@ -114,12 +114,12 @@ class val PgArray is (FieldData & FieldDataEquatable & Equatable[PgArray])
             s.push('"')
           else
             s.append(v)
+            end
           end
-        end
       end
       s.push('}')
       s
-    end
+      end
 
   fun tag _needs_quoting(v: String val): Bool =>
     for ch in v.values() do

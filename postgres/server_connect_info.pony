@@ -11,7 +11,8 @@ class val ServerConnectInfo
   or trust authentication. See `AuthRequirement` for the rationale.
 
   An optional `connection_timeout` bounds the TCP connection phase. If the
-  timeout fires before a TCP connection is established, `pg_session_connection_failed`
+  timeout fires before a TCP connection is established,
+  `pg_session_connection_failed`
   is called with `ConnectionFailedTimeout`. Construct the timeout with
   `lori.MakeConnectionTimeout(milliseconds)`.
   """
@@ -22,7 +23,10 @@ class val ServerConnectInfo
   let auth_requirement: AuthRequirement
   let connection_timeout: (lori.ConnectionTimeout | None)
 
-  new val create(auth': lori.TCPConnectAuth, host': String, service': String,
+  new val create(
+    auth': lori.TCPConnectAuth,
+    host': String,
+    service': String,
     ssl_mode': SSLMode = SSLDisabled,
     auth_requirement': AuthRequirement = AuthRequireSCRAM,
     connection_timeout': (lori.ConnectionTimeout | None) = None)

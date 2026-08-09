@@ -5,6 +5,7 @@ GET_DEPENDENCIES_WITH := corral fetch
 CLEAN_DEPENDENCIES_WITH := corral clean
 COMPILE_WITH := corral run -- ponyc
 BUILD_DOCS_WITH := corral run -- pony-doc
+LINT_WITH := corral run -- pony-lint
 
 BUILD_DIR ?= build/$(config)
 COVERAGE_DIR ?= build/coverage
@@ -26,7 +27,7 @@ else
 	PONYC = $(COMPILE_WITH) --debug
 endif
 
-ifeq (,$(filter $(MAKECMDGOALS),clean docs realclean start-pg-containers stop-pg-containers TAGS))
+ifeq (,$(filter $(MAKECMDGOALS),clean docs lint realclean start-pg-containers stop-pg-containers TAGS))
   ifeq ($(ssl), 4.0.x)
           SSL = -Dopenssl_4.0.x
   else ifeq ($(ssl), 3.0.x)
@@ -54,6 +55,10 @@ unit-tests: $(tests_binary)
 
 test-one: $(tests_binary)
 	$^ --only="$(t)"
+
+lint:
+	$(GET_DEPENDENCIES_WITH)
+	$(LINT_WITH) .
 
 integration-tests: $(tests_binary)
 	$^ --only=integration/ --sequential --shuffle
@@ -106,4 +111,4 @@ $(BUILD_DIR):
 $(COVERAGE_DIR):
 	mkdir -p $(COVERAGE_DIR)
 
-.PHONY: all examples clean docs TAGS test test-one coverage start-pg-containers stop-pg-containers
+.PHONY: all examples clean docs lint TAGS test test-one coverage start-pg-containers stop-pg-containers

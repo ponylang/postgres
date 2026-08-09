@@ -10,10 +10,12 @@ class \nodoc\ iso _TestScramSha256MessageBuilders is UnitTest
     let nonce = "rOprNGfwEbeRWgbNEkqO"
     let combined = "rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0"
 
-    h.assert_eq[String]("n=,r=rOprNGfwEbeRWgbNEkqO",
+    h.assert_eq[String](
+      "n=,r=rOprNGfwEbeRWgbNEkqO",
       _ScramSha256.client_first_message_bare(nonce))
 
-    h.assert_eq[String]("n,,n=,r=rOprNGfwEbeRWgbNEkqO",
+    h.assert_eq[String](
+      "n,,n=,r=rOprNGfwEbeRWgbNEkqO",
       _ScramSha256.client_first_message(nonce))
 
     h.assert_eq[String](
@@ -47,19 +49,25 @@ class \nodoc\ iso _TestScramSha256ComputeProof is UnitTest
       "rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0"
 
     (let client_proof, let server_signature) =
-      _ScramSha256.compute_proof(password, consume salt, iterations,
-        client_first_bare, server_first, combined_nonce)?
+      _ScramSha256.compute_proof(
+        password,
+        consume salt,
+        iterations,
+        client_first_bare,
+        server_first,
+        combined_nonce)?
 
-    let expected_proof: Array[U8] val = [
-      170; 244; 246; 73; 103; 68; 31; 148; 52; 233; 169; 91; 47; 232; 99; 73
-      139; 148; 132; 33; 187; 86; 119; 69; 203; 50; 27; 236; 34; 184; 159; 217
-    ]
+    let expected_proof: Array[U8] val =
+      [ 170; 244; 246; 73; 103; 68; 31; 148; 52; 233
+        169; 91; 47; 232; 99; 73
+        139; 148; 132; 33; 187; 86; 119; 69; 203; 50
+        27; 236; 34; 184; 159; 217 ]
 
-    let expected_signature: Array[U8] val = [
-      220; 115; 186; 66; 221; 76; 224; 194; 137; 174; 105; 74; 106; 131; 170
-      44; 2; 52; 255; 68; 213; 208; 118; 94; 236; 159; 71; 220; 192; 109; 72
-      232
-    ]
+    let expected_signature: Array[U8] val =
+      [ 220; 115; 186; 66; 221; 76; 224; 194; 137
+        174; 105; 74; 106; 131; 170
+        44; 2; 52; 255; 68; 213; 208; 118; 94; 236
+        159; 71; 220; 192; 109; 72; 232 ]
 
     h.assert_eq[USize](32, client_proof.size())
     h.assert_eq[USize](32, server_signature.size())
@@ -69,5 +77,6 @@ class \nodoc\ iso _TestScramSha256ComputeProof is UnitTest
     // Also verify Base64-encoded proof matches expected
     let proof_b64_iso = Base64.encode(client_proof)
     let proof_b64: String val = consume proof_b64_iso
-    h.assert_eq[String]("qvT2SWdEH5Q06albL+hjSYuUhCG7VndFyzIb7CK4n9k=",
+    h.assert_eq[String](
+      "qvT2SWdEH5Q06albL+hjSYuUhCG7VndFyzIb7CK4n9k=",
       proof_b64)

@@ -1,3 +1,11 @@
+"""
+COPY OUT for bulk data export. Creates a table, inserts three rows,
+uses COPY TO STDOUT to export them, prints the received data, then
+drops the table. The COPY OUT protocol is server-driven: after the
+session sends the COPY query, the server pushes data via
+`pg_copy_data` callbacks. `pg_copy_complete` fires when all data
+has been sent.
+"""
 use "cli"
 use "collections"
 use lori = "lori"
@@ -12,14 +20,11 @@ actor Main
 
     let client = Client(auth, server_info, env.out)
 
-// This example demonstrates COPY OUT for bulk data export. It creates a table,
-// inserts three rows, uses COPY TO STDOUT to export them, prints the received
-// data, verifies the row count, then drops the table.
-//
-// The COPY OUT protocol is server-driven: after the session sends the COPY
-// query, the server pushes data via pg_copy_data callbacks. When all data is
-// sent, pg_copy_complete fires with the row count.
 actor Client is (SessionStatusNotify & ResultReceiver & CopyOutReceiver)
+  """
+  Creates a table, inserts rows, exports them via COPY OUT, and
+  prints the received data.
+  """
   let _session: Session
   let _out: OutStream
   var _phase: USize = 0
@@ -27,10 +32,11 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyOutReceiver)
 
   new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
-    _session = Session(
-      ServerConnectInfo(auth, info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(auth, info.host, info.port),
+        DatabaseConnectInfo(info.username, info.password, info.database),
+        this)
 
   be close() =>
     _session.close()
@@ -50,8 +56,12 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyOutReceiver)
     _copy_data.append(data)
 
   be pg_copy_complete(session: Session, count: USize) =>
-    let received: String val = String.from_iso_array(
-      _copy_data = recover iso Array[U8] end)
+    """
+    Prints the exported data and drops the table.
+    """
+    let received: String val =
+      String.from_iso_array(
+        _copy_data = recover iso Array[U8] end)
     _out.print("COPY complete: " + count.string() + " rows exported.")
     _out.print("Received data:")
     _out.print(received)
@@ -63,10 +73,11 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyOutReceiver)
   be pg_copy_failed(session: Session,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
-      _out.print("COPY failed: [" + e.severity + "] " + e.code + ": "
-        + e.message)
+      _out.print(
+        "COPY failed: [" + e.severity + "] " + e.code + ": "
+          + e.message)
     | let e: ClientQueryError =>
       _out.print("COPY failed: client error")
     end
@@ -107,19 +118,26 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyOutReceiver)
       close()
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
-      _out.print("Query failed: [" + e.severity + "] " + e.code + ": "
-        + e.message)
+      _out.print(
+        "Query failed: [" + e.severity + "] " + e.code + ": "
+          + e.message)
     | let e: ClientQueryError =>
       _out.print("Query failed: client error")
     end
     close()
 
 class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
   let host: String
   let port: String
   let username: String

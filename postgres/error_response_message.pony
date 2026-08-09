@@ -91,7 +91,8 @@ class _ResponseFieldBuilder
     let c = code as String
     let m = message as String
 
-    ErrorResponseMessage(s,
+    ErrorResponseMessage(
+      s,
       localized_severity,
       c,
       m,
@@ -115,7 +116,8 @@ class _ResponseFieldBuilder
     let c = code as String
     let m = message as String
 
-    NoticeResponseMessage(s,
+    NoticeResponseMessage(
+      s,
       localized_severity,
       c,
       m,

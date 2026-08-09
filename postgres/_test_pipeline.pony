@@ -14,11 +14,12 @@ class \nodoc\ iso _TestPipelineSuccess is UnitTest
     let host = "127.0.0.1"
     let port = "7711"
 
-    let listener = _PipelineSuccessTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _PipelineSuccessTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -32,7 +33,8 @@ actor \nodoc\ _PipelineSuccessTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unable to establish connection.")
@@ -40,22 +42,32 @@ actor \nodoc\ _PipelineSuccessTestClient is
 
   be pg_session_authenticated(session: Session) =>
     _session = session
-    let queries = recover val
-      [as (PreparedQuery | NamedPreparedQuery):
-        PreparedQuery("SELECT 1",
-          recover val Array[FieldDataTypes] end)
-        PreparedQuery("SELECT 2",
-          recover val Array[FieldDataTypes] end)
-        PreparedQuery("SELECT 3",
-          recover val Array[FieldDataTypes] end)
-      ]
-    end
+    let queries =
+      recover val
+        [ as (PreparedQuery | NamedPreparedQuery):
+          PreparedQuery(
+            "SELECT 1",
+            recover val Array[FieldDataTypes] end)
+          PreparedQuery(
+            "SELECT 2",
+            recover val Array[FieldDataTypes] end)
+          PreparedQuery(
+            "SELECT 3",
+            recover val Array[FieldDataTypes] end)
+        ]
+      end
     session.pipeline(queries, this)
 
-  be pg_pipeline_result(session: Session, index: USize, result: Result) =>
+  be pg_pipeline_result(
+    session: Session,
+    index: USize,
+    result: Result)
+  =>
     _results = _results + 1
 
-  be pg_pipeline_failed(session: Session, index: USize,
+  be pg_pipeline_failed(
+    session: Session,
+    index: USize,
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
@@ -83,7 +95,8 @@ actor \nodoc\ _PipelineSuccessTestListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(
+    listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -103,11 +116,16 @@ actor \nodoc\ _PipelineSuccessTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PipelineSuccessTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PipelineSuccessTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -156,19 +174,22 @@ actor \nodoc\ _PipelineSuccessTestServer
           if msg(0)? == 'S' then
             // Sync received — send result for this query cycle
             _query_count = _query_count + 1
-            let columns: Array[(String, U32, U16)] val = recover val
-              [("?column?", U32(23), U16(0))]
-            end
+            let columns: Array[(String, U32, U16)] val =
+              recover val
+                [("?column?", U32(23), U16(0))]
+              end
             let row_desc =
               _IncomingRowDescriptionTestMessage(columns).bytes()
-            let data_row_cols: Array[(String | None)] val = recover val
-              [as (String | None): _query_count.string()]
-            end
+            let data_row_cols: Array[(String | None)] val =
+              recover val
+                [as (String | None): _query_count.string()]
+              end
             let data_row =
               _IncomingDataRowTestMessage(data_row_cols).bytes()
             let cmd_complete =
               _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
-            let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+            let ready =
+              _IncomingReadyForQueryTestMessage('I').bytes()
             _tcp_connection.send(row_desc)
             _tcp_connection.send(data_row)
             _tcp_connection.send(cmd_complete)
@@ -190,11 +211,12 @@ class \nodoc\ iso _TestPipelineWithFailure is UnitTest
     let host = "127.0.0.1"
     let port = "7712"
 
-    let listener = _PipelineWithFailureTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _PipelineWithFailureTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -210,7 +232,8 @@ actor \nodoc\ _PipelineWithFailureTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unable to establish connection.")
@@ -218,22 +241,32 @@ actor \nodoc\ _PipelineWithFailureTestClient is
 
   be pg_session_authenticated(session: Session) =>
     _session = session
-    let queries = recover val
-      [as (PreparedQuery | NamedPreparedQuery):
-        PreparedQuery("SELECT 1",
-          recover val Array[FieldDataTypes] end)
-        PreparedQuery("SELECT bad_table",
-          recover val Array[FieldDataTypes] end)
-        PreparedQuery("SELECT 3",
-          recover val Array[FieldDataTypes] end)
-      ]
-    end
+    let queries =
+      recover val
+        [ as (PreparedQuery | NamedPreparedQuery):
+          PreparedQuery(
+            "SELECT 1",
+            recover val Array[FieldDataTypes] end)
+          PreparedQuery(
+            "SELECT bad_table",
+            recover val Array[FieldDataTypes] end)
+          PreparedQuery(
+            "SELECT 3",
+            recover val Array[FieldDataTypes] end)
+        ]
+      end
     session.pipeline(queries, this)
 
-  be pg_pipeline_result(session: Session, index: USize, result: Result) =>
+  be pg_pipeline_result(
+    session: Session,
+    index: USize,
+    result: Result)
+  =>
     _results = _results + 1
 
-  be pg_pipeline_failed(session: Session, index: USize,
+  be pg_pipeline_failed(
+    session: Session,
+    index: USize,
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
@@ -263,7 +296,8 @@ actor \nodoc\ _PipelineWithFailureTestListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(
+    listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -283,11 +317,16 @@ actor \nodoc\ _PipelineWithFailureTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PipelineWithFailureTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PipelineWithFailureTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -335,26 +374,34 @@ actor \nodoc\ _PipelineWithFailureTestServer
             _sync_count = _sync_count + 1
             if _sync_count == 2 then
               // Query 2 fails
-              let err = _IncomingErrorResponseTestMessage(
-                "ERROR", "42P01", "relation does not exist").bytes()
-              let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+              let err =
+                _IncomingErrorResponseTestMessage(
+                  "ERROR",
+                  "42P01",
+                  "relation does not exist").bytes()
+              let ready =
+                _IncomingReadyForQueryTestMessage('I').bytes()
               _tcp_connection.send(err)
               _tcp_connection.send(ready)
             else
               // Queries 1 and 3 succeed
-              let columns: Array[(String, U32, U16)] val = recover val
-                [("?column?", U32(23), U16(0))]
-              end
+              let columns: Array[(String, U32, U16)] val =
+                recover val
+                  [("?column?", U32(23), U16(0))]
+                end
               let row_desc =
                 _IncomingRowDescriptionTestMessage(columns).bytes()
-              let data_row_cols: Array[(String | None)] val = recover val
-                [as (String | None): _sync_count.string()]
-              end
+              let data_row_cols: Array[(String | None)] val =
+                recover val
+                  [as (String | None): _sync_count.string()]
+                end
               let data_row =
                 _IncomingDataRowTestMessage(data_row_cols).bytes()
               let cmd_complete =
-                _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
-              let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+                _IncomingCommandCompleteTestMessage(
+                  "SELECT 1").bytes()
+              let ready =
+                _IncomingReadyForQueryTestMessage('I').bytes()
               _tcp_connection.send(row_desc)
               _tcp_connection.send(data_row)
               _tcp_connection.send(cmd_complete)
@@ -377,11 +424,12 @@ class \nodoc\ iso _TestPipelineEmpty is UnitTest
     let host = "127.0.0.1"
     let port = "7713"
 
-    let listener = _PipelineEmptyTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _PipelineEmptyTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -396,7 +444,8 @@ actor \nodoc\ _PipelineEmptyTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unable to establish connection.")
@@ -404,15 +453,22 @@ actor \nodoc\ _PipelineEmptyTestClient is
 
   be pg_session_authenticated(session: Session) =>
     _session = session
-    let queries = recover val
-      Array[(PreparedQuery | NamedPreparedQuery)]
-    end
+    let queries =
+      recover val
+        Array[(PreparedQuery | NamedPreparedQuery)]
+      end
     session.pipeline(queries, this)
 
-  be pg_pipeline_result(session: Session, index: USize, result: Result) =>
+  be pg_pipeline_result(
+    session: Session,
+    index: USize,
+    result: Result)
+  =>
     _results = _results + 1
 
-  be pg_pipeline_failed(session: Session, index: USize,
+  be pg_pipeline_failed(
+    session: Session,
+    index: USize,
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
@@ -441,7 +497,8 @@ actor \nodoc\ _PipelineEmptyTestListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(
+    listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -461,11 +518,16 @@ actor \nodoc\ _PipelineEmptyTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PipelineEmptyTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PipelineEmptyTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -509,11 +571,12 @@ class \nodoc\ iso _TestPipelineSingleQuery is UnitTest
     let host = "127.0.0.1"
     let port = "7714"
 
-    let listener = _PipelineSingleQueryTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _PipelineSingleQueryTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -527,7 +590,8 @@ actor \nodoc\ _PipelineSingleQueryTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unable to establish connection.")
@@ -535,21 +599,29 @@ actor \nodoc\ _PipelineSingleQueryTestClient is
 
   be pg_session_authenticated(session: Session) =>
     _session = session
-    let queries = recover val
-      [as (PreparedQuery | NamedPreparedQuery):
-        PreparedQuery("SELECT 42",
-          recover val Array[FieldDataTypes] end)
-      ]
-    end
+    let queries =
+      recover val
+        [ as (PreparedQuery | NamedPreparedQuery):
+          PreparedQuery(
+            "SELECT 42",
+            recover val Array[FieldDataTypes] end)
+        ]
+      end
     session.pipeline(queries, this)
 
-  be pg_pipeline_result(session: Session, index: USize, result: Result) =>
+  be pg_pipeline_result(
+    session: Session,
+    index: USize,
+    result: Result)
+  =>
     _results = _results + 1
     if index != 0 then
       _h.fail("Expected index 0 but got " + index.string())
     end
 
-  be pg_pipeline_failed(session: Session, index: USize,
+  be pg_pipeline_failed(
+    session: Session,
+    index: USize,
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
@@ -577,7 +649,8 @@ actor \nodoc\ _PipelineSingleQueryTestListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(
+    listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -597,11 +670,16 @@ actor \nodoc\ _PipelineSingleQueryTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PipelineSingleQueryTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PipelineSingleQueryTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -621,11 +699,12 @@ class \nodoc\ iso _TestPipelineShutdownDrainsQueue is UnitTest
     let host = "127.0.0.1"
     let port = "7715"
 
-    let listener = _PipelineShutdownDrainsQueueTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _PipelineShutdownDrainsQueueTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -639,29 +718,39 @@ actor \nodoc\ _PipelineShutdownDrainsQueueTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unable to establish connection.")
     _h.complete(false)
 
   be pg_session_authenticated(session: Session) =>
-    let queries = recover val
-      [as (PreparedQuery | NamedPreparedQuery):
-        PreparedQuery("SELECT 1",
-          recover val Array[FieldDataTypes] end)
-        PreparedQuery("SELECT 2",
-          recover val Array[FieldDataTypes] end)
-      ]
-    end
+    let queries =
+      recover val
+        [ as (PreparedQuery | NamedPreparedQuery):
+          PreparedQuery(
+            "SELECT 1",
+            recover val Array[FieldDataTypes] end)
+          PreparedQuery(
+            "SELECT 2",
+            recover val Array[FieldDataTypes] end)
+        ]
+      end
     session.pipeline(queries, this)
     session.close()
 
-  be pg_pipeline_result(session: Session, index: USize, result: Result) =>
+  be pg_pipeline_result(
+    session: Session,
+    index: USize,
+    result: Result)
+  =>
     _h.fail("Unexpected pipeline result.")
     _h.complete(false)
 
-  be pg_pipeline_failed(session: Session, index: USize,
+  be pg_pipeline_failed(
+    session: Session,
+    index: USize,
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
@@ -681,14 +770,16 @@ actor \nodoc\ _PipelineShutdownDrainsQueueTestClient is
       _h.complete(false)
     end
 
-actor \nodoc\ _PipelineShutdownDrainsQueueTestListener is lori.TCPListenerActor
+actor \nodoc\ _PipelineShutdownDrainsQueueTestListener
+  is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _server_auth: lori.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(
+    listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -708,11 +799,16 @@ actor \nodoc\ _PipelineShutdownDrainsQueueTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PipelineShutdownDrainsQueueTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PipelineShutdownDrainsQueueTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -732,11 +828,12 @@ class \nodoc\ iso _TestPipelineShutdownInFlight is UnitTest
     let host = "127.0.0.1"
     let port = "7716"
 
-    let listener = _PipelineShutdownInFlightTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _PipelineShutdownInFlightTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -750,7 +847,8 @@ actor \nodoc\ _PipelineShutdownInFlightTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unable to establish connection.")
@@ -758,25 +856,35 @@ actor \nodoc\ _PipelineShutdownInFlightTestClient is
 
   be pg_session_authenticated(session: Session) =>
     _session = session
-    let queries = recover val
-      [as (PreparedQuery | NamedPreparedQuery):
-        PreparedQuery("SELECT 1",
-          recover val Array[FieldDataTypes] end)
-        PreparedQuery("SELECT 2",
-          recover val Array[FieldDataTypes] end)
-        PreparedQuery("SELECT 3",
-          recover val Array[FieldDataTypes] end)
-      ]
-    end
+    let queries =
+      recover val
+        [ as (PreparedQuery | NamedPreparedQuery):
+          PreparedQuery(
+            "SELECT 1",
+            recover val Array[FieldDataTypes] end)
+          PreparedQuery(
+            "SELECT 2",
+            recover val Array[FieldDataTypes] end)
+          PreparedQuery(
+            "SELECT 3",
+            recover val Array[FieldDataTypes] end)
+        ]
+      end
     session.pipeline(queries, this)
 
-  be pg_pipeline_result(session: Session, index: USize, result: Result) =>
+  be pg_pipeline_result(
+    session: Session,
+    index: USize,
+    result: Result)
+  =>
     // First result arrives, then close
     match _session
     | let s: Session => s.close()
     end
 
-  be pg_pipeline_failed(session: Session, index: USize,
+  be pg_pipeline_failed(
+    session: Session,
+    index: USize,
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
@@ -797,14 +905,16 @@ actor \nodoc\ _PipelineShutdownInFlightTestClient is
       _h.complete(false)
     end
 
-actor \nodoc\ _PipelineShutdownInFlightTestListener is lori.TCPListenerActor
+actor \nodoc\ _PipelineShutdownInFlightTestListener
+  is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _server_auth: lori.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(
+    listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -819,16 +929,22 @@ actor \nodoc\ _PipelineShutdownInFlightTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PipelineShutdownInFlightTestServer =>
-    let server = _PipelineShutdownInFlightTestServer(_server_auth, fd)
+    let server =
+      _PipelineShutdownInFlightTestServer(_server_auth, fd)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PipelineShutdownInFlightTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PipelineShutdownInFlightTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -876,19 +992,23 @@ actor \nodoc\ _PipelineShutdownInFlightTestServer
           if (msg(0)? == 'S') and (not _sync_sent) then
             // Respond to only the first Sync
             _sync_sent = true
-            let columns: Array[(String, U32, U16)] val = recover val
-              [("?column?", U32(23), U16(0))]
-            end
+            let columns: Array[(String, U32, U16)] val =
+              recover val
+                [("?column?", U32(23), U16(0))]
+              end
             let row_desc =
               _IncomingRowDescriptionTestMessage(columns).bytes()
-            let data_row_cols: Array[(String | None)] val = recover val
-              [as (String | None): "1"]
-            end
+            let data_row_cols: Array[(String | None)] val =
+              recover val
+                [as (String | None): "1"]
+              end
             let data_row =
               _IncomingDataRowTestMessage(data_row_cols).bytes()
             let cmd_complete =
-              _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
-            let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+              _IncomingCommandCompleteTestMessage(
+                "SELECT 1").bytes()
+            let ready =
+              _IncomingReadyForQueryTestMessage('I').bytes()
             _tcp_connection.send(row_desc)
             _tcp_connection.send(data_row)
             _tcp_connection.send(cmd_complete)
@@ -911,11 +1031,12 @@ class \nodoc\ iso _TestPipelineRowModifying is UnitTest
     let host = "127.0.0.1"
     let port = "7717"
 
-    let listener = _PipelineRowModifyingTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _PipelineRowModifyingTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -929,7 +1050,8 @@ actor \nodoc\ _PipelineRowModifyingTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unable to establish connection.")
@@ -937,17 +1059,24 @@ actor \nodoc\ _PipelineRowModifyingTestClient is
 
   be pg_session_authenticated(session: Session) =>
     _session = session
-    let queries = recover val
-      [as (PreparedQuery | NamedPreparedQuery):
-        PreparedQuery("INSERT INTO t VALUES (1)",
-          recover val Array[FieldDataTypes] end)
-        PreparedQuery("INSERT INTO t VALUES (2)",
-          recover val Array[FieldDataTypes] end)
-      ]
-    end
+    let queries =
+      recover val
+        [ as (PreparedQuery | NamedPreparedQuery):
+          PreparedQuery(
+            "INSERT INTO t VALUES (1)",
+            recover val Array[FieldDataTypes] end)
+          PreparedQuery(
+            "INSERT INTO t VALUES (2)",
+            recover val Array[FieldDataTypes] end)
+        ]
+      end
     session.pipeline(queries, this)
 
-  be pg_pipeline_result(session: Session, index: USize, result: Result) =>
+  be pg_pipeline_result(
+    session: Session,
+    index: USize,
+    result: Result)
+  =>
     match result
     | let rm: RowModifying =>
       _results = _results + 1
@@ -956,7 +1085,9 @@ actor \nodoc\ _PipelineRowModifyingTestClient is
       _close_and_complete(false)
     end
 
-  be pg_pipeline_failed(session: Session, index: USize,
+  be pg_pipeline_failed(
+    session: Session,
+    index: USize,
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
@@ -984,7 +1115,8 @@ actor \nodoc\ _PipelineRowModifyingTestListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(
+    listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -999,16 +1131,22 @@ actor \nodoc\ _PipelineRowModifyingTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PipelineRowModifyingTestServer =>
-    let server = _PipelineRowModifyingTestServer(_server_auth, fd)
+    let server =
+      _PipelineRowModifyingTestServer(_server_auth, fd)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PipelineRowModifyingTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PipelineRowModifyingTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1053,8 +1191,10 @@ actor \nodoc\ _PipelineRowModifyingTestServer
         try
           if msg(0)? == 'S' then
             let cmd_complete =
-              _IncomingCommandCompleteTestMessage("INSERT 0 1").bytes()
-            let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+              _IncomingCommandCompleteTestMessage(
+                "INSERT 0 1").bytes()
+            let ready =
+              _IncomingReadyForQueryTestMessage('I').bytes()
             _tcp_connection.send(cmd_complete)
             _tcp_connection.send(ready)
           end
@@ -1074,11 +1214,12 @@ class \nodoc\ iso _TestPipelineMixedQueryTypes is UnitTest
     let host = "127.0.0.1"
     let port = "7718"
 
-    let listener = _PipelineMixedQueryTypesTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _PipelineMixedQueryTypesTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -1092,7 +1233,8 @@ actor \nodoc\ _PipelineMixedQueryTypesTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unable to establish connection.")
@@ -1100,20 +1242,29 @@ actor \nodoc\ _PipelineMixedQueryTypesTestClient is
 
   be pg_session_authenticated(session: Session) =>
     _session = session
-    let queries = recover val
-      [as (PreparedQuery | NamedPreparedQuery):
-        PreparedQuery("SELECT 1",
-          recover val Array[FieldDataTypes] end)
-        NamedPreparedQuery("my_stmt",
-          recover val Array[FieldDataTypes] end)
-      ]
-    end
+    let queries =
+      recover val
+        [ as (PreparedQuery | NamedPreparedQuery):
+          PreparedQuery(
+            "SELECT 1",
+            recover val Array[FieldDataTypes] end)
+          NamedPreparedQuery(
+            "my_stmt",
+            recover val Array[FieldDataTypes] end)
+        ]
+      end
     session.pipeline(queries, this)
 
-  be pg_pipeline_result(session: Session, index: USize, result: Result) =>
+  be pg_pipeline_result(
+    session: Session,
+    index: USize,
+    result: Result)
+  =>
     _results = _results + 1
 
-  be pg_pipeline_failed(session: Session, index: USize,
+  be pg_pipeline_failed(
+    session: Session,
+    index: USize,
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
@@ -1134,14 +1285,16 @@ actor \nodoc\ _PipelineMixedQueryTypesTestClient is
     end
     _h.complete(success)
 
-actor \nodoc\ _PipelineMixedQueryTypesTestListener is lori.TCPListenerActor
+actor \nodoc\ _PipelineMixedQueryTypesTestListener
+  is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _server_auth: lori.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(
+    listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1161,11 +1314,16 @@ actor \nodoc\ _PipelineMixedQueryTypesTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PipelineMixedQueryTypesTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PipelineMixedQueryTypesTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1184,11 +1342,12 @@ class \nodoc\ iso _TestPipelineAllFail is UnitTest
     let host = "127.0.0.1"
     let port = "7719"
 
-    let listener = _PipelineAllFailTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _PipelineAllFailTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -1202,7 +1361,8 @@ actor \nodoc\ _PipelineAllFailTestClient is
   new create(h: TestHelper) =>
     _h = h
 
-  be pg_session_connection_failed(s: Session,
+  be pg_session_connection_failed(
+    s: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Unable to establish connection.")
@@ -1210,21 +1370,30 @@ actor \nodoc\ _PipelineAllFailTestClient is
 
   be pg_session_authenticated(session: Session) =>
     _session = session
-    let queries = recover val
-      [as (PreparedQuery | NamedPreparedQuery):
-        PreparedQuery("SELECT bad1",
-          recover val Array[FieldDataTypes] end)
-        PreparedQuery("SELECT bad2",
-          recover val Array[FieldDataTypes] end)
-      ]
-    end
+    let queries =
+      recover val
+        [ as (PreparedQuery | NamedPreparedQuery):
+          PreparedQuery(
+            "SELECT bad1",
+            recover val Array[FieldDataTypes] end)
+          PreparedQuery(
+            "SELECT bad2",
+            recover val Array[FieldDataTypes] end)
+        ]
+      end
     session.pipeline(queries, this)
 
-  be pg_pipeline_result(session: Session, index: USize, result: Result) =>
+  be pg_pipeline_result(
+    session: Session,
+    index: USize,
+    result: Result)
+  =>
     _h.fail("Unexpected pipeline result.")
     _close_and_complete(false)
 
-  be pg_pipeline_failed(session: Session, index: USize,
+  be pg_pipeline_failed(
+    session: Session,
+    index: USize,
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
@@ -1251,7 +1420,8 @@ actor \nodoc\ _PipelineAllFailTestListener is lori.TCPListenerActor
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(
+    listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1271,11 +1441,16 @@ actor \nodoc\ _PipelineAllFailTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PipelineAllFailTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PipelineAllFailTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1319,9 +1494,13 @@ actor \nodoc\ _PipelineAllFailTestServer
       | let msg: Array[U8] val =>
         try
           if msg(0)? == 'S' then
-            let err = _IncomingErrorResponseTestMessage(
-              "ERROR", "42P01", "relation does not exist").bytes()
-            let ready = _IncomingReadyForQueryTestMessage('I').bytes()
+            let err =
+              _IncomingErrorResponseTestMessage(
+                "ERROR",
+                "42P01",
+                "relation does not exist").bytes()
+            let ready =
+              _IncomingReadyForQueryTestMessage('I').bytes()
             _tcp_connection.send(err)
             _tcp_connection.send(ready)
           end
@@ -1340,10 +1519,15 @@ class \nodoc\ iso _TestPipelineIntegration is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      _PipelineIntegrationNotify(h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        _PipelineIntegrationNotify(h))
 
     h.dispose_when_done(session)
     h.long_test(10_000_000_000)
@@ -1364,7 +1548,8 @@ actor \nodoc\ _PipelineIntegrationNotify is
     session.execute(
       SimpleQuery("DROP TABLE IF EXISTS pipeline_test"), this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -1377,42 +1562,59 @@ actor \nodoc\ _PipelineIntegrationNotify is
       // Table dropped. Create it.
       session.execute(
         SimpleQuery(
-          "CREATE TABLE pipeline_test (id INT NOT NULL, name TEXT NOT NULL)"),
+          "CREATE TABLE pipeline_test " +
+            "(id INT NOT NULL, name TEXT NOT NULL)"),
         this)
     | 2 =>
       // Table created. Insert rows.
       session.execute(
         SimpleQuery(
-          "INSERT INTO pipeline_test VALUES (1,'a'),(2,'b'),(3,'c')"),
+          "INSERT INTO pipeline_test " +
+            "VALUES (1,'a'),(2,'b'),(3,'c')"),
         this)
     | 3 =>
       // Rows inserted. Pipeline 3 SELECTs.
-      let queries = recover val
-        [as (PreparedQuery | NamedPreparedQuery):
-          PreparedQuery("SELECT id, name FROM pipeline_test WHERE id = $1",
-            recover val [as FieldDataTypes: I32(1)] end)
-          PreparedQuery("SELECT id, name FROM pipeline_test WHERE id = $1",
-            recover val [as FieldDataTypes: I32(2)] end)
-          PreparedQuery("SELECT id, name FROM pipeline_test WHERE id = $1",
-            recover val [as FieldDataTypes: I32(3)] end)
-        ]
-      end
+      let queries =
+        recover val
+          [ as (PreparedQuery | NamedPreparedQuery):
+            PreparedQuery(
+              "SELECT id, name FROM pipeline_test " +
+                "WHERE id = $1",
+              recover val [as FieldDataTypes: I32(1)] end)
+            PreparedQuery(
+              "SELECT id, name FROM pipeline_test " +
+                "WHERE id = $1",
+              recover val [as FieldDataTypes: I32(2)] end)
+            PreparedQuery(
+              "SELECT id, name FROM pipeline_test " +
+                "WHERE id = $1",
+              recover val [as FieldDataTypes: I32(3)] end)
+          ]
+        end
       session.pipeline(queries, this)
     | 5 =>
       // Table dropped after pipeline. Done.
       _close_and_complete(true)
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Query failed.")
     _close_and_complete(false)
 
-  be pg_pipeline_result(session: Session, index: USize, result: Result) =>
+  be pg_pipeline_result(
+    session: Session,
+    index: USize,
+    result: Result)
+  =>
     _results = _results + 1
 
-  be pg_pipeline_failed(session: Session, index: USize,
+  be pg_pipeline_failed(
+    session: Session,
+    index: USize,
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
@@ -1425,7 +1627,9 @@ actor \nodoc\ _PipelineIntegrationNotify is
       session.execute(
         SimpleQuery("DROP TABLE pipeline_test"), this)
     else
-      _h.fail("Expected 3 pipeline results but got " + _results.string())
+      _h.fail(
+        "Expected 3 pipeline results but got "
+          + _results.string())
       _close_and_complete(false)
     end
 
@@ -1445,10 +1649,15 @@ class \nodoc\ iso _TestPipelineIntegrationWithFailure is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      _PipelineIntegrationWithFailureNotify(h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        _PipelineIntegrationWithFailureNotify(h))
 
     h.dispose_when_done(session)
     h.long_test(10_000_000_000)
@@ -1466,28 +1675,40 @@ actor \nodoc\ _PipelineIntegrationWithFailureNotify is
 
   be pg_session_authenticated(session: Session) =>
     _session = session
-    let queries = recover val
-      [as (PreparedQuery | NamedPreparedQuery):
-        PreparedQuery("SELECT 1",
-          recover val Array[FieldDataTypes] end)
-        PreparedQuery("SELECT * FROM nonexistent_table_xyz",
-          recover val Array[FieldDataTypes] end)
-        PreparedQuery("SELECT 3",
-          recover val Array[FieldDataTypes] end)
-      ]
-    end
+    let queries =
+      recover val
+        [ as (PreparedQuery | NamedPreparedQuery):
+          PreparedQuery(
+            "SELECT 1",
+            recover val Array[FieldDataTypes] end)
+          PreparedQuery(
+            "SELECT * FROM nonexistent_table_xyz",
+            recover val Array[FieldDataTypes] end)
+          PreparedQuery(
+            "SELECT 3",
+            recover val Array[FieldDataTypes] end)
+        ]
+      end
     session.pipeline(queries, this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
-    _h.fail("Connection failed before reaching authenticated state.")
+    _h.fail(
+      "Connection failed before reaching authenticated state.")
     _h.complete(false)
 
-  be pg_pipeline_result(session: Session, index: USize, result: Result) =>
+  be pg_pipeline_result(
+    session: Session,
+    index: USize,
+    result: Result)
+  =>
     _results = _results + 1
 
-  be pg_pipeline_failed(session: Session, index: USize,
+  be pg_pipeline_failed(
+    session: Session,
+    index: USize,
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
@@ -1495,12 +1716,16 @@ actor \nodoc\ _PipelineIntegrationWithFailureNotify is
     _failed_index = index
 
   be pg_pipeline_complete(session: Session) =>
-    if (_results == 2) and (_failures == 1) and (_failed_index == 1) then
+    if (_results == 2) and (_failures == 1) and (_failed_index == 1)
+    then
       _close_and_complete(true)
     else
-      _h.fail("Expected 2 results, 1 failure at index 1; got "
-        + _results.string() + " results, " + _failures.string()
-        + " failures, failed_index=" + _failed_index.string())
+      _h.fail(
+        "Expected 2 results, 1 failure at index 1; got "
+          + _results.string() + " results, "
+          + _failures.string()
+          + " failures, failed_index="
+          + _failed_index.string())
       _close_and_complete(false)
     end
 

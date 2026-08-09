@@ -314,15 +314,15 @@ actor \nodoc\ Main is TestList
     test(_TestNumericBinaryCodecEncodeErrors)
     test(_TestNumericBinaryCodecBadSign)
     test(_TestNumericBinaryCodecMaxWeight)
-    test(_TestUuidBinaryCodecRoundtrip)
-    test(_TestUuidBinaryCodecAllZeros)
-    test(_TestUuidBinaryCodecAllFF)
-    test(_TestUuidBinaryCodecBadLength)
-    test(_TestUuidBinaryCodecBadStringFormat)
-    test(_TestJsonbBinaryCodecRoundtrip)
-    test(_TestJsonbBinaryCodecBadVersion)
-    test(_TestJsonbBinaryCodecEmpty)
-    test(_TestJsonbBinaryCodecTypeMismatch)
+    test(_TestUUIDBinaryCodecRoundtrip)
+    test(_TestUUIDBinaryCodecAllZeros)
+    test(_TestUUIDBinaryCodecAllFF)
+    test(_TestUUIDBinaryCodecBadLength)
+    test(_TestUUIDBinaryCodecBadStringFormat)
+    test(_TestJSONBBinaryCodecRoundtrip)
+    test(_TestJSONBBinaryCodecBadVersion)
+    test(_TestJSONBBinaryCodecEmpty)
+    test(_TestJSONBBinaryCodecTypeMismatch)
     test(_TestDateBinaryCodecRoundtrip)
     test(_TestDateBinaryCodecInfinity)
     test(_TestDateBinaryCodecBadLength)
@@ -408,8 +408,8 @@ actor \nodoc\ Main is TestList
     test(_TestCodecRegistryDecodeTextDate)
     test(_TestCodecRegistryDecodeTextTimestamptz)
     test(_TestCodecRegistryDecodeTextInterval)
-    test(_TestCodecRegistryDecodeBinaryUuid)
-    test(_TestCodecRegistryDecodeBinaryJsonb)
+    test(_TestCodecRegistryDecodeBinaryUUID)
+    test(_TestCodecRegistryDecodeBinaryJSONB)
     test(_TestCodecRegistryDecodeBinaryOid)
     test(_TestCodecRegistryDecodeBinaryTextPassthrough)
     test(_TestInt2TextCodecRoundtrip)
@@ -419,8 +419,8 @@ actor \nodoc\ Main is TestList
     test(_TestTextPassthroughTextCodecRoundtrip)
     test(_TestOidTextCodecRoundtrip)
     test(_TestNumericTextCodecRoundtrip)
-    test(_TestUuidTextCodecRoundtrip)
-    test(_TestJsonbTextCodecRoundtrip)
+    test(_TestUUIDTextCodecRoundtrip)
+    test(_TestJSONBTextCodecRoundtrip)
     test(_TestDateTextCodecTypeMismatch)
     test(_TestTimeTextCodecTypeMismatch)
     test(_TestTimestampTextCodecTypeMismatch)
@@ -543,15 +543,15 @@ actor \nodoc\ Main is TestList
     test(_TestArrayEncoderTimeRoundtrip)
     test(_TestArrayEncoderTimestampRoundtrip)
     test(_TestArrayEncoderIntervalRoundtrip)
-    test(_TestArrayEncoderUuidRoundtrip)
-    test(_TestArrayEncoderJsonbRoundtrip)
+    test(_TestArrayEncoderUUIDRoundtrip)
+    test(_TestArrayEncoderJSONBRoundtrip)
     test(_TestArrayEncoderOidRoundtrip)
     test(_TestArrayEncoderNumericRoundtrip)
     test(_TestTextDecodeInt8Array)
     test(_TestTextDecodeFloat8Array)
     test(_TestTextDecodeDateArray)
     test(_TestTextDecodeTimestampArray)
-    test(_TestTextDecodeUuidArray)
+    test(_TestTextDecodeUUIDArray)
     test(_TestTextDecodeEscapedBackslash)
     test(_TestTextDecodeQuotedNullString)
     test(_TestPgArrayEqualitySizeMismatch)
@@ -607,8 +607,8 @@ actor \nodoc\ Main is TestList
     test(_TestCompositeEncoderTimeRoundtrip)
     test(_TestCompositeEncoderTimestampRoundtrip)
     test(_TestCompositeEncoderIntervalRoundtrip)
-    test(_TestCompositeEncoderUuidRoundtrip)
-    test(_TestCompositeEncoderJsonbRoundtrip)
+    test(_TestCompositeEncoderUUIDRoundtrip)
+    test(_TestCompositeEncoderJSONBRoundtrip)
     test(_TestCompositeEncoderOidRoundtrip)
     test(_TestCompositeEncoderNumericRoundtrip)
     test(_TestParamEncoderComposite)
@@ -633,10 +633,13 @@ class \nodoc\ iso _TestAuthenticate is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      _AuthenticateTestNotify(h, true))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        _AuthenticateTestNotify(h, true))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -653,11 +656,15 @@ class \nodoc\ iso _TestAuthenticateFailure is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password + " " + info.password,
-        info.database),
-      _AuthenticateTestNotify(h, false))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username,
+          info.password + " " + info.password,
+          info.database),
+        _AuthenticateTestNotify(h, false))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -703,10 +710,13 @@ class \nodoc\ iso _TestConnect is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      _ConnectTestNotify(h, true))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        _ConnectTestNotify(h, true))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -725,10 +735,15 @@ class \nodoc\ iso _TestConnectFailure is UnitTest
     let info = _ConnectionTestConfiguration(h.env.vars)
     let host = ifdef linux then "127.0.0.2" else "localhost" end
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), host, info.port.reverse()),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      _ConnectTestNotify(h, false))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          host,
+          info.port.reverse()),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        _ConnectTestNotify(h, false))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)

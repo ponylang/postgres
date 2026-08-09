@@ -28,6 +28,10 @@ actor Main
 // a _phase counter for self-containment — a real application would typically
 // store the OID in configuration or discover it once at startup.
 actor Client is (SessionStatusNotify & ResultReceiver)
+  """
+  Discovers a PostgreSQL enum OID in one session, then queries with
+  an enum-aware codec registry in a second session.
+  """
   let _auth: lori.TCPConnectAuth
   let _info: ServerInfo
   let _out: OutStream
@@ -38,10 +42,12 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     _auth = auth
     _info = info
     _out = out
-    _session = Session(
-      ServerConnectInfo(_auth, _info.host, _info.port),
-      DatabaseConnectInfo(_info.username, _info.password, _info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(_auth, _info.host, _info.port),
+        DatabaseConnectInfo(
+          _info.username, _info.password, _info.database),
+        this)
 
   be close() =>
     _session.close()
@@ -57,9 +63,11 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       // Phase 2: query with enum-aware registry.
       _out.print("Authenticated (phase 2: query with registered enum OID).")
       _phase = 4
-      session.execute(PreparedQuery(
-        "SELECT 'happy'::mood AS mood_col",
-        recover val Array[FieldDataTypes] end), this)
+      session.execute(
+        PreparedQuery(
+          "SELECT 'happy'::mood AS mood_col",
+          recover val Array[FieldDataTypes] end),
+        this)
     end
 
   be pg_session_connection_failed(session: Session,
@@ -101,17 +109,20 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       _out.print("Discovered enum OID: " + enum_oid.string())
 
       // Build a registry with the enum OID and reconnect.
-      let registry = try CodecRegistry.with_enum_type(enum_oid)?
-      else
-        _out.print("Failed to register enum OID.")
-        close()
-        return
-      end
+      let registry =
+        try CodecRegistry.with_enum_type(enum_oid)?
+        else
+          _out.print("Failed to register enum OID.")
+          close()
+          return
+        end
       session.close()
-      _session = Session(
-        ServerConnectInfo(_auth, _info.host, _info.port),
-        DatabaseConnectInfo(_info.username, _info.password, _info.database),
-        this where registry = registry)
+      _session =
+        Session(
+          ServerConnectInfo(_auth, _info.host, _info.port),
+          DatabaseConnectInfo(
+            _info.username, _info.password, _info.database),
+          this where registry = registry)
     | 5 =>
       // PreparedQuery result. The enum value arrives as String.
       match result
@@ -135,10 +146,12 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       close()
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print("Query failed: [" + e.severity + "] " + e.code + ": "
         + e.message)
@@ -148,6 +161,10 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     close()
 
 class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
   let host: String
   let port: String
   let username: String

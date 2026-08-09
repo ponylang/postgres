@@ -1,3 +1,7 @@
+"""
+ParameterStatus tracking. Prints server parameters as they arrive during
+startup, then changes `application_name` with SET and prints the update.
+"""
 use "cli"
 use "collections"
 use lori = "lori"
@@ -12,57 +16,49 @@ actor Main
 
     let client = Client(auth, server_info, env.out)
 
-// This example demonstrates the pg_transaction_status callback. It sends
-// BEGIN and COMMIT to show the status changing from idle to in-transaction
-// and back.
 actor Client is (SessionStatusNotify & ResultReceiver)
+  """
+  Prints server parameter changes and updates `application_name`.
+  """
   let _session: Session
   let _out: OutStream
-  var _phase: USize = 0
 
   new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
-    _session = Session(
-      ServerConnectInfo(auth, info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(auth, info.host, info.port),
+        DatabaseConnectInfo(info.username, info.password, info.database),
+        this)
 
   be close() =>
     _session.close()
 
   be pg_session_authenticated(session: Session) =>
     _out.print("Authenticated.")
-    session.execute(SimpleQuery("BEGIN"), this)
+    _out.print("Setting application_name...")
+    session.execute(
+      SimpleQuery("SET application_name = 'pony_example'"), this)
 
   be pg_session_connection_failed(session: Session,
     reason: ConnectionFailureReason)
   =>
     _out.print("Connection failed.")
 
-  be pg_transaction_status(session: Session, status: TransactionStatus) =>
-    match status
-    | TransactionIdle => _out.print("Transaction status: idle")
-    | TransactionInBlock => _out.print("Transaction status: in transaction")
-    | TransactionFailed => _out.print("Transaction status: failed")
-    end
+  be pg_parameter_status(session: Session, status: ParameterStatus) =>
+    _out.print("Parameter: " + status.name + " = " + status.value)
 
   be pg_query_result(session: Session, result: Result) =>
-    _phase = _phase + 1
+    _out.print("SET completed.")
+    _out.print("Done.")
+    close()
 
-    match _phase
-    | 1 =>
-      // BEGIN done. Commit to return to idle.
-      _session.execute(SimpleQuery("COMMIT"), this)
-    | 2 =>
-      // COMMIT done.
-      _out.print("Done.")
-      close()
-    end
-
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print("Query failed: [" + e.severity + "] " + e.code + ": "
         + e.message)
@@ -72,6 +68,10 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     close()
 
 class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
   let host: String
   let port: String
   let username: String

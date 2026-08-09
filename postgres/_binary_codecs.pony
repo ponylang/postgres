@@ -240,11 +240,12 @@ primitive _OidBinaryCodec is Codec
 
   fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 4 then error end
-    let v = ifdef bigendian then
-      data.read_u32(0)?
-    else
-      data.read_u32(0)?.bswap()
-    end
+    let v =
+      ifdef bigendian then
+        data.read_u32(0)?
+      else
+        data.read_u32(0)?.bswap()
+      end
     v.string()
 
 primitive _NumericBinaryCodec is Codec
@@ -297,12 +298,13 @@ primitive _NumericBinaryCodec is Codec
 
       // Parse sign
       var input = s
-      let sign: U16 = if input.at("-") then
-        input = input.substring(1)
-        0x4000
-      else
-        0x0000
-      end
+      let sign: U16 =
+        if input.at("-") then
+          input = input.substring(1)
+          0x4000
+        else
+          0x0000
+        end
 
       // Split into integer and fractional parts
       let dot_parts = input.split(".")
@@ -371,21 +373,22 @@ primitive _NumericBinaryCodec is Codec
       end
 
       // Weight = (number of base-10000 groups needed for integer part) - 1
-      let weight: I16 = if int_digit_count == 0 then
-        // Pure fractional: weight is negative
-        // Count leading zeros in fractional part to determine weight
-        var leading_zeros: USize = 0
-        for ch in frac_part.values() do
-          if ch == '0' then
-            leading_zeros = leading_zeros + 1
-          else
-            break
+      let weight: I16 =
+        if int_digit_count == 0 then
+          // Pure fractional: weight is negative
+          // Count leading zeros in fractional part to determine weight
+          var leading_zeros: USize = 0
+          for ch in frac_part.values() do
+            if ch == '0' then
+              leading_zeros = leading_zeros + 1
+            else
+              break
+            end
           end
+          -((leading_zeros / 4) + 1).i16()
+        else
+          ((int_digit_count - 1) / 4).i16()
         end
-        -((leading_zeros / 4) + 1).i16()
-      else
-        ((int_digit_count - 1) / 4).i16()
-      end
 
       // Build base-10000 digit groups
       // Align integer part to groups of 4 from the right
@@ -445,11 +448,12 @@ primitive _NumericBinaryCodec is Codec
           digit = 0
           var j: USize = 0
           while j < 4 do
-            let ch = if (pos + j) < frac_part.size() then
-              try frac_part(pos + j)? else '0' end
-            else
-              '0'
-            end
+            let ch =
+              if (pos + j) < frac_part.size() then
+                try frac_part(pos + j)? else '0' end
+              else
+                '0'
+              end
             digit = (digit * 10) + (ch - '0').u16()
             j = j + 1
           end
@@ -463,11 +467,12 @@ primitive _NumericBinaryCodec is Codec
           var digit: U16 = 0
           var j: USize = 0
           while j < 4 do
-            let ch = if (pos + j) < frac_part.size() then
-              try frac_part(pos + j)? else '0' end
-            else
-              '0'
-            end
+            let ch =
+              if (pos + j) < frac_part.size() then
+                try frac_part(pos + j)? else '0' end
+              else
+                '0'
+              end
             digit = (digit * 10) + (ch - '0').u16()
             j = j + 1
           end
@@ -516,26 +521,30 @@ primitive _NumericBinaryCodec is Codec
 
   fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() < 8 then error end
-    let ndigits = ifdef bigendian then
-      data.read_u16(0)?.i16()
-    else
-      data.read_u16(0)?.bswap().i16()
-    end
-    let weight = ifdef bigendian then
-      data.read_u16(2)?.i16()
-    else
-      data.read_u16(2)?.bswap().i16()
-    end
-    let sign = ifdef bigendian then
-      data.read_u16(4)?
-    else
-      data.read_u16(4)?.bswap()
-    end
-    let dscale = ifdef bigendian then
-      data.read_u16(6)?
-    else
-      data.read_u16(6)?.bswap()
-    end
+    let ndigits =
+      ifdef bigendian then
+        data.read_u16(0)?.i16()
+      else
+        data.read_u16(0)?.bswap().i16()
+      end
+    let weight =
+      ifdef bigendian then
+        data.read_u16(2)?.i16()
+      else
+        data.read_u16(2)?.bswap().i16()
+      end
+    let sign =
+      ifdef bigendian then
+        data.read_u16(4)?
+      else
+        data.read_u16(4)?.bswap()
+      end
+    let dscale =
+      ifdef bigendian then
+        data.read_u16(6)?
+      else
+        data.read_u16(6)?.bswap()
+      end
 
     if ndigits < 0 then error end
 
@@ -550,22 +559,24 @@ primitive _NumericBinaryCodec is Codec
     if data.size() != (8 + (ndigits.usize() * 2)) then error end
 
     // Read base-10000 digits
-    let digits: Array[U16] val = recover val
-      let ds = Array[U16](ndigits.usize())
-      var idx: USize = 8
-      var di: I16 = 0
-      while di < ndigits do
-        let d = ifdef bigendian then
-          data.read_u16(idx)?
-        else
-          data.read_u16(idx)?.bswap()
+    let digits: Array[U16] val =
+      recover val
+        let ds = Array[U16](ndigits.usize())
+        var idx: USize = 8
+        var di: I16 = 0
+        while di < ndigits do
+          let d =
+            ifdef bigendian then
+              data.read_u16(idx)?
+            else
+              data.read_u16(idx)?.bswap()
+            end
+          ds.push(d)
+          idx = idx + 2
+          di = di + 1
         end
-        ds.push(d)
-        idx = idx + 2
-        di = di + 1
+        ds
       end
-      ds
-    end
 
     recover iso
       let s = String
@@ -606,15 +617,19 @@ primitive _NumericBinaryCodec is Codec
           let digit_idx = frac_idx.usize()
           let d: U16 = try digits(digit_idx)? else 0 end
           // How many digits from this base-10000 word?
-          let avail = if frac_digits_remaining >= 4 then USize(4)
-            else frac_digits_remaining
-          end
+          let avail =
+            if frac_digits_remaining >= 4 then
+              USize(4)
+            else
+              frac_digits_remaining
+            end
           // Convert to 4-char string
-          let ds = recover val
-            let tmp = String(4)
-            _append_padded_digit(tmp, d)
-            tmp
-          end
+          let ds =
+            recover val
+              let tmp = String(4)
+              _append_padded_digit(tmp, d)
+              tmp
+            end
           s.append(ds.substring(0, avail.isize()))
           frac_digits_remaining = frac_digits_remaining - avail
           frac_idx = frac_idx + 1
@@ -634,7 +649,7 @@ primitive _NumericBinaryCodec is Codec
     end
     s.append(d.string())
 
-primitive _UuidBinaryCodec is Codec
+primitive _UUIDBinaryCodec is Codec
   """
   Binary codec for PostgreSQL `uuid` (OID 2950).
   16 bytes raw. Decodes to lowercase dash-separated hex.
@@ -697,7 +712,7 @@ primitive _UuidBinaryCodec is Codec
     else (nibble - 10) + 'a'
     end
 
-primitive _JsonbBinaryCodec is Codec
+primitive _JSONBBinaryCodec is Codec
   """
   Binary codec for PostgreSQL `jsonb` (OID 3802).
   Binary format is 1 version byte (0x01) followed by JSON UTF-8 text.
@@ -708,10 +723,9 @@ primitive _JsonbBinaryCodec is Codec
     match value
     | let s: String =>
       recover val
-        let a = Array[U8](1 + s.size())
-        a.push(1) // version byte
-        a.append(s.array())
-        a
+        Array[U8](1 + s.size())
+          .> push(1) // version byte
+          .> append(s.array())
       end
     else
       error
@@ -750,11 +764,12 @@ primitive _DateBinaryCodec is Codec
 
   fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 4 then error end
-    let days = ifdef bigendian then
-      data.read_u32(0)?.i32()
-    else
-      data.read_u32(0)?.bswap().i32()
-    end
+    let days =
+      ifdef bigendian then
+        data.read_u32(0)?.i32()
+      else
+        data.read_u32(0)?.bswap().i32()
+      end
     PgDate(days)
 
 primitive _TimeBinaryCodec is Codec
@@ -785,11 +800,12 @@ primitive _TimeBinaryCodec is Codec
 
   fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 8 then error end
-    let us = ifdef bigendian then
-      data.read_u64(0)?.i64()
-    else
-      data.read_u64(0)?.bswap().i64()
-    end
+    let us =
+      ifdef bigendian then
+        data.read_u64(0)?.i64()
+      else
+        data.read_u64(0)?.bswap().i64()
+      end
     PgTime(MakePgTimeMicroseconds(us) as PgTimeMicroseconds)
 
 primitive _TimestampBinaryCodec is Codec
@@ -821,11 +837,12 @@ primitive _TimestampBinaryCodec is Codec
 
   fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 8 then error end
-    let us = ifdef bigendian then
-      data.read_u64(0)?.i64()
-    else
-      data.read_u64(0)?.bswap().i64()
-    end
+    let us =
+      ifdef bigendian then
+        data.read_u64(0)?.i64()
+      else
+        data.read_u64(0)?.bswap().i64()
+      end
     PgTimestamp(us)
 
 primitive _IntervalBinaryCodec is Codec
@@ -860,19 +877,22 @@ primitive _IntervalBinaryCodec is Codec
 
   fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 16 then error end
-    let us = ifdef bigendian then
-      data.read_u64(0)?.i64()
-    else
-      data.read_u64(0)?.bswap().i64()
-    end
-    let d = ifdef bigendian then
-      data.read_u32(8)?.i32()
-    else
-      data.read_u32(8)?.bswap().i32()
-    end
-    let m = ifdef bigendian then
-      data.read_u32(12)?.i32()
-    else
-      data.read_u32(12)?.bswap().i32()
-    end
+    let us =
+      ifdef bigendian then
+        data.read_u64(0)?.i64()
+      else
+        data.read_u64(0)?.bswap().i64()
+      end
+    let d =
+      ifdef bigendian then
+        data.read_u32(8)?.i32()
+      else
+        data.read_u32(8)?.bswap().i32()
+      end
+    let m =
+      ifdef bigendian then
+        data.read_u32(12)?.i32()
+      else
+        data.read_u32(12)?.bswap().i32()
+      end
     PgInterval(us, d, m)

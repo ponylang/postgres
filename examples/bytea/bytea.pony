@@ -1,8 +1,8 @@
 """
 Querying binary data using `bytea` columns. Executes a SELECT that returns a
 bytea value, matches on `Bytea` in the result, and prints the decoded
-bytes. Shows how the driver automatically decodes PostgreSQL's hex-format
-bytea representation into raw byte arrays.
+bytes. The driver decodes PostgreSQL's hex-format bytea representation into
+raw byte arrays.
 """
 use "cli"
 use "collections"
@@ -19,20 +19,27 @@ actor Main
     let client = Client(auth, server_info, env.out)
 
 actor Client is (SessionStatusNotify & ResultReceiver)
+  """
+  Sends a bytea query, decodes the result, and prints each byte.
+  """
   let _session: Session
   let _out: OutStream
 
   new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
-    _session = Session(
-      ServerConnectInfo(auth, info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(auth, info.host, info.port),
+        DatabaseConnectInfo(info.username, info.password, info.database),
+        this)
 
   be close() =>
     _session.close()
 
   be pg_session_authenticated(session: Session) =>
+    """
+    Sends a SELECT returning a bytea value encoded as a hex string.
+    """
     _out.print("Authenticated.")
     _out.print("Sending bytea query....")
     // The hex string \x48656c6c6f represents the ASCII bytes for "Hello".
@@ -45,7 +52,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     _out.print("Connection failed.")
 
   be pg_query_result(session: Session, result: Result) =>
-    match result
+    match \exhaustive\ result
     | let r: ResultSet =>
       _out.print("ResultSet (" + r.rows().size().string() + " rows):")
       for row in r.rows().values() do
@@ -80,13 +87,19 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     end
     close()
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _out.print("Query failed.")
     close()
 
 class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
   let host: String
   let port: String
   let username: String

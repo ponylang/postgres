@@ -15,11 +15,12 @@ class \nodoc\ iso _TestStreamingSuccess is UnitTest
     let host = "127.0.0.1"
     let port = "7702"
 
-    let listener = _StreamingSuccessTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _StreamingSuccessTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -43,8 +44,11 @@ actor \nodoc\ _StreamingSuccessTestClient is
   be pg_session_authenticated(session: Session) =>
     _session = session
     session.stream(
-      PreparedQuery("SELECT id FROM t", recover val Array[FieldDataTypes] end),
-      2, this)
+      PreparedQuery(
+        "SELECT id FROM t",
+        recover val Array[FieldDataTypes] end),
+      2,
+      this)
 
   be pg_stream_batch(session: Session, rows: Rows) =>
     _batches = _batches + 1
@@ -104,11 +108,16 @@ actor \nodoc\ _StreamingSuccessTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _StreamingSuccessTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _StreamingSuccessTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -153,8 +162,9 @@ actor \nodoc\ _StreamingSuccessTestServer
         _process()
       end
     elseif _state == 1 then
-      // Read all extended query pipeline messages: Parse+Bind+Describe+Execute+Flush
-      // We read them one at a time until we get Execute ('E')
+      // Read all extended query pipeline messages:
+      // Parse+Bind+Describe+Execute+Flush.
+      // We read them one at a time until we get Execute.
       match _reader.read_message()
       | let msg: Array[U8] val =>
         try
@@ -162,9 +172,10 @@ actor \nodoc\ _StreamingSuccessTestServer
             // First Execute received. Send RowDescription + 2 DataRows +
             // PortalSuspended
             _execute_count = _execute_count + 1
-            let columns: Array[(String, U32, U16)] val = recover val
-              [("id", U32(23), U16(0))]
-            end
+            let columns: Array[(String, U32, U16)] val =
+              recover val
+                [("id", U32(23), U16(0))]
+              end
             let row_desc =
               _IncomingRowDescriptionTestMessage(columns).bytes()
             _tcp_connection.send(row_desc)
@@ -222,10 +233,11 @@ actor \nodoc\ _StreamingSuccessTestServer
 
   fun ref _send_data_rows(count: USize, start: USize) =>
     for i in Range(0, count) do
-      let data_row_cols: Array[(String | None)] val = recover val
-        let v: String = (start + i + 1).string()
-        [as (String | None): v]
-      end
+      let data_row_cols: Array[(String | None)] val =
+        recover val
+          let v: String = (start + i + 1).string()
+          [as (String | None): v]
+        end
       let data_row = _IncomingDataRowTestMessage(data_row_cols).bytes()
       _tcp_connection.send(data_row)
     end
@@ -242,11 +254,12 @@ class \nodoc\ iso _TestStreamingEmpty is UnitTest
     let host = "127.0.0.1"
     let port = "7703"
 
-    let listener = _StreamingEmptyTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _StreamingEmptyTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -269,8 +282,11 @@ actor \nodoc\ _StreamingEmptyTestClient is
   be pg_session_authenticated(session: Session) =>
     _session = session
     session.stream(
-      PreparedQuery("SELECT id FROM empty", recover val Array[FieldDataTypes] end),
-      2, this)
+      PreparedQuery(
+        "SELECT id FROM empty",
+        recover val Array[FieldDataTypes] end),
+      2,
+      this)
 
   be pg_stream_batch(session: Session, rows: Rows) =>
     _batches = _batches + 1
@@ -323,11 +339,16 @@ actor \nodoc\ _StreamingEmptyTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _StreamingEmptyTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _StreamingEmptyTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -372,9 +393,10 @@ actor \nodoc\ _StreamingEmptyTestServer
         try
           if msg(0)? == 'E' then
             // Execute received — send RowDescription + CommandComplete
-            let columns: Array[(String, U32, U16)] val = recover val
-              [("id", U32(23), U16(0))]
-            end
+            let columns: Array[(String, U32, U16)] val =
+              recover val
+                [("id", U32(23), U16(0))]
+              end
             let row_desc =
               _IncomingRowDescriptionTestMessage(columns).bytes()
             let cmd_complete =
@@ -415,11 +437,12 @@ class \nodoc\ iso _TestStreamingEarlyStop is UnitTest
     let host = "127.0.0.1"
     let port = "7704"
 
-    let listener = _StreamingEarlyStopTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _StreamingEarlyStopTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -442,8 +465,11 @@ actor \nodoc\ _StreamingEarlyStopTestClient is
   be pg_session_authenticated(session: Session) =>
     _session = session
     session.stream(
-      PreparedQuery("SELECT id FROM t", recover val Array[FieldDataTypes] end),
-      2, this)
+      PreparedQuery(
+        "SELECT id FROM t",
+        recover val Array[FieldDataTypes] end),
+      2,
+      this)
 
   be pg_stream_batch(session: Session, rows: Rows) =>
     _batches = _batches + 1
@@ -498,11 +524,16 @@ actor \nodoc\ _StreamingEarlyStopTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _StreamingEarlyStopTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _StreamingEarlyStopTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -547,21 +578,26 @@ actor \nodoc\ _StreamingEarlyStopTestServer
       | let msg: Array[U8] val =>
         try
           if msg(0)? == 'E' then
-            let columns: Array[(String, U32, U16)] val = recover val
-              [("id", U32(23), U16(0))]
-            end
+            let columns: Array[(String, U32, U16)] val =
+              recover val
+                [("id", U32(23), U16(0))]
+              end
             let row_desc =
               _IncomingRowDescriptionTestMessage(columns).bytes()
             _tcp_connection.send(row_desc)
-            let data_row_cols: Array[(String | None)] val = recover val
-              [as (String | None): "1"]
-            end
-            let data_row = _IncomingDataRowTestMessage(data_row_cols).bytes()
+            let data_row_cols: Array[(String | None)] val =
+              recover val
+                [as (String | None): "1"]
+              end
+            let data_row =
+              _IncomingDataRowTestMessage(data_row_cols).bytes()
             _tcp_connection.send(data_row)
-            let data_row_cols2: Array[(String | None)] val = recover val
-              [as (String | None): "2"]
-            end
-            let data_row2 = _IncomingDataRowTestMessage(data_row_cols2).bytes()
+            let data_row_cols2: Array[(String | None)] val =
+              recover val
+                [as (String | None): "2"]
+              end
+            let data_row2 =
+              _IncomingDataRowTestMessage(data_row_cols2).bytes()
             _tcp_connection.send(data_row2)
             let ps = _IncomingPortalSuspendedTestMessage.bytes()
             _tcp_connection.send(ps)
@@ -599,11 +635,12 @@ class \nodoc\ iso _TestStreamingServerError is UnitTest
     let host = "127.0.0.1"
     let port = "7705"
 
-    let listener = _StreamingServerErrorTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _StreamingServerErrorTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -626,8 +663,11 @@ actor \nodoc\ _StreamingServerErrorTestClient is
   be pg_session_authenticated(session: Session) =>
     _session = session
     session.stream(
-      PreparedQuery("SELECT id FROM bad", recover val Array[FieldDataTypes] end),
-      2, this)
+      PreparedQuery(
+        "SELECT id FROM bad",
+        recover val Array[FieldDataTypes] end),
+      2,
+      this)
 
   be pg_stream_batch(session: Session, rows: Rows) =>
     _h.fail("Unexpected stream batch.")
@@ -653,7 +693,9 @@ actor \nodoc\ _StreamingServerErrorTestClient is
       _close_and_complete(false)
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Follow-up query failed.")
@@ -692,11 +734,16 @@ actor \nodoc\ _StreamingServerErrorTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _StreamingServerErrorTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _StreamingServerErrorTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -773,14 +820,16 @@ actor \nodoc\ _StreamingServerErrorTestServer
       | let msg: Array[U8] val =>
         try
           if msg(0)? == 'Q' then
-            let columns: Array[(String, U32, U16)] val = recover val
-              [("?column?", U32(25), U16(0))]
-            end
+            let columns: Array[(String, U32, U16)] val =
+              recover val
+                [("?column?", U32(25), U16(0))]
+              end
             let row_desc =
               _IncomingRowDescriptionTestMessage(columns).bytes()
-            let data_row_cols: Array[(String | None)] val = recover val
-              [as (String | None): "1"]
-            end
+            let data_row_cols: Array[(String | None)] val =
+              recover val
+                [as (String | None): "1"]
+              end
             let data_row =
               _IncomingDataRowTestMessage(data_row_cols).bytes()
             let cmd_complete =
@@ -808,11 +857,12 @@ class \nodoc\ iso _TestStreamingShutdownDrainsQueue is UnitTest
     let host = "127.0.0.1"
     let port = "7706"
 
-    let listener = _StreamingShutdownTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _StreamingShutdownTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -834,11 +884,17 @@ actor \nodoc\ _StreamingShutdownTestClient is
   be pg_session_authenticated(session: Session) =>
     _pending = 2
     session.stream(
-      PreparedQuery("SELECT 1", recover val Array[FieldDataTypes] end),
-      2, this)
+      PreparedQuery(
+        "SELECT 1",
+        recover val Array[FieldDataTypes] end),
+      2,
+      this)
     session.stream(
-      PreparedQuery("SELECT 2", recover val Array[FieldDataTypes] end),
-      2, this)
+      PreparedQuery(
+        "SELECT 2",
+        recover val Array[FieldDataTypes] end),
+      2,
+      this)
     session.close()
 
   be pg_stream_batch(session: Session, rows: Rows) =>
@@ -891,11 +947,16 @@ actor \nodoc\ _StreamingShutdownTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _StreamingShutdownTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _StreamingShutdownTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -913,10 +974,17 @@ class \nodoc\ iso _TestStreamingQueryResults is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      _StreamingQueryResultsNotify(h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port),
+        DatabaseConnectInfo(
+          info.username,
+          info.password,
+          info.database),
+        _StreamingQueryResultsNotify(h))
 
     h.dispose_when_done(session)
     h.long_test(10_000_000_000)
@@ -959,15 +1027,19 @@ actor \nodoc\ _StreamingQueryResultsNotify is
     | 3 =>
       // Rows inserted. Start streaming.
       session.stream(
-        PreparedQuery("SELECT id FROM streaming_test ORDER BY id",
+        PreparedQuery(
+          "SELECT id FROM streaming_test ORDER BY id",
           recover val Array[FieldDataTypes] end),
-        2, this)
+        2,
+        this)
     | 5 =>
       // Table dropped after streaming. Done.
       _close_and_complete(true)
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Query failed.")
@@ -1015,10 +1087,15 @@ class \nodoc\ iso _TestStreamingAfterSessionClosed is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      _StreamingAfterSessionClosedNotify(h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        _StreamingAfterSessionClosedNotify(h))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -1041,8 +1118,11 @@ actor \nodoc\ _StreamingAfterSessionClosedNotify is
 
   be pg_session_shutdown(session: Session) =>
     session.stream(
-      PreparedQuery("SELECT 1", recover val Array[FieldDataTypes] end),
-      2, this)
+      PreparedQuery(
+        "SELECT 1",
+        recover val Array[FieldDataTypes] end),
+      2,
+      this)
 
   be pg_stream_batch(session: Session, rows: Rows) =>
     _h.fail("Unexpected stream batch.")

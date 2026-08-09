@@ -11,23 +11,23 @@ primitive _ParamEncoder
     recover val
       let oids = Array[U32](params.size())
       for p in params.values() do
-        oids.push(match p
-        | let _: I16 => U32(21)
-        | let _: I32 => U32(23)
-        | let _: I64 => U32(20)
-        | let _: F32 => U32(700)
-        | let _: F64 => U32(701)
-        | let _: Bool => U32(16)
-        | let _: Array[U8] val => U32(17)
-        | let a: PgArray => registry.array_oid_for(a.element_oid)
-        | let c: PgComposite => c.type_oid
-        | let _: PgTimestamp => U32(1114)
-        | let _: PgTime => U32(1083)
-        | let _: PgDate => U32(1082)
-        | let _: PgInterval => U32(1186)
-        | let _: String => U32(0)
-        | None => U32(0)
-        end)
+        oids.push(match \exhaustive\ p
+                  | let _: I16 => U32(21)
+                  | let _: I32 => U32(23)
+                  | let _: I64 => U32(20)
+                  | let _: F32 => U32(700)
+                  | let _: F64 => U32(701)
+                  | let _: Bool => U32(16)
+                  | let _: Array[U8] val => U32(17)
+                  | let a: PgArray => registry.array_oid_for(a.element_oid)
+                  | let c: PgComposite => c.type_oid
+                  | let _: PgTimestamp => U32(1114)
+                  | let _: PgTime => U32(1083)
+                  | let _: PgDate => U32(1082)
+                  | let _: PgInterval => U32(1186)
+                  | let _: String => U32(0)
+                  | None => U32(0)
+                  end)
       end
       oids
     end

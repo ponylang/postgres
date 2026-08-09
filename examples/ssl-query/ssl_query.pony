@@ -1,0 +1,138 @@
+"""
+SSL-encrypted query using `SSLRequired`. Connects with TLS negotiation, then
+authenticates and executes a simple query over the encrypted connection. Same
+workflow as the `query` example but with SSL enabled.
+
+Requires a PostgreSQL server configured to accept SSL connections. Set
+environment variables to match your server configuration.
+"""
+use "cli"
+use "collections"
+use "files"
+use lori = "lori"
+use "ssl/net"
+// in your code this `use` statement would be:
+// use "postgres"
+use "../../postgres"
+
+actor Main
+  new create(env: Env) =>
+    let server_info = ServerInfo(env.vars)
+
+    let sslctx =
+      recover val
+        SSLContext
+          .> set_client_verify(false)
+          .> set_server_verify(false)
+      end
+
+    let auth = lori.TCPConnectAuth(env.root)
+    Client(auth, server_info, sslctx, env.out)
+
+actor Client is (SessionStatusNotify & ResultReceiver)
+  """
+  Sends a simple query over an SSL-required connection.
+  """
+  let _session: Session
+  let _out: OutStream
+
+  new create(
+    auth: lori.TCPConnectAuth,
+    info: ServerInfo,
+    sslctx: SSLContext val,
+    out: OutStream)
+  =>
+    _out = out
+    _session =
+      Session(
+        ServerConnectInfo(
+          auth, info.host, info.port, SSLRequired(sslctx)),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
+
+  be close() =>
+    _session.close()
+
+  be pg_session_connected(session: Session) =>
+    _out.print("Connected (TLS handshake complete).")
+
+  be pg_session_connection_failed(
+    session: Session,
+    reason: ConnectionFailureReason)
+  =>
+    match reason
+    | SSLServerRefused | TLSHandshakeFailed | TLSAuthFailed =>
+      _out.print(
+        "Connection failed: SSL refused or TLS handshake failed.")
+    else
+      _out.print("Connection failed.")
+    end
+
+  be pg_session_authenticated(session: Session) =>
+    """
+    Sends a simple text query after authentication.
+    """
+    _out.print("Authenticated over SSL.")
+    _out.print("Sending query....")
+    let q = SimpleQuery("SELECT 525600::text")
+    session.execute(q, this)
+
+  be pg_query_result(session: Session, result: Result) =>
+    match \exhaustive\ result
+    | let r: ResultSet =>
+      _out.print("ResultSet (" + r.rows().size().string() + " rows):")
+      for row in r.rows().values() do
+        for field in row.fields.values() do
+          _out.write(field.name + "=")
+          match field.value
+          | let v: String => _out.print(v)
+          | let v: I16 => _out.print(v.string())
+          | let v: I32 => _out.print(v.string())
+          | let v: I64 => _out.print(v.string())
+          | let v: F32 => _out.print(v.string())
+          | let v: F64 => _out.print(v.string())
+          | let v: Bool => _out.print(v.string())
+          | let v: Bytea =>
+            _out.print(v.data.size().string() + " bytes")
+          | let t: PgTimestamp => _out.print(t.string())
+          | let t: PgTime => _out.print(t.string())
+          | let t: PgDate => _out.print(t.string())
+          | let t: PgInterval => _out.print(t.string())
+          | None => _out.print("NULL")
+          end
+        end
+      end
+    | let r: RowModifying =>
+      _out.print(r.command() + " " + r.impacted().string() + " rows")
+    | let r: SimpleResult =>
+      _out.print("Query executed.")
+    end
+    close()
+
+  be pg_query_failed(
+    session: Session,
+    query: Query,
+    failure: (ErrorResponseMessage | ClientQueryError))
+  =>
+    _out.print("Query failed.")
+    close()
+
+class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
+  let host: String
+  let port: String
+  let username: String
+  let password: String
+  let database: String
+
+  new val create(vars: (Array[String] val | None)) =>
+    let e = EnvVars(vars)
+    host = try e("POSTGRES_HOST")? else "127.0.0.1" end
+    port = try e("POSTGRES_PORT")? else "5432" end
+    username = try e("POSTGRES_USERNAME")? else "postgres" end
+    password = try e("POSTGRES_PASSWORD")? else "postgres" end
+    database = try e("POSTGRES_DATABASE")? else "postgres" end

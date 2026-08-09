@@ -14,11 +14,18 @@ class \nodoc\ iso _TestMD5Authenticate is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host,
-        info.ssl_port where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo(info.md5_username, info.md5_password, info.database),
-      _AuthenticateTestNotify(h, true))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.ssl_host,
+          info.ssl_port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          info.md5_username,
+          info.md5_password,
+          info.database),
+        _AuthenticateTestNotify(h, true))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -34,11 +41,18 @@ class \nodoc\ iso _TestMD5AuthenticateFailure is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host,
-        info.ssl_port where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo(info.md5_username, "wrongpassword", info.database),
-      _AuthenticateTestNotify(h, false))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.ssl_host,
+          info.ssl_port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          info.md5_username,
+          "wrongpassword",
+          info.database),
+        _AuthenticateTestNotify(h, false))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -56,11 +70,18 @@ class \nodoc\ iso _TestMD5QueryResults is UnitTest
 
     let client = _MD5QueryResultsReceiver(h)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.ssl_host,
-        info.ssl_port where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo(info.md5_username, info.md5_password, info.database),
-      client)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.ssl_host,
+          info.ssl_port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          info.md5_username,
+          info.md5_password,
+          info.database),
+        client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -125,7 +146,9 @@ actor \nodoc\ _MD5QueryResultsReceiver is
 
     _h.complete(true)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure")

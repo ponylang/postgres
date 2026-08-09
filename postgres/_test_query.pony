@@ -10,10 +10,13 @@ class \nodoc\ iso _TestQueryResults is UnitTest
 
     let client = _ResultsIncludeOriginatingQueryReceiver(h)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -31,7 +34,8 @@ actor \nodoc\ _ResultsIncludeOriginatingQueryReceiver is
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -47,10 +51,10 @@ actor \nodoc\ _ResultsIncludeOriginatingQueryReceiver is
     match result
     | let r: ResultSet =>
       if r.rows().size() != 1 then
-      _h.fail("Wrong number of result rows.")
-      _h.complete(false)
-      return
-    end
+        _h.fail("Wrong number of result rows.")
+        _h.complete(false)
+        return
+      end
 
       try
         match r.rows()(0)?.fields(0)?.value
@@ -78,7 +82,9 @@ actor \nodoc\ _ResultsIncludeOriginatingQueryReceiver is
 
     _h.complete(true)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure")
@@ -94,11 +100,15 @@ class \nodoc\ iso _TestQueryAfterAuthenticationFailure is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password + " " + info.password,
-        info.database),
-      _QueryAfterAuthenticationFailureNotify(h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username,
+          info.password + " " + info.password,
+          info.database),
+        _QueryAfterAuthenticationFailureNotify(h))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -117,7 +127,8 @@ actor \nodoc\ _QueryAfterAuthenticationFailureNotify is
     _h.fail("Unexpected successful authentication")
     _h.complete(false)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     session.execute(_query, this)
@@ -126,7 +137,9 @@ actor \nodoc\ _QueryAfterAuthenticationFailureNotify is
     _h.fail("Unexpected query result received")
     _h.complete(false)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if (query is _query) and (failure is SessionClosed) then
@@ -137,8 +150,11 @@ actor \nodoc\ _QueryAfterAuthenticationFailureNotify is
 
 class \nodoc\ iso _TestQueryAfterConnectionFailure is UnitTest
   """
-  Test to verify that querying after connection failures are handled correctly.
-  Currently, we set up a bad connect attempt by taking the valid port number that would allow a connect and reversing it to create an attempt to connect on a port that nothing should be listening on.
+  Test to verify that querying after connection failures are handled
+  correctly. Currently, we set up a bad connect attempt by taking the
+  valid port number that would allow a connect and reversing it to
+  create an attempt to connect on a port that nothing should be
+  listening on.
   """
   fun name(): String =>
     "integration/Query/AfterConnectionFailure"
@@ -147,10 +163,15 @@ class \nodoc\ iso _TestQueryAfterConnectionFailure is UnitTest
     let info = _ConnectionTestConfiguration(h.env.vars)
     let host = ifdef linux then "127.0.0.2" else "localhost" end
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), host, info.port.reverse()),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      _QueryAfterConnectionFailureNotify(h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          host,
+          info.port.reverse()),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        _QueryAfterConnectionFailureNotify(h))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -169,7 +190,8 @@ actor \nodoc\ _QueryAfterConnectionFailureNotify is
     _h.fail("Unexpected successful connection")
     _h.complete(false)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     session.execute(_query, this)
@@ -178,7 +200,9 @@ actor \nodoc\ _QueryAfterConnectionFailureNotify is
     _h.fail("Unexpected query result received")
     _h.complete(false)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if (query is _query) and (failure is SessionClosed) then
@@ -197,10 +221,13 @@ class \nodoc\ iso _TestQueryAfterSessionHasBeenClosed is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      _QueryAfterSessionHasBeenClosedNotify(h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        _QueryAfterSessionHasBeenClosedNotify(h))
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -218,7 +245,8 @@ actor \nodoc\ _QueryAfterSessionHasBeenClosedNotify is
   be pg_session_authenticated(session: Session) =>
     session.close()
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -231,7 +259,9 @@ actor \nodoc\ _QueryAfterSessionHasBeenClosedNotify is
     _h.fail("Unexpected query result received")
     _h.complete(false)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if (query is _query) and (failure is SessionClosed) then
@@ -249,10 +279,13 @@ class \nodoc\ iso _TestQueryOfNonExistentTable is UnitTest
 
     let client = _NonExistentTableQueryReceiver(h)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -270,7 +303,8 @@ actor \nodoc\ _NonExistentTableQueryReceiver is
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -280,7 +314,9 @@ actor \nodoc\ _NonExistentTableQueryReceiver is
     _h.fail("Query unexpectedly succeeded.")
     _h.complete(false)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if not (query is _query) then
@@ -309,18 +345,20 @@ class \nodoc\ _TestCreateAndDropTable is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let queries = recover iso
-      Array[SimpleQuery]
-        .>push(
-          SimpleQuery(
-            """
-            CREATE TABLE CreateAndDropTable (
-            fu VARCHAR(50) NOT NULL,
-            bar VARCHAR(50) NOT NULL
-            )
-            """))
-        .>push(SimpleQuery("DROP TABLE CreateAndDropTable"))
-    end
+    let queries =
+      recover iso
+        Array[SimpleQuery]
+          .> push(
+            SimpleQuery(
+              """
+              CREATE TABLE CreateAndDropTable (
+              fu VARCHAR(50) NOT NULL,
+              bar VARCHAR(50) NOT NULL
+              )
+              """))
+          .> push(
+            SimpleQuery("DROP TABLE CreateAndDropTable"))
+      end
 
     let client = _AllSuccessQueryRunningClient(h, info, consume queries)
 
@@ -338,23 +376,24 @@ class \nodoc\ _TestInsertAndDelete is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
 
-    let queries = recover iso
-      Array[SimpleQuery]
-        .>push(
-          SimpleQuery(
-            """
-            CREATE TABLE i_and_d (
-            fu VARCHAR(50) NOT NULL,
-            bar VARCHAR(50) NOT NULL
-            )
-            """))
-        .>push(SimpleQuery(
-          "INSERT INTO i_and_d (fu, bar) VALUES ('fu', 'bar')"))
-        .>push(SimpleQuery(
-          "INSERT INTO i_and_d (fu, bar) VALUES('pony', 'lang')"))
-        .>push(SimpleQuery("DELETE FROM i_and_d"))
-        .>push(SimpleQuery("DROP TABLE i_and_d"))
-    end
+    let queries =
+      recover iso
+        Array[SimpleQuery]
+          .> push(
+            SimpleQuery(
+              """
+              CREATE TABLE i_and_d (
+              fu VARCHAR(50) NOT NULL,
+              bar VARCHAR(50) NOT NULL
+              )
+              """))
+          .> push(SimpleQuery(
+            "INSERT INTO i_and_d (fu, bar) VALUES ('fu', 'bar')"))
+          .> push(SimpleQuery(
+            "INSERT INTO i_and_d (fu, bar) VALUES('pony', 'lang')"))
+          .> push(SimpleQuery("DELETE FROM i_and_d"))
+          .> push(SimpleQuery("DROP TABLE i_and_d"))
+      end
 
     let client = _AllSuccessQueryRunningClient(h, info, consume queries)
 
@@ -375,10 +414,13 @@ actor \nodoc\ _AllSuccessQueryRunningClient is
     _h = h
     _queries = consume queries
 
-    _session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
 
   be pg_session_authenticated(session: Session) =>
     try
@@ -389,7 +431,8 @@ actor \nodoc\ _AllSuccessQueryRunningClient is
       _h.complete(false)
     end
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -410,14 +453,17 @@ actor \nodoc\ _AllSuccessQueryRunningClient is
       _h.complete(false)
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    let query_str = match \exhaustive\ query
-    | let sq: SimpleQuery => sq.string
-    | let pq: PreparedQuery => pq.string
-    | let nq: NamedPreparedQuery => nq.name
-    end
+    let query_str =
+      match \exhaustive\ query
+      | let sq: SimpleQuery => sq.string
+      | let pq: PreparedQuery => pq.string
+      | let nq: NamedPreparedQuery => nq.name
+      end
     _h.fail("Unexpected for query: " + query_str)
     _h.complete(false)
 
@@ -433,10 +479,13 @@ class \nodoc\ iso _TestEmptyQuery is UnitTest
 
     let client = _EmptyQueryReceiver(h)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -454,7 +503,8 @@ actor \nodoc\ _EmptyQueryReceiver is
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -469,7 +519,9 @@ actor \nodoc\ _EmptyQueryReceiver is
 
     _h.complete(true)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure")
@@ -488,10 +540,13 @@ class \nodoc\ iso _TestZeroRowSelect is UnitTest
 
     let client = _ZeroRowSelectReceiver(h)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -509,7 +564,8 @@ actor \nodoc\ _ZeroRowSelectReceiver is
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -537,7 +593,9 @@ actor \nodoc\ _ZeroRowSelectReceiver is
 
     _h.complete(true)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure")
@@ -569,10 +627,13 @@ actor \nodoc\ _MultiStatementMixedClient is
   new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
     _h = h
 
-    _session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
 
   be pg_session_authenticated(session: Session) =>
     // Phase 0: create the table
@@ -584,7 +645,8 @@ actor \nodoc\ _MultiStatementMixedClient is
         """),
       this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -598,7 +660,8 @@ actor \nodoc\ _MultiStatementMixedClient is
       // Table created, now send multi-statement query
       _session.execute(
         SimpleQuery(
-          "SELECT * FROM mixed_test WHERE false; INSERT INTO mixed_test (col) VALUES ('x')"),
+          "SELECT * FROM mixed_test WHERE false; "
+            + "INSERT INTO mixed_test (col) VALUES ('x')"),
         this)
     | 2 =>
       // First result from multi-statement: should be ResultSet (zero rows)
@@ -643,7 +706,9 @@ actor \nodoc\ _MultiStatementMixedClient is
       _drop_and_finish()
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure at phase " + _phase.string())
@@ -669,10 +734,13 @@ class \nodoc\ iso _TestPreparedQueryResults is UnitTest
 
     let client = _PreparedQueryResultsReceiver(h)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -685,13 +753,16 @@ actor \nodoc\ _PreparedQueryResultsReceiver is
 
   new create(h: TestHelper) =>
     _h = h
-    _query = PreparedQuery("SELECT $1::text",
-      recover val [as FieldDataTypes: "525600"] end)
+    _query =
+      PreparedQuery(
+        "SELECT $1::text",
+        recover val [as FieldDataTypes: "525600"] end)
 
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -738,7 +809,9 @@ actor \nodoc\ _PreparedQueryResultsReceiver is
 
     _h.complete(true)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure")
@@ -757,10 +830,13 @@ class \nodoc\ iso _TestPreparedQueryNullParam is UnitTest
 
     let client = _PreparedQueryNullParamReceiver(h)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -773,13 +849,16 @@ actor \nodoc\ _PreparedQueryNullParamReceiver is
 
   new create(h: TestHelper) =>
     _h = h
-    _query = PreparedQuery("SELECT $1::text",
-      recover val [as FieldDataTypes: None] end)
+    _query =
+      PreparedQuery(
+        "SELECT $1::text",
+        recover val [as FieldDataTypes: None] end)
 
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -821,7 +900,9 @@ actor \nodoc\ _PreparedQueryNullParamReceiver is
 
     _h.complete(true)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure")
@@ -840,10 +921,13 @@ class \nodoc\ iso _TestPreparedQueryNonExistentTable is UnitTest
 
     let client = _PreparedQueryNonExistentTableReceiver(h)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -856,14 +940,16 @@ actor \nodoc\ _PreparedQueryNonExistentTableReceiver is
 
   new create(h: TestHelper) =>
     _h = h
-    _query = PreparedQuery(
-      "SELECT * FROM THIS_TABLE_DOESNT_EXIST WHERE id = $1",
-      recover val [as FieldDataTypes: "1"] end)
+    _query =
+      PreparedQuery(
+        "SELECT * FROM THIS_TABLE_DOESNT_EXIST WHERE id = $1",
+        recover val [as FieldDataTypes: "1"] end)
 
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -873,7 +959,9 @@ actor \nodoc\ _PreparedQueryNonExistentTableReceiver is
     _h.fail("Query unexpectedly succeeded.")
     _h.complete(false)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if query is _query then
@@ -910,10 +998,13 @@ actor \nodoc\ _PreparedQueryInsertAndDeleteClient is
   new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
     _h = h
 
-    _session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
 
   be pg_session_authenticated(session: Session) =>
     _phase = 0
@@ -926,7 +1017,8 @@ actor \nodoc\ _PreparedQueryInsertAndDeleteClient is
         """),
       this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -988,7 +1080,9 @@ actor \nodoc\ _PreparedQueryInsertAndDeleteClient is
       _drop_and_finish()
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure at phase " + _phase.string())
@@ -1029,17 +1123,21 @@ actor \nodoc\ _PreparedQueryMixedClient is
   new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
     _h = h
 
-    _session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
 
   be pg_session_authenticated(session: Session) =>
     // Phase 0: SimpleQuery
     _phase = 0
     session.execute(SimpleQuery("SELECT 525600::text"), this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -1078,7 +1176,8 @@ actor \nodoc\ _PreparedQueryMixedClient is
       end
       // Now send PreparedQuery
       _session.execute(
-        PreparedQuery("SELECT $1::text",
+        PreparedQuery(
+          "SELECT $1::text",
           recover val [as FieldDataTypes: "42"] end),
         this)
     | 2 =>
@@ -1114,7 +1213,9 @@ actor \nodoc\ _PreparedQueryMixedClient is
       _h.complete(false)
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure at phase " + _phase.string())
@@ -1147,15 +1248,19 @@ actor \nodoc\ _PrepareStatementClient is
   new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
     _h = h
 
-    _session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
 
   be pg_session_authenticated(session: Session) =>
     session.prepare("s1", "SELECT $1::text", this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -1169,7 +1274,9 @@ actor \nodoc\ _PrepareStatementClient is
       _h.complete(false)
     end
 
-  be pg_prepare_failed(session: Session, name: String,
+  be pg_prepare_failed(
+    session: Session,
+    name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected prepare failure")
@@ -1202,15 +1309,19 @@ actor \nodoc\ _PrepareAndExecuteClient is
   new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
     _h = h
 
-    _session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
 
   be pg_session_authenticated(session: Session) =>
     session.prepare("s1", "SELECT $1::text", this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -1218,11 +1329,14 @@ actor \nodoc\ _PrepareAndExecuteClient is
 
   be pg_statement_prepared(session: Session, name: String) =>
     _session.execute(
-      NamedPreparedQuery("s1",
+      NamedPreparedQuery(
+        "s1",
         recover val [as FieldDataTypes: "525600"] end),
       this)
 
-  be pg_prepare_failed(session: Session, name: String,
+  be pg_prepare_failed(
+    session: Session,
+    name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected prepare failure")
@@ -1250,7 +1364,9 @@ actor \nodoc\ _PrepareAndExecuteClient is
     end
     _h.complete(false)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure")
@@ -1283,15 +1399,19 @@ actor \nodoc\ _PrepareAndExecuteMultipleClient is
   new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
     _h = h
 
-    _session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
 
   be pg_session_authenticated(session: Session) =>
     session.prepare("s1", "SELECT $1::text", this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -1299,15 +1419,19 @@ actor \nodoc\ _PrepareAndExecuteMultipleClient is
 
   be pg_statement_prepared(session: Session, name: String) =>
     _session.execute(
-      NamedPreparedQuery("s1",
+      NamedPreparedQuery(
+        "s1",
         recover val [as FieldDataTypes: "first"] end),
       this)
     _session.execute(
-      NamedPreparedQuery("s1",
+      NamedPreparedQuery(
+        "s1",
         recover val [as FieldDataTypes: "second"] end),
       this)
 
-  be pg_prepare_failed(session: Session, name: String,
+  be pg_prepare_failed(
+    session: Session,
+    name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected prepare failure")
@@ -1353,7 +1477,9 @@ actor \nodoc\ _PrepareAndExecuteMultipleClient is
       return
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure at phase " + _phase.string())
@@ -1386,15 +1512,19 @@ actor \nodoc\ _PrepareAndCloseClient is
   new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
     _h = h
 
-    _session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
 
   be pg_session_authenticated(session: Session) =>
     session.prepare("s1", "SELECT $1::text", this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -1403,11 +1533,14 @@ actor \nodoc\ _PrepareAndCloseClient is
   be pg_statement_prepared(session: Session, name: String) =>
     _session.close_statement("s1")
     _session.execute(
-      NamedPreparedQuery("s1",
+      NamedPreparedQuery(
+        "s1",
         recover val [as FieldDataTypes: "hello"] end),
       this)
 
-  be pg_prepare_failed(session: Session, name: String,
+  be pg_prepare_failed(
+    session: Session,
+    name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected prepare failure")
@@ -1417,7 +1550,9 @@ actor \nodoc\ _PrepareAndCloseClient is
     _h.fail("Expected query failure after closing statement.")
     _h.complete(false)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     match failure
@@ -1454,15 +1589,19 @@ actor \nodoc\ _PrepareFailsClient is
   new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
     _h = h
 
-    _session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
 
   be pg_session_authenticated(session: Session) =>
     session.prepare("bad", "NOT VALID SQL !!!", this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -1472,7 +1611,9 @@ actor \nodoc\ _PrepareFailsClient is
     _h.fail("Expected prepare to fail but it succeeded.")
     _h.complete(false)
 
-  be pg_prepare_failed(session: Session, name: String,
+  be pg_prepare_failed(
+    session: Session,
+    name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if name != "bad" then
@@ -1515,16 +1656,20 @@ actor \nodoc\ _PrepareAfterCloseClient is
   new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
     _h = h
 
-    _session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
 
   be pg_session_authenticated(session: Session) =>
     _phase = 0
     session.prepare("s1", "SELECT 1::text", this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -1546,7 +1691,9 @@ actor \nodoc\ _PrepareAfterCloseClient is
       _h.complete(false)
     end
 
-  be pg_prepare_failed(session: Session, name: String,
+  be pg_prepare_failed(
+    session: Session,
+    name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected prepare failure at phase " + _phase.string())
@@ -1574,7 +1721,9 @@ actor \nodoc\ _PrepareAfterCloseClient is
     end
     _h.complete(false)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure")
@@ -1608,16 +1757,20 @@ actor \nodoc\ _CloseNonexistentClient is
   new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
     _h = h
 
-    _session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
 
   be pg_session_authenticated(session: Session) =>
     session.close_statement("nonexistent")
     session.execute(SimpleQuery("SELECT 1"), this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -1626,7 +1779,9 @@ actor \nodoc\ _CloseNonexistentClient is
   be pg_query_result(session: Session, result: Result) =>
     _h.complete(true)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure after closing nonexistent statement.")
@@ -1660,16 +1815,20 @@ actor \nodoc\ _PrepareDuplicateNameClient is
   new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
     _h = h
 
-    _session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
 
   be pg_session_authenticated(session: Session) =>
     _phase = 0
     session.prepare("dup", "SELECT 1", this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -1684,7 +1843,9 @@ actor \nodoc\ _PrepareDuplicateNameClient is
       _h.complete(false)
     end
 
-  be pg_prepare_failed(session: Session, name: String,
+  be pg_prepare_failed(
+    session: Session,
+    name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _phase = _phase + 1
@@ -1728,16 +1889,20 @@ actor \nodoc\ _MixedAllThreeClient is
   new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
     _h = h
 
-    _session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
 
   be pg_session_authenticated(session: Session) =>
     _phase = 0
     session.execute(SimpleQuery("SELECT 'simple'::text"), this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -1746,11 +1911,14 @@ actor \nodoc\ _MixedAllThreeClient is
   be pg_statement_prepared(session: Session, name: String) =>
     _phase = _phase + 1
     _session.execute(
-      NamedPreparedQuery("mix",
+      NamedPreparedQuery(
+        "mix",
         recover val [as FieldDataTypes: "named"] end),
       this)
 
-  be pg_prepare_failed(session: Session, name: String,
+  be pg_prepare_failed(
+    session: Session,
+    name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected prepare failure at phase " + _phase.string())
@@ -1772,7 +1940,8 @@ actor \nodoc\ _MixedAllThreeClient is
               return
             end
             _session.execute(
-              PreparedQuery("SELECT $1::text",
+              PreparedQuery(
+                "SELECT $1::text",
                 recover val [as FieldDataTypes: "prepared"] end),
               this)
           | 2 =>
@@ -1806,7 +1975,9 @@ actor \nodoc\ _MixedAllThreeClient is
       _h.complete(false)
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure at phase " + _phase.string())
@@ -1841,10 +2012,13 @@ actor \nodoc\ _CopyInInsertClient is
   new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
     _h = h
 
-    _session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
 
   be pg_session_authenticated(session: Session) =>
     _phase = 0
@@ -1853,7 +2027,8 @@ actor \nodoc\ _CopyInInsertClient is
         "CREATE TEMP TABLE copy_test (id INT, name TEXT)"),
       this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -1894,7 +2069,9 @@ actor \nodoc\ _CopyInInsertClient is
       _h.complete(false)
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure at phase " + _phase.string())
@@ -1903,9 +2080,13 @@ actor \nodoc\ _CopyInInsertClient is
   be pg_copy_ready(session: Session) =>
     _rows_sent = _rows_sent + 1
     if _rows_sent <= 3 then
-      let row: Array[U8] val = recover val
-        (_rows_sent.string() + "\trow" + _rows_sent.string() + "\n").array()
-      end
+      let row: Array[U8] val =
+        recover val
+          (_rows_sent.string()
+            + "\trow"
+            + _rows_sent.string()
+            + "\n").array()
+        end
       _session.send_copy_data(row)
     else
       _session.finish_copy()
@@ -1922,7 +2103,8 @@ actor \nodoc\ _CopyInInsertClient is
     _session.execute(
       SimpleQuery("SELECT count(*)::text FROM copy_test"), this)
 
-  be pg_copy_failed(session: Session,
+  be pg_copy_failed(
+    session: Session,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected copy failure.")
@@ -1958,10 +2140,13 @@ actor \nodoc\ _CopyInAbortRollbackClient is
   new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
     _h = h
 
-    _session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
 
   be pg_session_authenticated(session: Session) =>
     _phase = 0
@@ -1970,7 +2155,8 @@ actor \nodoc\ _CopyInAbortRollbackClient is
         "CREATE TEMP TABLE copy_abort_test (id INT, name TEXT)"),
       this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -2011,7 +2197,9 @@ actor \nodoc\ _CopyInAbortRollbackClient is
       _h.complete(false)
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure at phase " + _phase.string())
@@ -2020,9 +2208,8 @@ actor \nodoc\ _CopyInAbortRollbackClient is
   be pg_copy_ready(session: Session) =>
     if not _data_sent then
       _data_sent = true
-      let row: Array[U8] val = recover val
-        "1\ttest\n".array()
-      end
+      let row: Array[U8] val =
+        recover val "1\ttest\n".array() end
       _session.send_copy_data(row)
     else
       // After sending one row, abort
@@ -2033,7 +2220,8 @@ actor \nodoc\ _CopyInAbortRollbackClient is
     _h.fail("Unexpected copy complete after abort.")
     _h.complete(false)
 
-  be pg_copy_failed(session: Session,
+  be pg_copy_failed(
+    session: Session,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _phase = _phase + 1
@@ -2057,10 +2245,13 @@ class \nodoc\ iso _TestQueryByteaResults is UnitTest
 
     let client = _ByteaQueryReceiver(h)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -2078,7 +2269,8 @@ actor \nodoc\ _ByteaQueryReceiver is
   be pg_session_authenticated(session: Session) =>
     session.execute(_query, this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -2112,7 +2304,9 @@ actor \nodoc\ _ByteaQueryReceiver is
 
     _h.complete(true)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure.")
@@ -2132,10 +2326,13 @@ class \nodoc\ iso _TestPreparedQueryTypedResults is UnitTest
 
     let client = _PreparedQueryTypedResultsReceiver(h)
 
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        client)
 
     h.dispose_when_done(session)
     h.long_test(5_000_000_000)
@@ -2150,20 +2347,22 @@ actor \nodoc\ _PreparedQueryTypedResultsReceiver is
 
   be pg_session_authenticated(session: Session) =>
     // SELECT literal typed columns — no table needed
-    let q = PreparedQuery(
-      """
-      SELECT 42::int4 AS i,
-             true::bool AS b,
-             '2024-06-15'::date AS d,
-             '2024-06-15 14:30:00'::timestamp AS ts,
-             '14:30:00'::time AS t,
-             '1 year 2 mons 3 days 04:05:06'::interval AS iv,
-             3.14::float8 AS f
-      """,
-      recover val Array[FieldDataTypes] end)
+    let q =
+      PreparedQuery(
+        """
+        SELECT 42::int4 AS i,
+               true::bool AS b,
+               '2024-06-15'::date AS d,
+               '2024-06-15 14:30:00'::timestamp AS ts,
+               '14:30:00'::time AS t,
+               '1 year 2 mons 3 days 04:05:06'::interval AS iv,
+               3.14::float8 AS f
+        """,
+        recover val Array[FieldDataTypes] end)
     session.execute(q, this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _h.fail("Connection failed before reaching authenticated state.")
@@ -2261,7 +2460,9 @@ actor \nodoc\ _PreparedQueryTypedResultsReceiver is
 
     _h.complete(true)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure.")

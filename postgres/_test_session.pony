@@ -15,11 +15,12 @@ class \nodoc\ iso _TestHandlingJunkMessages is UnitTest
     let host = "127.0.0.1"
     let port = "7669"
 
-    let listener = _JunkSendingTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _JunkSendingTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -83,10 +84,15 @@ actor \nodoc\ _JunkSendingTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     // Now that we are listening, start a client session
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _HandlingJunkTestNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _HandlingJunkTestNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -133,11 +139,12 @@ class \nodoc\ iso _TestUnansweredQueriesFailOnShutdown is UnitTest
     let host = "127.0.0.1"
     let port = "9667"
 
-    let listener = _DoesntAnswerTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _DoesntAnswerTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -164,7 +171,9 @@ actor \nodoc\ _DoesntAnswerClient is (SessionStatusNotify & ResultReceiver)
     _h.fail("Unexpectedly got a result for a query.")
     _h.complete(false)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     if _in_flight_queries.contains(query) then
@@ -219,11 +228,16 @@ actor \nodoc\ _DoesntAnswerTestListener is lori.TCPListenerActor
 
   fun ref _on_listening() =>
     // Now that we are listening, start a client session
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _DoesntAnswerClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _DoesntAnswerClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -275,11 +289,12 @@ class \nodoc\ iso _TestZeroRowSelectReturnsResultSet is UnitTest
     let host = "127.0.0.1"
     let port = "7670"
 
-    let listener = _ZeroRowSelectTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _ZeroRowSelectTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -330,7 +345,9 @@ actor \nodoc\ _ZeroRowSelectTestClient is (SessionStatusNotify & ResultReceiver)
 
     _close_and_complete(true)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure.")
@@ -369,11 +386,16 @@ actor \nodoc\ _ZeroRowSelectTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _ZeroRowSelectTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _ZeroRowSelectTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -416,10 +438,12 @@ actor \nodoc\ _ZeroRowSelectTestServer
     else
       match _reader.read_message()
       | let _: Array[U8] val =>
-        let columns: Array[(String, U32, U16)] val = recover val
-          [("col", U32(25), U16(0))]
-        end
-        let row_desc = _IncomingRowDescriptionTestMessage(columns).bytes()
+        let columns: Array[(String, U32, U16)] val =
+          recover val
+            [("col", U32(25), U16(0))]
+          end
+        let row_desc =
+          _IncomingRowDescriptionTestMessage(columns).bytes()
         let cmd_complete =
           _IncomingCommandCompleteTestMessage("SELECT 0").bytes()
         let ready = _IncomingReadyForQueryTestMessage('I').bytes()
@@ -442,11 +466,12 @@ class \nodoc\ iso _TestPrepareShutdownDrainsPrepareQueue is UnitTest
     let host = "127.0.0.1"
     let port = "9668"
 
-    let listener = _PrepareShutdownTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _PrepareShutdownTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -475,7 +500,9 @@ actor \nodoc\ _PrepareShutdownTestClient is
     _h.fail("Unexpectedly got a prepared statement.")
     _h.complete(false)
 
-  be pg_prepare_failed(session: Session, name: String,
+  be pg_prepare_failed(
+    session: Session,
+    name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     match failure
@@ -516,11 +543,16 @@ actor \nodoc\ _PrepareShutdownTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _PrepareShutdownTestClient(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _PrepareShutdownTestClient(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -541,11 +573,12 @@ class \nodoc\ iso _TestTerminateSentOnClose is UnitTest
     let host = "127.0.0.1"
     let port = "7674"
 
-    let listener = _TerminateSentTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _TerminateSentTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -592,11 +625,16 @@ actor \nodoc\ _TerminateSentTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _TerminateSentTestNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _TerminateSentTestNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -661,13 +699,14 @@ class \nodoc\ iso _TestByteaResultDecoding is UnitTest
     let host = "127.0.0.1"
     let port = "7694"
 
-    let listener = _ByteaTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h,
-      "\\x48656c6c6f",
-      recover val [as U8: 72; 101; 108; 108; 111] end)
+    let listener =
+      _ByteaTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        "\\x48656c6c6f",
+        recover val [as U8: 72; 101; 108; 108; 111] end)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -684,13 +723,14 @@ class \nodoc\ iso _TestEmptyByteaResultDecoding is UnitTest
     let host = "127.0.0.1"
     let port = "7695"
 
-    let listener = _ByteaTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h,
-      "\\x",
-      recover val Array[U8] end)
+    let listener =
+      _ByteaTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        "\\x",
+        recover val Array[U8] end)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -735,7 +775,9 @@ actor \nodoc\ _ByteaTestClient is (SessionStatusNotify & ResultReceiver)
     end
     _close_and_complete(true)
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure.")
@@ -780,11 +822,16 @@ actor \nodoc\ _ByteaTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _ByteaTestClient(_h, _expected))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo(
+          "postgres", "postgres", "postgres"),
+        _ByteaTestClient(_h, _expected))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -829,15 +876,18 @@ actor \nodoc\ _ByteaTestServer
     else
       match _reader.read_message()
       | let _: Array[U8] val =>
-        let columns: Array[(String, U32, U16)] val = recover val
-          [("col", U32(17), U16(0))]
-        end
+        let columns: Array[(String, U32, U16)] val =
+          recover val
+            [("col", U32(17), U16(0))]
+          end
         let row_desc =
           _IncomingRowDescriptionTestMessage(columns).bytes()
-        let data_row_cols: Array[(String | None)] val = recover val
-          [_hex_data]
-        end
-        let data_row = _IncomingDataRowTestMessage(data_row_cols).bytes()
+        let data_row_cols: Array[(String | None)] val =
+          recover val
+            [_hex_data]
+          end
+        let data_row =
+          _IncomingDataRowTestMessage(data_row_cols).bytes()
         let cmd_complete =
           _IncomingCommandCompleteTestMessage("SELECT 1").bytes()
         let ready = _IncomingReadyForQueryTestMessage('I').bytes()

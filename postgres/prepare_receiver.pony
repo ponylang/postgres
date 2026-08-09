@@ -10,7 +10,9 @@ interface tag PrepareReceiver
     Called when the server has successfully prepared a named statement.
     """
 
-  be pg_prepare_failed(session: Session, name: String,
+  be pg_prepare_failed(
+    session: Session,
+    name: String,
     failure: (ErrorResponseMessage | ClientQueryError))
     """
     Called when statement preparation fails. The failure is either a server

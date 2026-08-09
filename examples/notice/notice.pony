@@ -1,12 +1,9 @@
 """
-Statement timeout using the `statement_timeout` parameter on
-`session.execute()`. Executes a long-running query (`SELECT pg_sleep(10)`)
-with a 2-second timeout. When the timeout fires, the driver sends a
-CancelRequest and the query fails with SQLSTATE 57014 (query_canceled).
+NoticeResponse handling. Drops a nonexistent table with IF EXISTS to trigger
+a server notice, then prints the notice fields via `pg_notice`.
 """
 use "cli"
 use "collections"
-use "constrained_types"
 use lori = "lori"
 // in your code this `use` statement would be:
 // use "postgres"
@@ -20,57 +17,67 @@ actor Main
     let client = Client(auth, server_info, env.out)
 
 actor Client is (SessionStatusNotify & ResultReceiver)
+  """
+  Triggers a server notice and prints its fields.
+  """
   let _session: Session
   let _out: OutStream
 
   new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
-    _session = Session(
-      ServerConnectInfo(auth, info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(auth, info.host, info.port),
+        DatabaseConnectInfo(info.username, info.password, info.database),
+        this)
 
   be close() =>
     _session.close()
 
   be pg_session_authenticated(session: Session) =>
     _out.print("Authenticated.")
-
-    match lori.MakeTimerDuration(2000)
-    | let d: lori.TimerDuration =>
-      _out.print("Sending long-running query with 2-second timeout....")
-      let q = SimpleQuery("SELECT pg_sleep(10)")
-      session.execute(q, this where statement_timeout = d)
-    | let vf: ValidationFailure =>
-      _out.print("Failed to create timer duration.")
-      close()
-    end
+    _out.print("Dropping nonexistent table to trigger a notice...")
+    session.execute(
+      SimpleQuery("DROP TABLE IF EXISTS nonexistent_example_table"), this)
 
   be pg_session_connection_failed(session: Session,
     reason: ConnectionFailureReason)
   =>
     _out.print("Connection failed.")
 
+  be pg_notice(session: Session, notice: NoticeResponseMessage) =>
+    """
+    Prints the severity, code, and message from a server notice.
+    """
+    _out.print("Notice received:")
+    _out.print("  severity: " + notice.severity)
+    _out.print("  code:     " + notice.code)
+    _out.print("  message:  " + notice.message)
+
   be pg_query_result(session: Session, result: Result) =>
-    _out.print("Query completed (was not cancelled).")
+    _out.print("Query completed.")
+    _out.print("Done.")
     close()
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
-    | let err: ErrorResponseMessage =>
-      if err.code == "57014" then
-        _out.print("Query timed out (SQLSTATE 57014).")
-      else
-        _out.print("Query failed with SQLSTATE " + err.code + ".")
-      end
-    | let ce: ClientQueryError =>
-      _out.print("Query failed with client error.")
+    match \exhaustive\ failure
+    | let e: ErrorResponseMessage =>
+      _out.print("Query failed: [" + e.severity + "] " + e.code + ": "
+        + e.message)
+    | let e: ClientQueryError =>
+      _out.print("Query failed: client error")
     end
     close()
 
 class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
   let host: String
   let port: String
   let username: String

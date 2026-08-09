@@ -73,7 +73,8 @@ interface tag SessionStatusNotify
   be pg_parameter_status(session: Session, status: ParameterStatus) =>
     """
     Called when the server reports a runtime parameter value. PostgreSQL sends
-    these during connection startup for all reporting parameters (server_version,
+    these during connection startup for all reporting parameters
+    (server_version,
     client_encoding, standard_conforming_strings, etc.) and again whenever a
     SET command changes one.
     """

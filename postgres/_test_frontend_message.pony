@@ -6,11 +6,12 @@ class \nodoc\ iso _TestFrontendMessagePassword is UnitTest
 
   fun apply(h: TestHelper) =>
     let password = "pwd"
-    let expected: Array[U8] = ifdef bigendian then
-      ['p'; 8; 0; 0; 0; 'p'; 'w'; 'd'; 0]
-    else
-      ['p'; 0; 0; 0; 8; 'p'; 'w'; 'd'; 0]
-    end
+    let expected: Array[U8] =
+      ifdef bigendian then
+        ['p'; 8; 0; 0; 0; 'p'; 'w'; 'd'; 0]
+      else
+        ['p'; 0; 0; 0; 8; 'p'; 'w'; 'd'; 0]
+      end
 
     h.assert_array_eq[U8](expected, _FrontendMessage.password(password))
 
@@ -20,13 +21,16 @@ class \nodoc\ iso _TestFrontendMessageQuery is UnitTest
 
   fun apply(h: TestHelper) =>
     let query = "select * from free_candy"
-    let expected: Array[U8] = ifdef bigendian then
-      [ 81; 29; 0; 0; 0; 115; 101; 108; 101; 99; 116; 32; 42; 32; 102; 114
-        111; 109; 32; 102; 114; 101; 101; 95; 99; 97; 110; 100; 121; 0 ]
-    else
-      [ 81; 0; 0; 0; 29; 115; 101; 108; 101; 99; 116; 32; 42; 32; 102; 114
-        111; 109; 32; 102; 114; 101; 101; 95; 99; 97; 110; 100; 121; 0 ]
-    end
+    let expected: Array[U8] =
+      ifdef bigendian then
+        [ 81; 29; 0; 0; 0; 115; 101; 108; 101; 99; 116; 32; 42; 32
+          102; 114; 111; 109; 32; 102; 114; 101; 101; 95; 99; 97
+          110; 100; 121; 0 ]
+      else
+        [ 81; 0; 0; 0; 29; 115; 101; 108; 101; 99; 116; 32; 42; 32
+          102; 114; 111; 109; 32; 102; 114; 101; 101; 95; 99; 97
+          110; 100; 121; 0 ]
+      end
 
     h.assert_array_eq[U8](expected, _FrontendMessage.query(query))
 
@@ -37,15 +41,20 @@ class \nodoc\ iso _TestFrontendMessageStartup is UnitTest
   fun apply(h: TestHelper) =>
     let username = "pony"
     let password = "7669"
-    let expected: Array[U8] = ifdef bigendian then
-      [ 33; 0; 0; 0; 3; 0; 0; 0; 117; 115; 101; 114; 0; 112; 111; 110; 121; 0
-        100; 97; 116; 97; 98; 97; 115; 101; 0; 55; 54; 54; 57; 0; 0 ]
-    else
-      [ 0; 0; 0; 33; 0; 3; 0; 0; 117; 115; 101; 114; 0; 112; 111; 110; 121; 0
-        100; 97; 116; 97; 98; 97; 115; 101; 0; 55; 54; 54; 57; 0; 0 ]
-    end
+    let expected: Array[U8] =
+      ifdef bigendian then
+        [ 33; 0; 0; 0; 3; 0; 0; 0; 117; 115; 101; 114; 0; 112
+          111; 110; 121; 0; 100; 97; 116; 97; 98; 97; 115; 101
+          0; 55; 54; 54; 57; 0; 0 ]
+      else
+        [ 0; 0; 0; 33; 0; 3; 0; 0; 117; 115; 101; 114; 0; 112
+          111; 110; 121; 0; 100; 97; 116; 97; 98; 97; 115; 101
+          0; 55; 54; 54; 57; 0; 0 ]
+      end
 
-    h.assert_array_eq[U8](expected, _FrontendMessage.startup(username, password))
+    h.assert_array_eq[U8](
+      expected,
+      _FrontendMessage.startup(username, password))
 
 class \nodoc\ iso _TestFrontendMessageParse is UnitTest
   fun name(): String =>
@@ -54,14 +63,16 @@ class \nodoc\ iso _TestFrontendMessageParse is UnitTest
   fun apply(h: TestHelper) =>
     // Parse("", "S $1", [])
     // Length = 4 + 0+1 + 4+1 + 2 + 0 = 12, total = 13
-    let expected: Array[U8] = ifdef bigendian then
-      [ 80; 12; 0; 0; 0; 0; 83; 32; 36; 49; 0; 0; 0 ]
-    else
-      [ 80; 0; 0; 0; 12; 0; 83; 32; 36; 49; 0; 0; 0 ]
-    end
+    let expected: Array[U8] =
+      ifdef bigendian then
+        [ 80; 12; 0; 0; 0; 0; 83; 32; 36; 49; 0; 0; 0 ]
+      else
+        [ 80; 0; 0; 0; 12; 0; 83; 32; 36; 49; 0; 0; 0 ]
+      end
 
     let oids: Array[U32] val = recover val Array[U32] end
-    h.assert_array_eq[U8](expected,
+    h.assert_array_eq[U8](
+      expected,
       _FrontendMessage.parse("", "S $1", oids))
 
 class \nodoc\ iso _TestFrontendMessageParseWithTypes is UnitTest
@@ -71,14 +82,19 @@ class \nodoc\ iso _TestFrontendMessageParseWithTypes is UnitTest
   fun apply(h: TestHelper) =>
     // Parse("", "S $1", [23])
     // Length = 4 + 0+1 + 4+1 + 2 + 4 = 16, total = 17
-    let expected: Array[U8] = ifdef bigendian then
-      [ 80; 16; 0; 0; 0; 0; 83; 32; 36; 49; 0; 1; 0; 23; 0; 0; 0 ]
-    else
-      [ 80; 0; 0; 0; 16; 0; 83; 32; 36; 49; 0; 0; 1; 0; 0; 0; 23 ]
-    end
+    let expected: Array[U8] =
+      ifdef bigendian then
+        [ 80; 16; 0; 0; 0; 0; 83; 32; 36; 49; 0; 1; 0
+          23; 0; 0; 0 ]
+      else
+        [ 80; 0; 0; 0; 16; 0; 83; 32; 36; 49; 0; 0; 1
+          0; 0; 0; 23 ]
+      end
 
-    let oids: Array[U32] val = recover val [as U32: 23] end
-    h.assert_array_eq[U8](expected,
+    let oids: Array[U32] val =
+      recover val [as U32: 23] end
+    h.assert_array_eq[U8](
+      expected,
       _FrontendMessage.parse("", "S $1", oids))
 
 class \nodoc\ iso _TestFrontendMessageBind is UnitTest
@@ -90,17 +106,21 @@ class \nodoc\ iso _TestFrontendMessageBind is UnitTest
     // Per-param format codes: 1 format code (text=0 for String)
     // params_data = 4+3 = 7
     // Result format: num_result_formats=1, format_code=1 (binary)
-    // Length = 4 + 0+1 + 0+1 + 2 + 1*2 + 2 + 7 + 2 + 2 = 23, total = 24
-    let expected: Array[U8] = ifdef bigendian then
-      [ 66; 23; 0; 0; 0; 0; 0; 1; 0; 0; 0; 1; 0
-        3; 0; 0; 0; 97; 98; 99; 0; 1; 0; 1 ]
-    else
-      [ 66; 0; 0; 0; 23; 0; 0; 0; 1; 0; 0; 0; 1
-        0; 0; 0; 3; 97; 98; 99; 0; 1; 0; 1 ]
-    end
+    // Length = 4 + 0+1 + 0+1 + 2 + 1*2 + 2 + 7 + 2 + 2 = 23,
+    // total = 24
+    let expected: Array[U8] =
+      ifdef bigendian then
+        [ 66; 23; 0; 0; 0; 0; 0; 1; 0; 0; 0; 1; 0
+          3; 0; 0; 0; 97; 98; 99; 0; 1; 0; 1 ]
+      else
+        [ 66; 0; 0; 0; 23; 0; 0; 0; 1; 0; 0; 0; 1
+          0; 0; 0; 3; 97; 98; 99; 0; 1; 0; 1 ]
+      end
 
-    let params: Array[FieldDataTypes] val = recover val [as FieldDataTypes: "abc"] end
-    h.assert_array_eq[U8](expected,
+    let params: Array[FieldDataTypes] val =
+      recover val [as FieldDataTypes: "abc"] end
+    h.assert_array_eq[U8](
+      expected,
       _FrontendMessage.bind("", "", params, CodecRegistry)?)
 
 class \nodoc\ iso _TestFrontendMessageBindWithNull is UnitTest
@@ -112,17 +132,21 @@ class \nodoc\ iso _TestFrontendMessageBindWithNull is UnitTest
     // Per-param format codes: 1 format code (text=0 for None)
     // params_data = 4
     // Result format: num_result_formats=1, format_code=1 (binary)
-    // Length = 4 + 0+1 + 0+1 + 2 + 1*2 + 2 + 4 + 2 + 2 = 20, total = 21
-    let expected: Array[U8] = ifdef bigendian then
-      [ 66; 20; 0; 0; 0; 0; 0; 1; 0; 0; 0; 1; 0
-        255; 255; 255; 255; 0; 1; 0; 1 ]
-    else
-      [ 66; 0; 0; 0; 20; 0; 0; 0; 1; 0; 0; 0; 1
-        255; 255; 255; 255; 0; 1; 0; 1 ]
-    end
+    // Length = 4 + 0+1 + 0+1 + 2 + 1*2 + 2 + 4 + 2 + 2 = 20,
+    // total = 21
+    let expected: Array[U8] =
+      ifdef bigendian then
+        [ 66; 20; 0; 0; 0; 0; 0; 1; 0; 0; 0; 1; 0
+          255; 255; 255; 255; 0; 1; 0; 1 ]
+      else
+        [ 66; 0; 0; 0; 20; 0; 0; 0; 1; 0; 0; 0; 1
+          255; 255; 255; 255; 0; 1; 0; 1 ]
+      end
 
-    let params: Array[FieldDataTypes] val = recover val [as FieldDataTypes: None] end
-    h.assert_array_eq[U8](expected,
+    let params: Array[FieldDataTypes] val =
+      recover val [as FieldDataTypes: None] end
+    h.assert_array_eq[U8](
+      expected,
       _FrontendMessage.bind("", "", params, CodecRegistry)?)
 
 class \nodoc\ iso _TestFrontendMessageDescribePortal is UnitTest
@@ -132,13 +156,15 @@ class \nodoc\ iso _TestFrontendMessageDescribePortal is UnitTest
   fun apply(h: TestHelper) =>
     // DescribePortal("")
     // Length = 4 + 1 + 0+1 = 6, total = 7
-    let expected: Array[U8] = ifdef bigendian then
-      [ 68; 6; 0; 0; 0; 80; 0 ]
-    else
-      [ 68; 0; 0; 0; 6; 80; 0 ]
-    end
+    let expected: Array[U8] =
+      ifdef bigendian then
+        [ 68; 6; 0; 0; 0; 80; 0 ]
+      else
+        [ 68; 0; 0; 0; 6; 80; 0 ]
+      end
 
-    h.assert_array_eq[U8](expected,
+    h.assert_array_eq[U8](
+      expected,
       _FrontendMessage.describe_portal(""))
 
 class \nodoc\ iso _TestFrontendMessageExecute is UnitTest
@@ -148,13 +174,15 @@ class \nodoc\ iso _TestFrontendMessageExecute is UnitTest
   fun apply(h: TestHelper) =>
     // ExecuteMsg("", 0)
     // Length = 4 + 0+1 + 4 = 9, total = 10
-    let expected: Array[U8] = ifdef bigendian then
-      [ 69; 9; 0; 0; 0; 0; 0; 0; 0; 0 ]
-    else
-      [ 69; 0; 0; 0; 9; 0; 0; 0; 0; 0 ]
-    end
+    let expected: Array[U8] =
+      ifdef bigendian then
+        [ 69; 9; 0; 0; 0; 0; 0; 0; 0; 0 ]
+      else
+        [ 69; 0; 0; 0; 9; 0; 0; 0; 0; 0 ]
+      end
 
-    h.assert_array_eq[U8](expected,
+    h.assert_array_eq[U8](
+      expected,
       _FrontendMessage.execute_msg("", 0))
 
 class \nodoc\ iso _TestFrontendMessageDescribeStatement is UnitTest
@@ -164,13 +192,15 @@ class \nodoc\ iso _TestFrontendMessageDescribeStatement is UnitTest
   fun apply(h: TestHelper) =>
     // DescribeStatement("s1")
     // Length = 4 + 1 + 2+1 = 8, total = 9
-    let expected: Array[U8] = ifdef bigendian then
-      [ 68; 8; 0; 0; 0; 83; 115; 49; 0 ]
-    else
-      [ 68; 0; 0; 0; 8; 83; 115; 49; 0 ]
-    end
+    let expected: Array[U8] =
+      ifdef bigendian then
+        [ 68; 8; 0; 0; 0; 83; 115; 49; 0 ]
+      else
+        [ 68; 0; 0; 0; 8; 83; 115; 49; 0 ]
+      end
 
-    h.assert_array_eq[U8](expected,
+    h.assert_array_eq[U8](
+      expected,
       _FrontendMessage.describe_statement("s1"))
 
 class \nodoc\ iso _TestFrontendMessageCloseStatement is UnitTest
@@ -180,13 +210,15 @@ class \nodoc\ iso _TestFrontendMessageCloseStatement is UnitTest
   fun apply(h: TestHelper) =>
     // CloseStatement("s1")
     // Length = 4 + 1 + 2+1 = 8, total = 9
-    let expected: Array[U8] = ifdef bigendian then
-      [ 67; 8; 0; 0; 0; 83; 115; 49; 0 ]
-    else
-      [ 67; 0; 0; 0; 8; 83; 115; 49; 0 ]
-    end
+    let expected: Array[U8] =
+      ifdef bigendian then
+        [ 67; 8; 0; 0; 0; 83; 115; 49; 0 ]
+      else
+        [ 67; 0; 0; 0; 8; 83; 115; 49; 0 ]
+      end
 
-    h.assert_array_eq[U8](expected,
+    h.assert_array_eq[U8](
+      expected,
       _FrontendMessage.close_statement("s1"))
 
 class \nodoc\ iso _TestFrontendMessageSync is UnitTest
@@ -196,13 +228,15 @@ class \nodoc\ iso _TestFrontendMessageSync is UnitTest
   fun apply(h: TestHelper) =>
     // Sync()
     // Length = 4, total = 5
-    let expected: Array[U8] = ifdef bigendian then
-      [ 83; 4; 0; 0; 0 ]
-    else
-      [ 83; 0; 0; 0; 4 ]
-    end
+    let expected: Array[U8] =
+      ifdef bigendian then
+        [ 83; 4; 0; 0; 0 ]
+      else
+        [ 83; 0; 0; 0; 4 ]
+      end
 
-    h.assert_array_eq[U8](expected,
+    h.assert_array_eq[U8](
+      expected,
       _FrontendMessage.sync())
 
 class \nodoc\ iso _TestFrontendMessageSSLRequest is UnitTest
@@ -212,11 +246,14 @@ class \nodoc\ iso _TestFrontendMessageSSLRequest is UnitTest
   fun apply(h: TestHelper) =>
     // SSLRequest: Int32(8) Int32(80877103)
     // 80877103 = 0x04D2162F
-    // Both big-endian and little-endian produce the same byte sequence
-    // because the code writes big-endian wire format on both platforms.
-    let expected: Array[U8] = [ 0; 0; 0; 8; 4; 210; 22; 47 ]
+    // Both big-endian and little-endian produce the same
+    // byte sequence because the code writes big-endian wire
+    // format on both platforms.
+    let expected: Array[U8] =
+      [ 0; 0; 0; 8; 4; 210; 22; 47 ]
 
-    h.assert_array_eq[U8](expected,
+    h.assert_array_eq[U8](
+      expected,
       _FrontendMessage.ssl_request())
 
 class \nodoc\ iso _TestFrontendMessageCancelRequest is UnitTest
@@ -224,15 +261,18 @@ class \nodoc\ iso _TestFrontendMessageCancelRequest is UnitTest
     "FrontendMessage/CancelRequest"
 
   fun apply(h: TestHelper) =>
-    // CancelRequest: Int32(16) Int32(80877102) Int32(pid) Int32(key)
+    // CancelRequest: Int32(16) Int32(80877102)
+    // Int32(pid) Int32(key)
     // No message type byte, 16 bytes total.
     // 80877102 = 0x04D2162E
     // pid = 12345 = 0x00003039
     // key = 67890 = 0x00010932
     let expected: Array[U8] =
-      [ 0; 0; 0; 16; 4; 210; 22; 46; 0; 0; 48; 57; 0; 1; 9; 50 ]
+      [ 0; 0; 0; 16; 4; 210; 22; 46
+        0; 0; 48; 57; 0; 1; 9; 50 ]
 
-    h.assert_array_eq[U8](expected,
+    h.assert_array_eq[U8](
+      expected,
       _FrontendMessage.cancel_request(12345, 67890))
 
 class \nodoc\ iso _TestFrontendMessageSASLInitialResponse is UnitTest
@@ -244,21 +284,30 @@ class \nodoc\ iso _TestFrontendMessageSASLInitialResponse is UnitTest
     // mechanism = "SCRAM-SHA-256" (13 bytes + null)
     // response = "n,,n=,r=abc" (11 bytes)
     // Length = 4 + 13+1 + 4 + 11 = 33, total = 34
-    let response: Array[U8] val = "n,,n=,r=abc".array()
-    let expected: Array[U8] = ifdef bigendian then
-      [ 'p'; 33; 0; 0; 0
-        83; 67; 82; 65; 77; 45; 83; 72; 65; 45; 50; 53; 54; 0  // SCRAM-SHA-256\0
-        11; 0; 0; 0  // response length
-        110; 44; 44; 110; 61; 44; 114; 61; 97; 98; 99 ]  // n,,n=,r=abc
-    else
-      [ 'p'; 0; 0; 0; 33
-        83; 67; 82; 65; 77; 45; 83; 72; 65; 45; 50; 53; 54; 0
-        0; 0; 0; 11
-        110; 44; 44; 110; 61; 44; 114; 61; 97; 98; 99 ]
-    end
+    let response: Array[U8] val =
+      "n,,n=,r=abc".array()
+    let expected: Array[U8] =
+      ifdef bigendian then
+        [ 'p'; 33; 0; 0; 0
+          83; 67; 82; 65; 77; 45; 83; 72; 65; 45; 50
+          53; 54; 0
+          11; 0; 0; 0
+          110; 44; 44; 110; 61; 44; 114; 61; 97; 98
+          99 ]
+      else
+        [ 'p'; 0; 0; 0; 33
+          83; 67; 82; 65; 77; 45; 83; 72; 65; 45; 50
+          53; 54; 0
+          0; 0; 0; 11
+          110; 44; 44; 110; 61; 44; 114; 61; 97; 98
+          99 ]
+      end
 
-    h.assert_array_eq[U8](expected,
-      _FrontendMessage.sasl_initial_response("SCRAM-SHA-256", response))
+    h.assert_array_eq[U8](
+      expected,
+      _FrontendMessage.sasl_initial_response(
+        "SCRAM-SHA-256",
+        response))
 
 class \nodoc\ iso _TestFrontendMessageSASLResponse is UnitTest
   fun name(): String =>
@@ -268,18 +317,23 @@ class \nodoc\ iso _TestFrontendMessageSASLResponse is UnitTest
     // SASLResponse("c=biws,r=abc,p=proof")
     // response = 20 bytes
     // Length = 4 + 20 = 24, total = 25
-    let response: Array[U8] val = "c=biws,r=abc,p=proof".array()
-    let expected: Array[U8] = ifdef bigendian then
-      [ 'p'; 24; 0; 0; 0
-        99; 61; 98; 105; 119; 115; 44; 114; 61; 97; 98; 99; 44; 112; 61
-        112; 114; 111; 111; 102 ]
-    else
-      [ 'p'; 0; 0; 0; 24
-        99; 61; 98; 105; 119; 115; 44; 114; 61; 97; 98; 99; 44; 112; 61
-        112; 114; 111; 111; 102 ]
-    end
+    let response: Array[U8] val =
+      "c=biws,r=abc,p=proof".array()
+    let expected: Array[U8] =
+      ifdef bigendian then
+        [ 'p'; 24; 0; 0; 0
+          99; 61; 98; 105; 119; 115; 44; 114; 61; 97
+          98; 99; 44; 112; 61; 112; 114; 111; 111
+          102 ]
+      else
+        [ 'p'; 0; 0; 0; 24
+          99; 61; 98; 105; 119; 115; 44; 114; 61; 97
+          98; 99; 44; 112; 61; 112; 114; 111; 111
+          102 ]
+      end
 
-    h.assert_array_eq[U8](expected,
+    h.assert_array_eq[U8](
+      expected,
       _FrontendMessage.sasl_response(response))
 
 class \nodoc\ iso _TestFrontendMessageCopyData is UnitTest
@@ -289,14 +343,18 @@ class \nodoc\ iso _TestFrontendMessageCopyData is UnitTest
   fun apply(h: TestHelper) =>
     // CopyData("abc")
     // Length = 4 + 3 = 7, total = 8
-    let data: Array[U8] val = recover val [as U8: 97; 98; 99] end
-    let expected: Array[U8] = ifdef bigendian then
-      [ 'd'; 7; 0; 0; 0; 97; 98; 99 ]
-    else
-      [ 'd'; 0; 0; 0; 7; 97; 98; 99 ]
-    end
+    let data: Array[U8] val =
+      recover val [as U8: 97; 98; 99] end
+    let expected: Array[U8] =
+      ifdef bigendian then
+        [ 'd'; 7; 0; 0; 0; 97; 98; 99 ]
+      else
+        [ 'd'; 0; 0; 0; 7; 97; 98; 99 ]
+      end
 
-    h.assert_array_eq[U8](expected, _FrontendMessage.copy_data(data))
+    h.assert_array_eq[U8](
+      expected,
+      _FrontendMessage.copy_data(data))
 
 class \nodoc\ iso _TestFrontendMessageCopyDone is UnitTest
   fun name(): String =>
@@ -304,13 +362,16 @@ class \nodoc\ iso _TestFrontendMessageCopyDone is UnitTest
 
   fun apply(h: TestHelper) =>
     // CopyDone: Byte1('c') Int32(4) = 5 bytes
-    let expected: Array[U8] = ifdef bigendian then
-      [ 'c'; 4; 0; 0; 0 ]
-    else
-      [ 'c'; 0; 0; 0; 4 ]
-    end
+    let expected: Array[U8] =
+      ifdef bigendian then
+        [ 'c'; 4; 0; 0; 0 ]
+      else
+        [ 'c'; 0; 0; 0; 4 ]
+      end
 
-    h.assert_array_eq[U8](expected, _FrontendMessage.copy_done())
+    h.assert_array_eq[U8](
+      expected,
+      _FrontendMessage.copy_done())
 
 class \nodoc\ iso _TestFrontendMessageCopyFail is UnitTest
   fun name(): String =>
@@ -319,13 +380,16 @@ class \nodoc\ iso _TestFrontendMessageCopyFail is UnitTest
   fun apply(h: TestHelper) =>
     // CopyFail("err")
     // Length = 4 + 3 + 1 = 8, total = 9
-    let expected: Array[U8] = ifdef bigendian then
-      [ 'f'; 8; 0; 0; 0; 101; 114; 114; 0 ]
-    else
-      [ 'f'; 0; 0; 0; 8; 101; 114; 114; 0 ]
-    end
+    let expected: Array[U8] =
+      ifdef bigendian then
+        [ 'f'; 8; 0; 0; 0; 101; 114; 114; 0 ]
+      else
+        [ 'f'; 0; 0; 0; 8; 101; 114; 114; 0 ]
+      end
 
-    h.assert_array_eq[U8](expected, _FrontendMessage.copy_fail("err"))
+    h.assert_array_eq[U8](
+      expected,
+      _FrontendMessage.copy_fail("err"))
 
 class \nodoc\ iso _TestFrontendMessageFlush is UnitTest
   fun name(): String =>
@@ -333,13 +397,15 @@ class \nodoc\ iso _TestFrontendMessageFlush is UnitTest
 
   fun apply(h: TestHelper) =>
     // Flush: Byte1('H') Int32(4) = 5 bytes
-    let expected: Array[U8] = ifdef bigendian then
-      [ 'H'; 4; 0; 0; 0 ]
-    else
-      [ 'H'; 0; 0; 0; 4 ]
-    end
+    let expected: Array[U8] =
+      ifdef bigendian then
+        [ 'H'; 4; 0; 0; 0 ]
+      else
+        [ 'H'; 0; 0; 0; 4 ]
+      end
 
-    h.assert_array_eq[U8](expected,
+    h.assert_array_eq[U8](
+      expected,
       _FrontendMessage.flush())
 
 class \nodoc\ iso _TestFrontendMessageTerminate is UnitTest
@@ -348,11 +414,13 @@ class \nodoc\ iso _TestFrontendMessageTerminate is UnitTest
 
   fun apply(h: TestHelper) =>
     // Terminate: Byte1('X') Int32(4) = 5 bytes
-    let expected: Array[U8] = ifdef bigendian then
-      [ 'X'; 4; 0; 0; 0 ]
-    else
-      [ 'X'; 0; 0; 0; 4 ]
-    end
+    let expected: Array[U8] =
+      ifdef bigendian then
+        [ 'X'; 4; 0; 0; 0 ]
+      else
+        [ 'X'; 0; 0; 0; 4 ]
+      end
 
-    h.assert_array_eq[U8](expected,
+    h.assert_array_eq[U8](
+      expected,
       _FrontendMessage.terminate())

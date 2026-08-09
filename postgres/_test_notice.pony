@@ -14,12 +14,13 @@ class \nodoc\ iso _TestNoticeDelivery is UnitTest
     let host = "127.0.0.1"
     let port = "7692"
 
-    let listener = _NoticeTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      _NoticeDeliveryClient(h),
-      h)
+    let listener =
+      _NoticeTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        _NoticeDeliveryClient(h),
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -39,7 +40,9 @@ actor \nodoc\ _NoticeDeliveryClient
   be pg_query_result(session: Session, result: Result) =>
     _got_result = true
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure.")
@@ -102,12 +105,13 @@ class \nodoc\ iso _TestNoticeDuringDataRows is UnitTest
     let host = "127.0.0.1"
     let port = "7693"
 
-    let listener = _NoticeMidQueryTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      _NoticeDuringDataRowsClient(h),
-      h)
+    let listener =
+      _NoticeMidQueryTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        _NoticeDuringDataRowsClient(h),
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -139,7 +143,9 @@ actor \nodoc\ _NoticeDuringDataRowsClient
       _h.complete(false)
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure.")
@@ -175,7 +181,6 @@ actor \nodoc\ _NoticeDuringDataRowsClient
     _h.complete(false)
 
 // Shared mock server infrastructure for notice tests
-
 actor \nodoc\ _NoticeTestListener is lori.TCPListenerActor
   """
   Mock server that authenticates, waits for a query, then responds with
@@ -210,11 +215,15 @@ actor \nodoc\ _NoticeTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _notify)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _notify)
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -299,11 +308,15 @@ actor \nodoc\ _NoticeMidQueryTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _notify)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _notify)
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -372,7 +385,6 @@ actor \nodoc\ _NoticeMidQueryTestServer
     end
 
 // Integration test
-
 class \nodoc\ iso _TestNoticeOnDropIfExists is UnitTest
   """
   Verifies the pg_notice callback fires when executing
@@ -400,10 +412,15 @@ actor \nodoc\ _NoticeDropIfExistsClient
   new create(h: TestHelper, info: _ConnectionTestConfiguration) =>
     _h = h
 
-    _session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port),
+        DatabaseConnectInfo(
+          info.username, info.password, info.database),
+        this)
 
   be pg_session_authenticated(session: Session) =>
     session.execute(
@@ -418,7 +435,9 @@ actor \nodoc\ _NoticeDropIfExistsClient
   be pg_query_result(session: Session, result: Result) =>
     _got_result = true
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Unexpected query failure.")

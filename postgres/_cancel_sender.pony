@@ -1,7 +1,8 @@
 use lori = "lori"
 use "ssl/net"
 
-actor _CancelSender is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
+actor _CancelSender is
+  (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   """
   Fire-and-forget actor that sends a CancelRequest on a separate TCP
   connection. PostgreSQL requires cancel requests on a different connection
@@ -25,8 +26,9 @@ actor _CancelSender is (lori.TCPConnectionActor & lori.ClientLifecycleEventRecei
     _process_id = process_id
     _secret_key = secret_key
     _info = info
-    _tcp_connection = lori.TCPConnection.client(
-      info.auth, info.host, info.service, "", this, this)
+    _tcp_connection =
+      lori.TCPConnection.client(
+        info.auth, info.host, info.service, "", this, this)
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
@@ -49,13 +51,14 @@ actor _CancelSender is (lori.TCPConnectionActor & lori.ClientLifecycleEventRecei
     // Only called during SSL negotiation — server responds 'S' or 'N'.
     try
       if data(0)? == 'S' then
-        let ctx = match _info.ssl_mode
-        | let req: SSLRequired => req.ctx
-        | let pref: SSLPreferred => pref.ctx
-        else
-          _tcp_connection.close()
-          return lori.KeepReading
-        end
+        let ctx =
+          match _info.ssl_mode
+          | let req: SSLRequired => req.ctx
+          | let pref: SSLPreferred => pref.ctx
+          else
+            _tcp_connection.close()
+            return lori.KeepReading
+          end
         match \exhaustive\ _tcp_connection.start_tls(ctx, _info.host)
         | None => None  // Handshake started, wait for _on_tls_ready
         | let _: lori.StartTLSError =>

@@ -23,7 +23,7 @@ class val Field is Equatable[Field]
     in equality; custom types without it are never equal.
     """
     if name != that.name then return false end
-    match (value, that.value)
+    match \exhaustive\ (value, that.value)
     | (None, None) => true
     | (let a: FieldData, let b: FieldData) => _FieldDataEq(a, b)
     end

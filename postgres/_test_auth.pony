@@ -17,12 +17,13 @@ class \nodoc\ iso _TestSCRAMAuthenticationSuccess is UnitTest
     let host = "127.0.0.1"
     let port = "7677"
 
-    let listener = _SCRAMTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h,
-      false)
+    let listener =
+      _SCRAMTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        false)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -40,11 +41,12 @@ class \nodoc\ iso _TestSCRAMUnsupportedMechanism is UnitTest
     let host = "127.0.0.1"
     let port = "7678"
 
-    let listener = _SCRAMUnsupportedTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _SCRAMUnsupportedTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -62,12 +64,13 @@ class \nodoc\ iso _TestSCRAMServerVerificationFailed is UnitTest
     let host = "127.0.0.1"
     let port = "7679"
 
-    let listener = _SCRAMTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h,
-      true)
+    let listener =
+      _SCRAMTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        true)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -86,11 +89,12 @@ class \nodoc\ iso _TestSCRAMErrorDuringAuth is UnitTest
     let host = "127.0.0.1"
     let port = "7681"
 
-    let listener = _SCRAMErrorTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _SCRAMErrorTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -109,11 +113,12 @@ class \nodoc\ iso _TestSCRAMServerSkipsSASLFinal is UnitTest
     let host = "127.0.0.1"
     let port = "7725"
 
-    let listener = _SCRAMSkipSASLFinalTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _SCRAMSkipSASLFinalTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -133,11 +138,12 @@ class \nodoc\ iso _TestSCRAMDuplicateSASLContinue is UnitTest
     let host = "127.0.0.1"
     let port = "7726"
 
-    let listener = _SCRAMDuplicateSASLContinueTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _SCRAMDuplicateSASLContinueTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -156,11 +162,12 @@ class \nodoc\ iso _TestSCRAMSASLFinalBeforeSASLContinue is UnitTest
     let host = "127.0.0.1"
     let port = "7727"
 
-    let listener = _SCRAMSASLFinalBeforeContinueTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _SCRAMSASLFinalBeforeContinueTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -180,11 +187,12 @@ class \nodoc\ iso _TestSCRAMMalformedSASLFinal is UnitTest
     let host = "127.0.0.1"
     let port = "7728"
 
-    let listener = _SCRAMMalformedSASLFinalTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _SCRAMMalformedSASLFinalTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -204,11 +212,12 @@ class \nodoc\ iso _TestSCRAMNonceMismatch is UnitTest
     let host = "127.0.0.1"
     let port = "7729"
 
-    let listener = _SCRAMNonceMismatchTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _SCRAMNonceMismatchTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -227,11 +236,12 @@ class \nodoc\ iso _TestSCRAMMalformedSASLContinue is UnitTest
     let host = "127.0.0.1"
     let port = "7730"
 
-    let listener = _SCRAMMalformedSASLContinueTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _SCRAMMalformedSASLContinueTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -249,11 +259,12 @@ class \nodoc\ iso _TestUnsupportedAuthentication is UnitTest
     let host = "127.0.0.1"
     let port = "7682"
 
-    let listener = _UnsupportedAuthenticationTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _UnsupportedAuthenticationTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -280,15 +291,19 @@ actor \nodoc\ _UnsupportedAuthenticationTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _UnsupportedAuthenticationTestServer =>
-    let server = _UnsupportedAuthenticationTestServer(_server_auth, fd)
+    let server =
+      _UnsupportedAuthenticationTestServer(_server_auth, fd)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _SCRAMFailureTestNotify(_h, UnsupportedAuthenticationMethod))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root), _host, _port),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _SCRAMFailureTestNotify(
+          _h, UnsupportedAuthenticationMethod))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -313,13 +328,14 @@ actor \nodoc\ _UnsupportedAuthenticationTestServer
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     if not _received then
       _received = true
-      let msg = _IncomingUnsupportedAuthenticationTestMessage(2).bytes()
+      let msg =
+        _IncomingUnsupportedAuthenticationTestMessage(
+          2).bytes()
       _tcp_connection.send(msg)
     end
     lori.KeepReading
 
 // Cleartext password authentication tests
-
 class \nodoc\ iso _TestCleartextAuthenticationSuccess is UnitTest
   """
   Verifies the full cleartext password authentication handshake:
@@ -333,12 +349,13 @@ class \nodoc\ iso _TestCleartextAuthenticationSuccess is UnitTest
     let host = "127.0.0.1"
     let port = "7722"
 
-    let listener = _CleartextTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h,
-      false)
+    let listener =
+      _CleartextTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        false)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -356,12 +373,13 @@ class \nodoc\ iso _TestCleartextAuthenticationFailure is UnitTest
     let host = "127.0.0.1"
     let port = "7723"
 
-    let listener = _CleartextTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h,
-      true)
+    let listener =
+      _CleartextTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h,
+        true)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -395,21 +413,28 @@ actor \nodoc\ _CleartextTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _CleartextTestServer =>
-    let server = _CleartextTestServer(_server_auth, fd, _send_error)
+    let server =
+      _CleartextTestServer(_server_auth, fd, _send_error)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let notify: SessionStatusNotify = if _send_error then
-      _SCRAMFailureTestNotify(_h, _ExpectedSqlstate("28P01"))
-    else
-      _SCRAMSuccessTestNotify(_h)
-    end
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port
-        where auth_requirement' = AllowAnyAuth),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      notify)
+    let notify: SessionStatusNotify =
+      if _send_error then
+        _SCRAMFailureTestNotify(
+          _h, _ExpectedSqlstate("28P01"))
+      else
+        _SCRAMSuccessTestNotify(_h)
+      end
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port
+          where auth_requirement' = AllowAnyAuth),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        notify)
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -446,7 +471,8 @@ actor \nodoc\ _CleartextTestServer
       match _reader.read_startup_message()
       | let _: Array[U8] val =>
         let msg =
-          _IncomingAuthenticationCleartextPasswordTestMessage.bytes()
+          _IncomingAuthenticationCleartextPasswordTestMessage
+            .bytes()
         _tcp_connection.send(msg)
         _state = 1
         _process()
@@ -455,18 +481,23 @@ actor \nodoc\ _CleartextTestServer
       match _reader.read_message()
       | let _: Array[U8] val =>
         if _send_error then
-          let err = _IncomingErrorResponseTestMessage(
-            "FATAL", "28P01", "password authentication failed").bytes()
+          let err =
+            _IncomingErrorResponseTestMessage(
+              "FATAL",
+              "28P01",
+              "password authentication failed").bytes()
           _tcp_connection.send(err)
         else
-          let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-          let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-          let combined = recover val
-            let arr = Array[U8]
-            arr.append(auth_ok)
-            arr.append(ready)
-            arr
-          end
+          let auth_ok =
+            _IncomingAuthenticationOkTestMessage.bytes()
+          let ready =
+            _IncomingReadyForQueryTestMessage('I').bytes()
+          let combined =
+            recover val
+              Array[U8]
+                .> append(auth_ok)
+                .> append(ready)
+            end
           _tcp_connection.send(combined)
         end
       end
@@ -496,6 +527,7 @@ class \nodoc\ val _ExpectedSqlstate
   with any future `String`-valued variant of `ConnectionFailureReason`.
   """
   let code: String
+
   new val create(code': String) =>
     code = code'
 
@@ -579,20 +611,28 @@ actor \nodoc\ _SCRAMTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMTestServer =>
-    let server = _SCRAMTestServer(_server_auth, fd, _h, _send_wrong_signature)
+    let server =
+      _SCRAMTestServer(
+        _server_auth, fd, _h, _send_wrong_signature)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let notify: SessionStatusNotify = if _send_wrong_signature then
-      _SCRAMFailureTestNotify(_h, ServerVerificationFailed)
-    else
-      _SCRAMSuccessTestNotify(_h)
-    end
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      notify)
+    let notify: SessionStatusNotify =
+      if _send_wrong_signature then
+        _SCRAMFailureTestNotify(
+          _h, ServerVerificationFailed)
+      else
+        _SCRAMSuccessTestNotify(_h)
+      end
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        notify)
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -616,7 +656,10 @@ actor \nodoc\ _SCRAMTestServer
   var _server_signature: (Array[U8] val | None) = None
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32, h: TestHelper,
+  new create(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    h: TestHelper,
     send_wrong_signature: Bool)
   =>
     _h = h
@@ -638,7 +681,9 @@ actor \nodoc\ _SCRAMTestServer
         // Startup message: send AuthSASL with ["SCRAM-SHA-256"]
         let mechanisms: Array[String] val =
           recover val ["SCRAM-SHA-256"] end
-        let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+        let sasl =
+          _IncomingAuthenticationSASLTestMessage(
+            mechanisms).bytes()
         _tcp_connection.send(sasl)
         _state = 1
         _process()
@@ -663,25 +708,29 @@ actor \nodoc\ _SCRAMTestServer
         // SASLResponse: send SASLFinal + AuthOk + ReadyForQuery
         match _server_signature
         | let sig: Array[U8] val =>
-          let final_sig = if _send_wrong_signature then
-            recover val Array[U8].init(0, 32) end
-          else
-            sig
-          end
+          let final_sig =
+            if _send_wrong_signature then
+              recover val Array[U8].init(0, 32) end
+            else
+              sig
+            end
           let sig_b64_iso = Base64.encode(final_sig)
           let sig_b64: String val = consume sig_b64_iso
           let server_final: String val = "v=" + sig_b64
-          let sasl_final = _IncomingAuthenticationSASLFinalTestMessage(
-            server_final.array()).bytes()
-          let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-          let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-          let combined = recover val
-            let arr = Array[U8]
-            arr.append(sasl_final)
-            arr.append(auth_ok)
-            arr.append(ready)
-            arr
-          end
+          let sasl_final =
+            _IncomingAuthenticationSASLFinalTestMessage(
+              server_final.array()).bytes()
+          let auth_ok =
+            _IncomingAuthenticationOkTestMessage.bytes()
+          let ready =
+            _IncomingReadyForQueryTestMessage('I').bytes()
+          let combined =
+            recover val
+              Array[U8]
+                .> append(sasl_final)
+                .> append(auth_ok)
+                .> append(ready)
+            end
           _tcp_connection.send(combined)
         end
       end
@@ -709,15 +758,21 @@ actor \nodoc\ _SCRAMUnsupportedTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMUnsupportedTestServer =>
-    let server = _SCRAMUnsupportedTestServer(_server_auth, fd)
+    let server =
+      _SCRAMUnsupportedTestServer(_server_auth, fd)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _SCRAMFailureTestNotify(_h, UnsupportedAuthenticationMethod))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _SCRAMFailureTestNotify(
+          _h, UnsupportedAuthenticationMethod))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -743,7 +798,9 @@ actor \nodoc\ _SCRAMUnsupportedTestServer
       _authed = true
       let mechanisms: Array[String] val =
         recover val ["SCRAM-SHA-256-PLUS"] end
-      let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+      let sasl =
+        _IncomingAuthenticationSASLTestMessage(
+          mechanisms).bytes()
       _tcp_connection.send(sasl)
     end
     lori.KeepReading
@@ -775,10 +832,15 @@ actor \nodoc\ _SCRAMErrorTestListener is lori.TCPListenerActor
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _SCRAMFailureTestNotify(_h, _ExpectedSqlstate("28P01")))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _SCRAMFailureTestNotify(
+          _h, _ExpectedSqlstate("28P01")))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -813,15 +875,20 @@ actor \nodoc\ _SCRAMErrorTestServer
         _authed = true
         let mechanisms: Array[String] val =
           recover val ["SCRAM-SHA-256"] end
-        let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+        let sasl =
+          _IncomingAuthenticationSASLTestMessage(
+            mechanisms).bytes()
         _tcp_connection.send(sasl)
         _process()
       end
     else
       match _reader.read_message()
       | let _: Array[U8] val =>
-        let err = _IncomingErrorResponseTestMessage("FATAL", "28P01",
-          "password authentication failed").bytes()
+        let err =
+          _IncomingErrorResponseTestMessage(
+            "FATAL",
+            "28P01",
+            "password authentication failed").bytes()
         _tcp_connection.send(err)
       end
     end
@@ -852,15 +919,21 @@ actor \nodoc\ _SCRAMSkipSASLFinalTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMSkipSASLFinalTestServer =>
-    let server = _SCRAMSkipSASLFinalTestServer(_server_auth, fd, _h)
+    let server =
+      _SCRAMSkipSASLFinalTestServer(_server_auth, fd, _h)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _SCRAMFailureTestNotify(_h, ServerVerificationFailed))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _SCRAMFailureTestNotify(
+          _h, ServerVerificationFailed))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -898,7 +971,9 @@ actor \nodoc\ _SCRAMSkipSASLFinalTestServer
       | let _: Array[U8] val =>
         let mechanisms: Array[String] val =
           recover val ["SCRAM-SHA-256"] end
-        let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+        let sasl =
+          _IncomingAuthenticationSASLTestMessage(
+            mechanisms).bytes()
         _tcp_connection.send(sasl)
         _state = 1
         _process()
@@ -919,16 +994,18 @@ actor \nodoc\ _SCRAMSkipSASLFinalTestServer
     elseif _state == 2 then
       match _reader.read_message()
       | let _: Array[U8] val =>
-        // Skip SASLFinal — send AuthOk + ReadyForQuery directly. The
-        // client's `_server_verified` guard must reject this.
-        let auth_ok = _IncomingAuthenticationOkTestMessage.bytes()
-        let ready = _IncomingReadyForQueryTestMessage('I').bytes()
-        let combined = recover val
-          let arr = Array[U8]
-          arr.append(auth_ok)
-          arr.append(ready)
-          arr
-        end
+        // Skip SASLFinal — send AuthOk + ReadyForQuery directly.
+        // The client's `_server_verified` guard must reject this.
+        let auth_ok =
+          _IncomingAuthenticationOkTestMessage.bytes()
+        let ready =
+          _IncomingReadyForQueryTestMessage('I').bytes()
+        let combined =
+          recover val
+            Array[U8]
+              .> append(auth_ok)
+              .> append(ready)
+          end
         _tcp_connection.send(combined)
       end
     end
@@ -959,15 +1036,22 @@ actor \nodoc\ _SCRAMDuplicateSASLContinueTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMDuplicateSASLContinueTestServer =>
-    let server = _SCRAMDuplicateSASLContinueTestServer(_server_auth, fd, _h)
+    let server =
+      _SCRAMDuplicateSASLContinueTestServer(
+        _server_auth, fd, _h)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _SCRAMFailureTestNotify(_h, ServerVerificationFailed))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _SCRAMFailureTestNotify(
+          _h, ServerVerificationFailed))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1006,7 +1090,9 @@ actor \nodoc\ _SCRAMDuplicateSASLContinueTestServer
       | let _: Array[U8] val =>
         let mechanisms: Array[String] val =
           recover val ["SCRAM-SHA-256"] end
-        let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+        let sasl =
+          _IncomingAuthenticationSASLTestMessage(
+            mechanisms).bytes()
         _tcp_connection.send(sasl)
         _state = 1
         _process()
@@ -1016,12 +1102,12 @@ actor \nodoc\ _SCRAMDuplicateSASLContinueTestServer
       | let data_val: Array[U8] val =>
         match _SCRAMMockHelper.build(data_val)
         | let r: _SCRAMMockContinue =>
-          let combined = recover val
-            let arr = Array[U8]
-            arr.append(r.continue_bytes)
-            arr.append(r.continue_bytes)
-            arr
-          end
+          let combined =
+            recover val
+              Array[U8]
+                .> append(r.continue_bytes)
+                .> append(r.continue_bytes)
+            end
           _tcp_connection.send(combined)
           _state = 2
         else
@@ -1059,15 +1145,21 @@ actor \nodoc\ _SCRAMSASLFinalBeforeContinueTestListener
 
   fun ref _on_accept(fd: U32): _SCRAMSASLFinalBeforeContinueTestServer =>
     let server =
-      _SCRAMSASLFinalBeforeContinueTestServer(_server_auth, fd)
+      _SCRAMSASLFinalBeforeContinueTestServer(
+        _server_auth, fd)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _SCRAMFailureTestNotify(_h, ServerVerificationFailed))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _SCRAMFailureTestNotify(
+          _h, ServerVerificationFailed))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1103,7 +1195,9 @@ actor \nodoc\ _SCRAMSASLFinalBeforeContinueTestServer
       | let _: Array[U8] val =>
         let mechanisms: Array[String] val =
           recover val ["SCRAM-SHA-256"] end
-        let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+        let sasl =
+          _IncomingAuthenticationSASLTestMessage(
+            mechanisms).bytes()
         _tcp_connection.send(sasl)
         _state = 1
         _process()
@@ -1112,8 +1206,9 @@ actor \nodoc\ _SCRAMSASLFinalBeforeContinueTestServer
       match _reader.read_message()
       | let _: Array[U8] val =>
         let server_final: String val = "v=c29tZWRhdGE="
-        let sasl_final = _IncomingAuthenticationSASLFinalTestMessage(
-          server_final.array()).bytes()
+        let sasl_final =
+          _IncomingAuthenticationSASLFinalTestMessage(
+            server_final.array()).bytes()
         _tcp_connection.send(sasl_final)
         _state = 2
       end
@@ -1146,15 +1241,22 @@ actor \nodoc\ _SCRAMMalformedSASLFinalTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMMalformedSASLFinalTestServer =>
-    let server = _SCRAMMalformedSASLFinalTestServer(_server_auth, fd, _h)
+    let server =
+      _SCRAMMalformedSASLFinalTestServer(
+        _server_auth, fd, _h)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _SCRAMFailureTestNotify(_h, ServerVerificationFailed))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _SCRAMFailureTestNotify(
+          _h, ServerVerificationFailed))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1192,7 +1294,9 @@ actor \nodoc\ _SCRAMMalformedSASLFinalTestServer
       | let _: Array[U8] val =>
         let mechanisms: Array[String] val =
           recover val ["SCRAM-SHA-256"] end
-        let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+        let sasl =
+          _IncomingAuthenticationSASLTestMessage(
+            mechanisms).bytes()
         _tcp_connection.send(sasl)
         _state = 1
         _process()
@@ -1213,9 +1317,11 @@ actor \nodoc\ _SCRAMMalformedSASLFinalTestServer
     elseif _state == 2 then
       match _reader.read_message()
       | let _: Array[U8] val =>
-        let server_final: String val = "garbage-without-v-prefix"
-        let sasl_final = _IncomingAuthenticationSASLFinalTestMessage(
-          server_final.array()).bytes()
+        let server_final: String val =
+          "garbage-without-v-prefix"
+        let sasl_final =
+          _IncomingAuthenticationSASLFinalTestMessage(
+            server_final.array()).bytes()
         _tcp_connection.send(sasl_final)
       end
     end
@@ -1247,15 +1353,21 @@ actor \nodoc\ _SCRAMNonceMismatchTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMNonceMismatchTestServer =>
-    let server = _SCRAMNonceMismatchTestServer(_server_auth, fd)
+    let server =
+      _SCRAMNonceMismatchTestServer(_server_auth, fd)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _SCRAMFailureTestNotify(_h, ServerVerificationFailed))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _SCRAMFailureTestNotify(
+          _h, ServerVerificationFailed))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1290,7 +1402,9 @@ actor \nodoc\ _SCRAMNonceMismatchTestServer
       | let _: Array[U8] val =>
         let mechanisms: Array[String] val =
           recover val ["SCRAM-SHA-256"] end
-        let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+        let sasl =
+          _IncomingAuthenticationSASLTestMessage(
+            mechanisms).bytes()
         _tcp_connection.send(sasl)
         _state = 1
         _process()
@@ -1298,12 +1412,15 @@ actor \nodoc\ _SCRAMNonceMismatchTestServer
     elseif _state == 1 then
       match _reader.read_message()
       | let _: Array[U8] val =>
-        // `server_first` uses a hardcoded nonce that cannot match the
-        // client's random nonce. Salt is valid base64 and iterations is
-        // a valid integer, so parsing succeeds up to the nonce check.
-        let server_first: String val = "r=badnonce,s=c2FsdA==,i=4096"
-        let sasl_continue = _IncomingAuthenticationSASLContinueTestMessage(
-          server_first.array()).bytes()
+        // `server_first` uses a hardcoded nonce that cannot
+        // match the client's random nonce. Salt is valid base64
+        // and iterations is a valid integer, so parsing succeeds
+        // up to the nonce check.
+        let server_first: String val =
+          "r=badnonce,s=c2FsdA==,i=4096"
+        let sasl_continue =
+          _IncomingAuthenticationSASLContinueTestMessage(
+            server_first.array()).bytes()
         _tcp_connection.send(sasl_continue)
         _state = 2
       end
@@ -1336,15 +1453,22 @@ actor \nodoc\ _SCRAMMalformedSASLContinueTestListener
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMMalformedSASLContinueTestServer =>
-    let server = _SCRAMMalformedSASLContinueTestServer(_server_auth, fd, _h)
+    let server =
+      _SCRAMMalformedSASLContinueTestServer(
+        _server_auth, fd, _h)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _SCRAMFailureTestNotify(_h, ServerVerificationFailed))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _SCRAMFailureTestNotify(
+          _h, ServerVerificationFailed))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1382,7 +1506,9 @@ actor \nodoc\ _SCRAMMalformedSASLContinueTestServer
       | let _: Array[U8] val =>
         let mechanisms: Array[String] val =
           recover val ["SCRAM-SHA-256"] end
-        let sasl = _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
+        let sasl =
+          _IncomingAuthenticationSASLTestMessage(
+            mechanisms).bytes()
         _tcp_connection.send(sasl)
         _state = 1
         _process()
@@ -1395,9 +1521,11 @@ actor \nodoc\ _SCRAMMalformedSASLContinueTestServer
           let combined_nonce: String val =
             r.client_nonce + "servernonce123456"
           let server_first: String val =
-            "r=" + combined_nonce + ",s=c2FsdA==,i=notanumber"
-          let sasl_continue = _IncomingAuthenticationSASLContinueTestMessage(
-            server_first.array()).bytes()
+            "r=" + combined_nonce
+              + ",s=c2FsdA==,i=notanumber"
+          let sasl_continue =
+            _IncomingAuthenticationSASLContinueTestMessage(
+              server_first.array()).bytes()
           _tcp_connection.send(sasl_continue)
           _state = 2
         else
@@ -1435,34 +1563,38 @@ primitive \nodoc\ _SCRAMMockHelper
   SCRAM computation and wire-offset math live in one place.
   """
   fun build(data_val: Array[U8] val): (_SCRAMMockContinue | None) =>
-    // Wire format: 'p' I32(len) "SCRAM-SHA-256\0" I32(resp_len) response
-    //   response starts at offset 23 (1 type + 4 len + 14 mech\0 + 4 resp_len)
-    //   response = "n,,n=,r=<nonce>"
-    //   client_first_bare starts at offset 26 (23 + 3, skip "n,,")
-    //   client_nonce starts at offset 31 (23 + 8, skip "n,,n=,r=")
+    // Wire format:
+    // 'p' I32(len) "SCRAM-SHA-256\0" I32(resp_len) response
+    // response starts at offset 23
+    // response = "n,,n=,r=<nonce>"
+    // client_first_bare starts at offset 26 (skip "n,,")
+    // client_nonce starts at offset 31 (skip "n,,n=,r=")
     try
-      let client_nonce = recover val
-        let s = String(data_val.size() - 31)
-        var i: USize = 31
-        while i < data_val.size() do
-          s.push(data_val(i)?)
-          i = i + 1
+      let client_nonce =
+        recover val
+          let s = String(data_val.size() - 31)
+          var i: USize = 31
+          while i < data_val.size() do
+            s.push(data_val(i)?)
+            i = i + 1
+          end
+          s
         end
-        s
-      end
 
-      let client_first_bare = recover val
-        let s = String(data_val.size() - 26)
-        var i: USize = 26
-        while i < data_val.size() do
-          s.push(data_val(i)?)
-          i = i + 1
+      let client_first_bare =
+        recover val
+          let s = String(data_val.size() - 26)
+          var i: USize = 26
+          while i < data_val.size() do
+            s.push(data_val(i)?)
+            i = i + 1
+          end
+          s
         end
-        s
-      end
 
       let server_nonce = "servernonce123456"
-      let combined_nonce: String val = client_nonce + server_nonce
+      let combined_nonce: String val =
+        client_nonce + server_nonce
       let salt: Array[U8] val =
         [0x73; 0x61; 0x6C; 0x74; 0x30; 0x31; 0x32; 0x33]
       let salt_b64_iso = Base64.encode(salt)
@@ -1470,27 +1602,52 @@ primitive \nodoc\ _SCRAMMockHelper
       let iterations: U32 = 4096
 
       let server_first: String val =
-        "r=" + combined_nonce + ",s=" + salt_b64 + ",i=4096"
+        "r=" + combined_nonce
+          + ",s=" + salt_b64 + ",i=4096"
 
       (let client_proof, let server_signature) =
-        _ScramSha256.compute_proof("postgres", salt, iterations,
-          client_first_bare, server_first, combined_nonce)?
+        _ScramSha256.compute_proof(
+          "postgres",
+          salt,
+          iterations,
+          client_first_bare,
+          server_first,
+          combined_nonce)?
 
-      // client_proof is unused — the mock servers validate the client's
-      // behavior, not their own proof computation.
+      // client_proof is unused — the mock servers validate
+      // the client's behavior, not their own proof
+      // computation.
       client_proof.size()
 
-      let continue_bytes = _IncomingAuthenticationSASLContinueTestMessage(
-        server_first.array()).bytes()
+      let continue_bytes =
+        _IncomingAuthenticationSASLContinueTestMessage(
+          server_first.array()).bytes()
 
-      _SCRAMMockContinue(continue_bytes, server_signature, client_nonce)
+      _SCRAMMockContinue(
+        continue_bytes, server_signature, client_nonce)
     end
 
 primitive \nodoc\ _ConnectionFailureReasonFromErrorTestHelper
   fun err(code: String): ErrorResponseMessage =>
-    ErrorResponseMessage("FATAL", None, code, "test message",
-      None, None, None, None, None, None, None, None, None, None, None,
-      None, None, None)
+    ErrorResponseMessage(
+      "FATAL",
+      None,
+      code,
+      "test message",
+      None,
+      None,
+      None,
+      None,
+      None,
+      None,
+      None,
+      None,
+      None,
+      None,
+      None,
+      None,
+      None,
+      None)
 
 class \nodoc\ iso _TestConnectionFailureReasonFromErrorInvalidPassword
   is UnitTest
@@ -1498,10 +1655,12 @@ class \nodoc\ iso _TestConnectionFailureReasonFromErrorInvalidPassword
   Verifies that _ConnectionFailureReasonFromError maps SQLSTATE 28P01 to
   InvalidPassword, preserving the full ErrorResponseMessage.
   """
-  fun name(): String => "ConnectionFailureReasonFromError/InvalidPassword"
+  fun name(): String =>
+    "ConnectionFailureReasonFromError/InvalidPassword"
 
   fun apply(h: TestHelper) =>
-    let msg = _ConnectionFailureReasonFromErrorTestHelper.err("28P01")
+    let msg =
+      _ConnectionFailureReasonFromErrorTestHelper.err("28P01")
     match _ConnectionFailureReasonFromError(msg)
     | let r: InvalidPassword =>
       if r.response().code != "28P01" then
@@ -1522,14 +1681,17 @@ class \nodoc\ iso
     "ConnectionFailureReasonFromError/InvalidAuthorizationSpecification"
 
   fun apply(h: TestHelper) =>
-    let msg = _ConnectionFailureReasonFromErrorTestHelper.err("28000")
+    let msg =
+      _ConnectionFailureReasonFromErrorTestHelper.err("28000")
     match _ConnectionFailureReasonFromError(msg)
     | let r: InvalidAuthorizationSpecification =>
       if r.response().code != "28000" then
         h.fail("Wrong SQLSTATE: " + r.response().code)
       end
     else
-      h.fail("Expected InvalidAuthorizationSpecification for SQLSTATE 28000.")
+      h.fail(
+        "Expected InvalidAuthorizationSpecification"
+          + " for SQLSTATE 28000.")
     end
 
 class \nodoc\ iso _TestConnectionFailureReasonFromErrorTooManyConnections
@@ -1542,14 +1704,16 @@ class \nodoc\ iso _TestConnectionFailureReasonFromErrorTooManyConnections
     "ConnectionFailureReasonFromError/TooManyConnections"
 
   fun apply(h: TestHelper) =>
-    let msg = _ConnectionFailureReasonFromErrorTestHelper.err("53300")
+    let msg =
+      _ConnectionFailureReasonFromErrorTestHelper.err("53300")
     match _ConnectionFailureReasonFromError(msg)
     | let r: TooManyConnections =>
       if r.response().code != "53300" then
         h.fail("Wrong SQLSTATE: " + r.response().code)
       end
     else
-      h.fail("Expected TooManyConnections for SQLSTATE 53300.")
+      h.fail(
+        "Expected TooManyConnections for SQLSTATE 53300.")
     end
 
 class \nodoc\ iso _TestConnectionFailureReasonFromErrorInvalidDatabaseName
@@ -1562,14 +1726,16 @@ class \nodoc\ iso _TestConnectionFailureReasonFromErrorInvalidDatabaseName
     "ConnectionFailureReasonFromError/InvalidDatabaseName"
 
   fun apply(h: TestHelper) =>
-    let msg = _ConnectionFailureReasonFromErrorTestHelper.err("3D000")
+    let msg =
+      _ConnectionFailureReasonFromErrorTestHelper.err("3D000")
     match _ConnectionFailureReasonFromError(msg)
     | let r: InvalidDatabaseName =>
       if r.response().code != "3D000" then
         h.fail("Wrong SQLSTATE: " + r.response().code)
       end
     else
-      h.fail("Expected InvalidDatabaseName for SQLSTATE 3D000.")
+      h.fail(
+        "Expected InvalidDatabaseName for SQLSTATE 3D000.")
     end
 
 class \nodoc\ iso _TestConnectionFailureReasonFromErrorServerRejected
@@ -1582,14 +1748,16 @@ class \nodoc\ iso _TestConnectionFailureReasonFromErrorServerRejected
     "ConnectionFailureReasonFromError/ServerRejected"
 
   fun apply(h: TestHelper) =>
-    let msg = _ConnectionFailureReasonFromErrorTestHelper.err("XX000")
+    let msg =
+      _ConnectionFailureReasonFromErrorTestHelper.err("XX000")
     match _ConnectionFailureReasonFromError(msg)
     | let r: ServerRejected =>
       if r.response().code != "XX000" then
         h.fail("Wrong SQLSTATE: " + r.response().code)
       end
     else
-      h.fail("Expected ServerRejected for unmapped SQLSTATE XX000.")
+      h.fail(
+        "Expected ServerRejected for unmapped SQLSTATE XX000.")
     end
 
 class \nodoc\ iso _TestConnectionFailedOnServerRejection is UnitTest
@@ -1607,11 +1775,12 @@ class \nodoc\ iso _TestConnectionFailedOnServerRejection is UnitTest
     let host = "127.0.0.1"
     let port = "7724"
 
-    let listener = _TooManyConnectionsTestListener(
-      lori.TCPListenAuth(h.env.root),
-      host,
-      port,
-      h)
+    let listener =
+      _TooManyConnectionsTestListener(
+        lori.TCPListenAuth(h.env.root),
+        host,
+        port,
+        h)
 
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
@@ -1638,15 +1807,20 @@ actor \nodoc\ _TooManyConnectionsTestListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _TooManyConnectionsTestServer =>
-    let server = _TooManyConnectionsTestServer(_server_auth, fd)
+    let server =
+      _TooManyConnectionsTestServer(_server_auth, fd)
     _h.dispose_when_done(server)
     server
 
   fun ref _on_listening() =>
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(_h.env.root), _host, _port),
-      DatabaseConnectInfo("postgres", "postgres", "postgres"),
-      _TooManyConnectionsTestNotify(_h))
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(_h.env.root),
+          _host,
+          _port),
+        DatabaseConnectInfo("postgres", "postgres", "postgres"),
+        _TooManyConnectionsTestNotify(_h))
     _h.dispose_when_done(session)
 
   fun ref _on_listen_failure() =>
@@ -1676,9 +1850,11 @@ actor \nodoc\ _TooManyConnectionsTestServer
       match _reader.read_startup_message()
       | let _: Array[U8] val =>
         _sent = true
-        let err = _IncomingErrorResponseTestMessage(
-          "FATAL", "53300",
-          "sorry, too many clients already").bytes()
+        let err =
+          _IncomingErrorResponseTestMessage(
+            "FATAL",
+            "53300",
+            "sorry, too many clients already").bytes()
         _tcp_connection.send(err)
         _tcp_connection.close()
       end
@@ -1701,8 +1877,9 @@ actor \nodoc\ _TooManyConnectionsTestNotify is SessionStatusNotify
     match reason
     | let r: TooManyConnections =>
       if r.response().code != "53300" then
-        _h.fail("TooManyConnections carried wrong SQLSTATE code: "
-          + r.response().code)
+        _h.fail(
+          "TooManyConnections carried wrong SQLSTATE code: "
+            + r.response().code)
         _h.complete(false)
         return
       end
@@ -1713,6 +1890,7 @@ actor \nodoc\ _TooManyConnectionsTestNotify is SessionStatusNotify
       end
       _h.complete(true)
     else
-      _h.fail("Expected TooManyConnections, got different reason.")
+      _h.fail(
+        "Expected TooManyConnections, got different reason.")
       _h.complete(false)
     end

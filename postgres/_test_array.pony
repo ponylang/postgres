@@ -8,7 +8,6 @@ use "pony_test"
 // ============================================================
 // _ArrayOidMap tests
 // ============================================================
-
 class \nodoc\ iso _TestArrayOidMapElementOidFor is UnitTest
   fun name(): String =>
     "ArrayOidMap/ElementOidFor"
@@ -49,7 +48,6 @@ class \nodoc\ iso _TestArrayOidMapIsArrayOid is UnitTest
 // ============================================================
 // Binary decode tests
 // ============================================================
-
 primitive \nodoc\ _TestArrayBinaryBuilder
   """
   Builds binary array wire data for testing.
@@ -62,7 +60,7 @@ primitive \nodoc\ _TestArrayBinaryBuilder
       var data_size: USize = 20
       for e in elements.values() do
         data_size = data_size + 4
-        match e
+        match \exhaustive\ e
         | None => has_null = 1
         | let b: Array[U8] val => data_size = data_size + b.size()
         end
@@ -91,7 +89,7 @@ primitive \nodoc\ _TestArrayBinaryBuilder
           end
           var offset: USize = 20
           for e in elements.values() do
-            match e
+            match \exhaustive\ e
             | None =>
               ifdef bigendian then
                 msg.update_u32(offset, U32.max_value())?
@@ -158,8 +156,9 @@ class \nodoc\ iso _TestBinaryDecodeInt4Array is UnitTest
     "Codec/Binary/Array/Int4/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let elems: Array[(Array[U8] val | None)] val = recover val
-      [as (Array[U8] val | None):
+    let elems: Array[(Array[U8] val | None)] val =
+      recover val
+        [ as (Array[U8] val | None):
         _TestArrayBinaryBuilder.int4_bytes(1)
         _TestArrayBinaryBuilder.int4_bytes(2)
         _TestArrayBinaryBuilder.int4_bytes(3)]
@@ -196,8 +195,9 @@ class \nodoc\ iso _TestBinaryDecodeInt2Array is UnitTest
     "Codec/Binary/Array/Int2/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let elems: Array[(Array[U8] val | None)] val = recover val
-      [as (Array[U8] val | None):
+    let elems: Array[(Array[U8] val | None)] val =
+      recover val
+        [ as (Array[U8] val | None):
         _TestArrayBinaryBuilder.int2_bytes(10)
         _TestArrayBinaryBuilder.int2_bytes(-5)]
     end
@@ -227,8 +227,9 @@ class \nodoc\ iso _TestBinaryDecodeBoolArray is UnitTest
     "Codec/Binary/Array/Bool/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let elems: Array[(Array[U8] val | None)] val = recover val
-      [as (Array[U8] val | None):
+    let elems: Array[(Array[U8] val | None)] val =
+      recover val
+        [ as (Array[U8] val | None):
         _TestArrayBinaryBuilder.bool_bytes(true)
         _TestArrayBinaryBuilder.bool_bytes(false)]
     end
@@ -258,8 +259,9 @@ class \nodoc\ iso _TestBinaryDecodeTextArray is UnitTest
     "Codec/Binary/Array/Text/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let elems: Array[(Array[U8] val | None)] val = recover val
-      [as (Array[U8] val | None):
+    let elems: Array[(Array[U8] val | None)] val =
+      recover val
+        [ as (Array[U8] val | None):
         recover val "hello".array() end
         recover val "world".array() end]
     end
@@ -289,8 +291,9 @@ class \nodoc\ iso _TestBinaryDecodeWithNulls is UnitTest
     "Codec/Binary/Array/NullElements"
 
   fun apply(h: TestHelper) ? =>
-    let elems: Array[(Array[U8] val | None)] val = recover val
-      [as (Array[U8] val | None):
+    let elems: Array[(Array[U8] val | None)] val =
+      recover val
+        [ as (Array[U8] val | None):
         _TestArrayBinaryBuilder.int4_bytes(1)
         None
         _TestArrayBinaryBuilder.int4_bytes(3)]
@@ -326,8 +329,10 @@ class \nodoc\ iso _TestBinaryDecodeEmptyArray is UnitTest
 
   fun apply(h: TestHelper) ? =>
     // ndim=0 empty array
-    let data = _TestArrayBinaryBuilder(23,
-      recover val Array[(Array[U8] val | None)] end)
+    let data =
+      _TestArrayBinaryBuilder(
+        23,
+        recover val Array[(Array[U8] val | None)] end)
     let result = CodecRegistry.decode(1007, 1, data)?
     match result
     | let arr: PgArray =>
@@ -344,20 +349,21 @@ class \nodoc\ iso _TestBinaryDecodeValidationErrors is UnitTest
   fun apply(h: TestHelper) ? =>
     let registry = CodecRegistry
     // ndim > 1 (multi-dimensional)
-    let multidim = try
-      recover val
-        let a = Array[U8].init(0, 12)
-        ifdef bigendian then
-          a.update_u32(0, U32(2))?  // ndim=2
-        else
-          a.update_u32(0, U32(2).bswap())?
+    let multidim =
+      try
+        recover val
+          let a = Array[U8].init(0, 12)
+          ifdef bigendian then
+            a.update_u32(0, U32(2))?  // ndim=2
+          else
+            a.update_u32(0, U32(2).bswap())?
+          end
+          a
         end
-        a
+      else
+        _Unreachable()
+        recover val Array[U8] end
       end
-    else
-      _Unreachable()
-      recover val Array[U8] end
-    end
     match registry.decode(1007, 1, multidim)?
     | let _: RawBytes => None  // Falls back to RawBytes on error
     else
@@ -383,8 +389,9 @@ class \nodoc\ iso _TestBinaryArrayElementCodecErrorPropagates is UnitTest
   fun apply(h: TestHelper) =>
     let registry = CodecRegistry
     // Build a binary int4[] with a 2-byte element (int4 requires 4 bytes)
-    let elems: Array[(Array[U8] val | None)] val = recover val
-      [as (Array[U8] val | None):
+    let elems: Array[(Array[U8] val | None)] val =
+      recover val
+        [ as (Array[U8] val | None):
         _TestArrayBinaryBuilder.int4_bytes(1)
         recover val [as U8: 0xAB; 0xCD] end]  // only 2 bytes — int4 codec error
     end
@@ -404,8 +411,9 @@ class \nodoc\ iso _TestBinaryArrayRejectsRecursiveElementOid is UnitTest
     // Build binary array wire data where element_oid = 1007 (int4[])
     // The element bytes are valid int4 data, but the element_oid is an
     // array OID which would cause decode to re-enter array decoding.
-    let elems: Array[(Array[U8] val | None)] val = recover val
-      [as (Array[U8] val | None):
+    let elems: Array[(Array[U8] val | None)] val =
+      recover val
+        [ as (Array[U8] val | None):
         _TestArrayBinaryBuilder.int4_bytes(1)]
     end
     let data = _TestArrayBinaryBuilder(1007, elems)
@@ -426,8 +434,9 @@ class \nodoc\ iso _TestBinaryArrayRejectsCustomArrayElementOid is UnitTest
     let registry = CodecRegistry.with_array_type(9998, 600)?
     // Build binary array wire data where element_oid = 9998 (the custom
     // array OID). A malicious server embeds this to trigger recursion.
-    let elems: Array[(Array[U8] val | None)] val = recover val
-      [as (Array[U8] val | None):
+    let elems: Array[(Array[U8] val | None)] val =
+      recover val
+        [ as (Array[U8] val | None):
         _TestArrayBinaryBuilder.int4_bytes(1)]
     end
     let data = _TestArrayBinaryBuilder(9998, elems)
@@ -436,7 +445,6 @@ class \nodoc\ iso _TestBinaryArrayRejectsCustomArrayElementOid is UnitTest
 // ============================================================
 // Text decode tests
 // ============================================================
-
 class \nodoc\ iso _TestTextArrayElementCodecErrorPropagates is UnitTest
   """
   A text int4 array containing "abc" — structurally valid but the int4 text
@@ -663,16 +671,19 @@ class \nodoc\ iso _TestTextDecodeCaseInsensitiveNull is UnitTest
 // ============================================================
 // PgArray equality tests
 // ============================================================
-
 class \nodoc\ iso _TestPgArrayEquality is UnitTest
   fun name(): String =>
     "PgArray/Equality"
 
   fun apply(h: TestHelper) =>
-    let a = PgArray(23,
-      recover val [as (FieldData | None): I32(1); I32(2)] end)
-    let b = PgArray(23,
-      recover val [as (FieldData | None): I32(1); I32(2)] end)
+    let a =
+      PgArray(
+        23,
+        recover val [as (FieldData | None): I32(1); I32(2)] end)
+    let b =
+      PgArray(
+        23,
+        recover val [as (FieldData | None): I32(1); I32(2)] end)
     h.assert_true(a == b)
 
 class \nodoc\ iso _TestPgArrayInequalityDifferentOid is UnitTest
@@ -680,10 +691,14 @@ class \nodoc\ iso _TestPgArrayInequalityDifferentOid is UnitTest
     "PgArray/Inequality/DifferentOid"
 
   fun apply(h: TestHelper) =>
-    let a = PgArray(23,
-      recover val [as (FieldData | None): I32(1)] end)
-    let b = PgArray(21,
-      recover val [as (FieldData | None): I32(1)] end)
+    let a =
+      PgArray(
+        23,
+        recover val [as (FieldData | None): I32(1)] end)
+    let b =
+      PgArray(
+        21,
+        recover val [as (FieldData | None): I32(1)] end)
     h.assert_false(a == b)
 
 class \nodoc\ iso _TestPgArrayInequalityDifferentElements is UnitTest
@@ -691,10 +706,14 @@ class \nodoc\ iso _TestPgArrayInequalityDifferentElements is UnitTest
     "PgArray/Inequality/DifferentElements"
 
   fun apply(h: TestHelper) =>
-    let a = PgArray(23,
-      recover val [as (FieldData | None): I32(1); I32(2)] end)
-    let b = PgArray(23,
-      recover val [as (FieldData | None): I32(1); I32(3)] end)
+    let a =
+      PgArray(
+        23,
+        recover val [as (FieldData | None): I32(1); I32(2)] end)
+    let b =
+      PgArray(
+        23,
+        recover val [as (FieldData | None): I32(1); I32(3)] end)
     h.assert_false(a == b)
 
 class \nodoc\ iso _TestPgArrayEqualityWithNulls is UnitTest
@@ -702,10 +721,14 @@ class \nodoc\ iso _TestPgArrayEqualityWithNulls is UnitTest
     "PgArray/Equality/WithNulls"
 
   fun apply(h: TestHelper) =>
-    let a = PgArray(23,
-      recover val [as (FieldData | None): I32(1); None; I32(3)] end)
-    let b = PgArray(23,
-      recover val [as (FieldData | None): I32(1); None; I32(3)] end)
+    let a =
+      PgArray(
+        23,
+        recover val [as (FieldData | None): I32(1); None; I32(3)] end)
+    let b =
+      PgArray(
+        23,
+        recover val [as (FieldData | None): I32(1); None; I32(3)] end)
     h.assert_true(a == b)
 
 class \nodoc\ iso _TestPgArrayString is UnitTest
@@ -713,12 +736,16 @@ class \nodoc\ iso _TestPgArrayString is UnitTest
     "PgArray/String"
 
   fun apply(h: TestHelper) =>
-    let a = PgArray(23,
-      recover val [as (FieldData | None): I32(1); None; I32(3)] end)
+    let a =
+      PgArray(
+        23,
+        recover val [as (FieldData | None): I32(1); None; I32(3)] end)
     h.assert_eq[String]("{1,NULL,3}", a.string())
 
-    let empty = PgArray(23,
-      recover val Array[(FieldData | None)] end)
+    let empty =
+      PgArray(
+        23,
+        recover val Array[(FieldData | None)] end)
     h.assert_eq[String]("{}", empty.string())
 
 class \nodoc\ iso _TestPgArrayStringQuoting is UnitTest
@@ -727,31 +754,38 @@ class \nodoc\ iso _TestPgArrayStringQuoting is UnitTest
 
   fun apply(h: TestHelper) =>
     // Element with comma
-    let a = PgArray(25,
-      recover val [as (FieldData | None): "hello, world"] end)
+    let a =
+      PgArray(
+        25,
+        recover val [as (FieldData | None): "hello, world"] end)
     h.assert_eq[String]("{\"hello, world\"}", a.string())
 
     // Element with quotes
-    let b = PgArray(25,
-      recover val [as (FieldData | None): "with \"quotes\""] end)
+    let b =
+      PgArray(
+        25,
+        recover val [as (FieldData | None): "with \"quotes\""] end)
     h.assert_eq[String]("{\"with \\\"quotes\\\"\"}", b.string())
 
     // Empty string element
-    let c = PgArray(25,
-      recover val [as (FieldData | None): ""] end)
+    let c =
+      PgArray(
+        25,
+        recover val [as (FieldData | None): ""] end)
     h.assert_eq[String]("{\"\"}", c.string())
 
 // ============================================================
 // _ArrayEncoder roundtrip tests
 // ============================================================
-
 class \nodoc\ iso _TestArrayEncoderRoundtrip is UnitTest
   fun name(): String =>
     "ArrayEncoder/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let original = PgArray(23,
-      recover val [as (FieldData | None): I32(10); None; I32(30)] end)
+    let original =
+      PgArray(
+        23,
+        recover val [as (FieldData | None): I32(10); None; I32(30)] end)
     let encoded = _ArrayEncoder(original)?
     let decoded = CodecRegistry.decode(1007, 1, encoded)?
     match decoded
@@ -783,8 +817,10 @@ class \nodoc\ iso _TestArrayEncoderEmptyRoundtrip is UnitTest
     "ArrayEncoder/Empty/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let original = PgArray(23,
-      recover val Array[(FieldData | None)] end)
+    let original =
+      PgArray(
+        23,
+        recover val Array[(FieldData | None)] end)
     let encoded = _ArrayEncoder(original)?
     let decoded = CodecRegistry.decode(1007, 1, encoded)?
     match decoded
@@ -799,8 +835,10 @@ class \nodoc\ iso _TestArrayEncoderBoolRoundtrip is UnitTest
     "ArrayEncoder/Bool/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let original = PgArray(16,
-      recover val [as (FieldData | None): true; false; true] end)
+    let original =
+      PgArray(
+        16,
+        recover val [as (FieldData | None): true; false; true] end)
     let encoded = _ArrayEncoder(original)?
     let decoded = CodecRegistry.decode(1000, 1, encoded)?
     match decoded
@@ -827,8 +865,10 @@ class \nodoc\ iso _TestArrayEncoderStringRoundtrip is UnitTest
     "ArrayEncoder/String/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let original = PgArray(25,
-      recover val [as (FieldData | None): "hello"; "world"] end)
+    let original =
+      PgArray(
+        25,
+        recover val [as (FieldData | None): "hello"; "world"] end)
     let encoded = _ArrayEncoder(original)?
     let decoded = CodecRegistry.decode(1009, 1, encoded)?
     match decoded
@@ -849,17 +889,17 @@ class \nodoc\ iso _TestArrayEncoderStringRoundtrip is UnitTest
 // ============================================================
 // _ParamEncoder with PgArray
 // ============================================================
-
 class \nodoc\ iso _TestParamEncoderPgArrayOids is UnitTest
   fun name(): String =>
     "ParamEncoder/PgArray/Oids"
 
   fun apply(h: TestHelper) =>
-    let arr = PgArray(23,
-      recover val [as (FieldData | None): I32(1)] end)
-    let params: Array[FieldDataTypes] val = recover val
-      [as FieldDataTypes: arr]
-    end
+    let arr =
+      PgArray(
+        23,
+        recover val [as (FieldData | None): I32(1)] end)
+    let params: Array[FieldDataTypes] val =
+      recover val [as FieldDataTypes: arr] end
     let oids = _ParamEncoder.oids_for(params, CodecRegistry)
     h.assert_eq[USize](1, oids.size())
     try
@@ -873,11 +913,12 @@ class \nodoc\ iso _TestParamEncoderPgArrayUnknownOid is UnitTest
     "ParamEncoder/PgArray/UnknownOid"
 
   fun apply(h: TestHelper) =>
-    let arr = PgArray(9999,
-      recover val [as (FieldData | None): I32(1)] end)
-    let params: Array[FieldDataTypes] val = recover val
-      [as FieldDataTypes: arr]
-    end
+    let arr =
+      PgArray(
+        9999,
+        recover val [as (FieldData | None): I32(1)] end)
+    let params: Array[FieldDataTypes] val =
+      recover val [as FieldDataTypes: arr] end
     let oids = _ParamEncoder.oids_for(params, CodecRegistry)
     try
       h.assert_eq[U32](0, oids(0)?)  // unknown → server infers
@@ -888,17 +929,17 @@ class \nodoc\ iso _TestParamEncoderPgArrayUnknownOid is UnitTest
 // ============================================================
 // _FrontendMessage.bind() with PgArray
 // ============================================================
-
 class \nodoc\ iso _TestFrontendMessageBindWithPgArray is UnitTest
   fun name(): String =>
     "FrontendMessage/Bind/PgArray"
 
   fun apply(h: TestHelper) ? =>
-    let arr = PgArray(23,
-      recover val [as (FieldData | None): I32(1); I32(2)] end)
-    let params: Array[FieldDataTypes] val = recover val
-      [as FieldDataTypes: arr]
-    end
+    let arr =
+      PgArray(
+        23,
+        recover val [as (FieldData | None): I32(1); I32(2)] end)
+    let params: Array[FieldDataTypes] val =
+      recover val [as FieldDataTypes: arr] end
     let result = _FrontendMessage.bind("", "", params, CodecRegistry)?
     // Just verify it doesn't error and produces a non-empty result
     h.assert_true(result.size() > 15)
@@ -911,7 +952,6 @@ class \nodoc\ iso _TestFrontendMessageBindWithPgArray is UnitTest
 // ============================================================
 // _FieldDataEq extraction test
 // ============================================================
-
 class \nodoc\ iso _TestFieldDataEqExtraction is UnitTest
   fun name(): String =>
     "FieldDataEq/Extraction"
@@ -927,10 +967,14 @@ class \nodoc\ iso _TestFieldDataEqExtraction is UnitTest
     h.assert_false(f1 == f4)
 
     // Field equality with PgArray
-    let arr1 = PgArray(23,
-      recover val [as (FieldData | None): I32(1); I32(2)] end)
-    let arr2 = PgArray(23,
-      recover val [as (FieldData | None): I32(1); I32(2)] end)
+    let arr1 =
+      PgArray(
+        23,
+        recover val [as (FieldData | None): I32(1); I32(2)] end)
+    let arr2 =
+      PgArray(
+        23,
+        recover val [as (FieldData | None): I32(1); I32(2)] end)
     let fa = Field("arr", arr1)
     let fb = Field("arr", arr2)
     h.assert_true(fa == fb)
@@ -938,7 +982,6 @@ class \nodoc\ iso _TestFieldDataEqExtraction is UnitTest
 // ============================================================
 // _NumericBinaryCodec encode roundtrip tests
 // ============================================================
-
 class \nodoc\ iso _TestNumericBinaryCodecEncodeRoundtrip is UnitTest
   fun name(): String =>
     "Codec/Binary/Numeric/EncodeRoundtrip"
@@ -972,7 +1015,6 @@ class \nodoc\ iso _TestNumericBinaryCodecEncodeRoundtrip is UnitTest
 // ============================================================
 // CodecRegistry array-related tests
 // ============================================================
-
 class \nodoc\ iso _TestCodecRegistryHasBinaryCodecArray is UnitTest
   fun name(): String =>
     "CodecRegistry/HasBinaryCodec/Array"
@@ -1056,7 +1098,6 @@ class \nodoc\ iso _TestCodecRegistryArrayOidFor is UnitTest
 // ============================================================
 // Integration tests (require PostgreSQL)
 // ============================================================
-
 class \nodoc\ iso _TestIntegrationArraySelectBinary is UnitTest
   """
   SELECT an int4[] via PreparedQuery (binary decode).
@@ -1066,12 +1107,22 @@ class \nodoc\ iso _TestIntegrationArraySelectBinary is UnitTest
 
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
-    let client = _ArrayTestClient(h,
-      "SELECT ARRAY[1,2,3]::int4[] AS arr", true)
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let client =
+      _ArrayTestClient(
+        h,
+        "SELECT ARRAY[1,2,3]::int4[] AS arr",
+        true)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port),
+        DatabaseConnectInfo(
+          info.username,
+          info.password,
+          info.database),
+        client)
     h.dispose_when_done(session)
     h.long_test(10_000_000_000)
 
@@ -1084,12 +1135,22 @@ class \nodoc\ iso _TestIntegrationArraySelectText is UnitTest
 
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
-    let client = _ArrayTestClient(h,
-      "SELECT ARRAY[1,2,3]::int4[] AS arr", false)
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let client =
+      _ArrayTestClient(
+        h,
+        "SELECT ARRAY[1,2,3]::int4[] AS arr",
+        false)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port),
+        DatabaseConnectInfo(
+          info.username,
+          info.password,
+          info.database),
+        client)
     h.dispose_when_done(session)
     h.long_test(10_000_000_000)
 
@@ -1103,10 +1164,17 @@ class \nodoc\ iso _TestIntegrationArrayRoundtrip is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
     let client = _ArrayRoundtripClient(h)
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port),
+        DatabaseConnectInfo(
+          info.username,
+          info.password,
+          info.database),
+        client)
     h.dispose_when_done(session)
     h.long_test(10_000_000_000)
 
@@ -1120,10 +1188,17 @@ class \nodoc\ iso _TestIntegrationArrayEmpty is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
     let client = _ArrayEmptyClient(h)
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port),
+        DatabaseConnectInfo(
+          info.username,
+          info.password,
+          info.database),
+        client)
     h.dispose_when_done(session)
     h.long_test(10_000_000_000)
 
@@ -1137,10 +1212,17 @@ class \nodoc\ iso _TestIntegrationArrayNulls is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
     let client = _ArrayNullsClient(h)
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port),
+        DatabaseConnectInfo(
+          info.username,
+          info.password,
+          info.database),
+        client)
     h.dispose_when_done(session)
     h.long_test(10_000_000_000)
 
@@ -1154,17 +1236,23 @@ class \nodoc\ iso _TestIntegrationArrayMultipleTypes is UnitTest
   fun apply(h: TestHelper) =>
     let info = _ConnectionTestConfiguration(h.env.vars)
     let client = _ArrayMultiTypeClient(h)
-    let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(h.env.root), info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      client)
+    let session =
+      Session(
+        ServerConnectInfo(
+          lori.TCPConnectAuth(h.env.root),
+          info.host,
+          info.port),
+        DatabaseConnectInfo(
+          info.username,
+          info.password,
+          info.database),
+        client)
     h.dispose_when_done(session)
     h.long_test(10_000_000_000)
 
 // ============================================================
 // Integration test helper actors
 // ============================================================
-
 actor \nodoc\ _ArrayTestClient is (SessionStatusNotify & ResultReceiver)
   let _h: TestHelper
   let _query_str: String
@@ -1177,8 +1265,11 @@ actor \nodoc\ _ArrayTestClient is (SessionStatusNotify & ResultReceiver)
 
   be pg_session_authenticated(session: Session) =>
     if _use_prepared then
-      session.execute(PreparedQuery(_query_str,
-        recover val Array[FieldDataTypes] end), this)
+      session.execute(
+        PreparedQuery(
+          _query_str,
+          recover val Array[FieldDataTypes] end),
+        this)
     else
       session.execute(SimpleQuery(_query_str), this)
     end
@@ -1222,13 +1313,14 @@ actor \nodoc\ _ArrayTestClient is (SessionStatusNotify & ResultReceiver)
     end
     session.close()
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Query failed")
     _h.complete(false)
     session.close()
-
 
 actor \nodoc\ _ArrayRoundtripClient is (SessionStatusNotify & ResultReceiver)
   let _h: TestHelper
@@ -1237,10 +1329,15 @@ actor \nodoc\ _ArrayRoundtripClient is (SessionStatusNotify & ResultReceiver)
     _h = h
 
   be pg_session_authenticated(session: Session) =>
-    let arr = PgArray(23,
-      recover val [as (FieldData | None): I32(10); I32(20); I32(30)] end)
-    session.execute(PreparedQuery("SELECT $1::int4[] AS arr",
-      recover val [as FieldDataTypes: arr] end), this)
+    let arr =
+      PgArray(
+        23,
+        recover val [as (FieldData | None): I32(10); I32(20); I32(30)] end)
+    session.execute(
+      PreparedQuery(
+        "SELECT $1::int4[] AS arr",
+        recover val [as FieldDataTypes: arr] end),
+      this)
 
   be pg_session_connection_failed(s: Session,
     reason: ConnectionFailureReason)
@@ -1284,13 +1381,14 @@ actor \nodoc\ _ArrayRoundtripClient is (SessionStatusNotify & ResultReceiver)
     end
     session.close()
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Query failed")
     _h.complete(false)
     session.close()
-
 
 actor \nodoc\ _ArrayEmptyClient is (SessionStatusNotify & ResultReceiver)
   let _h: TestHelper
@@ -1299,8 +1397,11 @@ actor \nodoc\ _ArrayEmptyClient is (SessionStatusNotify & ResultReceiver)
     _h = h
 
   be pg_session_authenticated(session: Session) =>
-    session.execute(PreparedQuery("SELECT '{}'::int4[] AS arr",
-      recover val Array[FieldDataTypes] end), this)
+    session.execute(
+      PreparedQuery(
+        "SELECT '{}'::int4[] AS arr",
+        recover val Array[FieldDataTypes] end),
+      this)
 
   be pg_session_connection_failed(s: Session,
     reason: ConnectionFailureReason)
@@ -1332,13 +1433,14 @@ actor \nodoc\ _ArrayEmptyClient is (SessionStatusNotify & ResultReceiver)
     end
     session.close()
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Query failed")
     _h.complete(false)
     session.close()
-
 
 actor \nodoc\ _ArrayNullsClient is (SessionStatusNotify & ResultReceiver)
   let _h: TestHelper
@@ -1347,9 +1449,11 @@ actor \nodoc\ _ArrayNullsClient is (SessionStatusNotify & ResultReceiver)
     _h = h
 
   be pg_session_authenticated(session: Session) =>
-    session.execute(PreparedQuery(
-      "SELECT ARRAY[1,NULL,3]::int4[] AS arr",
-      recover val Array[FieldDataTypes] end), this)
+    session.execute(
+      PreparedQuery(
+        "SELECT ARRAY[1,NULL,3]::int4[] AS arr",
+        recover val Array[FieldDataTypes] end),
+      this)
 
   be pg_session_connection_failed(s: Session,
     reason: ConnectionFailureReason)
@@ -1389,13 +1493,14 @@ actor \nodoc\ _ArrayNullsClient is (SessionStatusNotify & ResultReceiver)
     end
     session.close()
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Query failed")
     _h.complete(false)
     session.close()
-
 
 actor \nodoc\ _ArrayMultiTypeClient is (SessionStatusNotify & ResultReceiver)
   let _h: TestHelper
@@ -1405,9 +1510,11 @@ actor \nodoc\ _ArrayMultiTypeClient is (SessionStatusNotify & ResultReceiver)
 
   be pg_session_authenticated(session: Session) =>
     // Test multiple array types in sequence
-    session.execute(PreparedQuery(
-      "SELECT ARRAY[true,false]::bool[] AS b, ARRAY[1.5,2.5]::float8[] AS f",
-      recover val Array[FieldDataTypes] end), this)
+    session.execute(
+      PreparedQuery(
+        "SELECT ARRAY[true,false]::bool[] AS b, ARRAY[1.5,2.5]::float8[] AS f",
+        recover val Array[FieldDataTypes] end),
+      this)
 
   be pg_session_connection_failed(s: Session,
     reason: ConnectionFailureReason)
@@ -1476,7 +1583,9 @@ actor \nodoc\ _ArrayMultiTypeClient is (SessionStatusNotify & ResultReceiver)
     end
     session.close()
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail("Query failed")
@@ -1486,7 +1595,6 @@ actor \nodoc\ _ArrayMultiTypeClient is (SessionStatusNotify & ResultReceiver)
 // ============================================================
 // Generator for property-based tests
 // ============================================================
-
 primitive \nodoc\ _PgArrayGen
   """
   Generator for (PgArray, array_oid) pairs across all supported element
@@ -1601,7 +1709,7 @@ primitive \nodoc\ _PgArrayGen
         | 1 => rnd.u16().string()
         | 2 =>
           let v = (rnd.usize(1, 65535)).string()
-          recover val "-".clone().>append(consume v) end
+          recover val "-".clone() .> append(consume v) end
         | 3 => "NaN"
         else
           "Infinity"
@@ -1611,7 +1719,6 @@ primitive \nodoc\ _PgArrayGen
 // ============================================================
 // Property-based tests
 // ============================================================
-
 class \nodoc\ iso _TestArrayBinaryRoundtripProperty
   is Property1[(PgArray, U32)]
   """
@@ -1632,9 +1739,11 @@ class \nodoc\ iso _TestArrayBinaryRoundtripProperty
     | let result: PgArray =>
       h.assert_eq[USize](arr.size(), result.size())
       h.assert_eq[U32](arr.element_oid, result.element_oid)
-      h.assert_true(arr == result,
-        "Roundtrip mismatch for element_oid=" + arr.element_oid.string()
-        + " size=" + arr.size().string())
+      h.assert_true(
+        arr == result,
+        "Roundtrip mismatch for element_oid="
+          + arr.element_oid.string()
+          + " size=" + arr.size().string())
     else
       h.fail("Expected PgArray for array_oid " + array_oid.string())
     end
@@ -1657,14 +1766,15 @@ class \nodoc\ iso _TestPgArrayEqualityReflexiveProperty
 // ============================================================
 // Encoder roundtrip tests — remaining element types
 // ============================================================
-
 class \nodoc\ iso _TestArrayEncoderI16Roundtrip is UnitTest
   fun name(): String =>
     "ArrayEncoder/I16/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let arr = PgArray(21,
-      recover val [as (FieldData | None): I16(10); None; I16(-5)] end)
+    let arr =
+      PgArray(
+        21,
+        recover val [as (FieldData | None): I16(10); None; I16(-5)] end)
     let decoded = CodecRegistry.decode(1005, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray =>
@@ -1678,9 +1788,10 @@ class \nodoc\ iso _TestArrayEncoderI64Roundtrip is UnitTest
     "ArrayEncoder/I64/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let arr = PgArray(20,
-      recover val [as (FieldData | None):
-        I64(1000000); None; I64(-999)] end)
+    let arr =
+      PgArray(
+        20,
+        recover val [as (FieldData | None): I64(1000000); None; I64(-999)] end)
     let decoded = CodecRegistry.decode(1016, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
@@ -1692,8 +1803,10 @@ class \nodoc\ iso _TestArrayEncoderF32Roundtrip is UnitTest
     "ArrayEncoder/F32/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let arr = PgArray(700,
-      recover val [as (FieldData | None): F32(1.5); F32(-2.5)] end)
+    let arr =
+      PgArray(
+        700,
+        recover val [as (FieldData | None): F32(1.5); F32(-2.5)] end)
     let decoded = CodecRegistry.decode(1021, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
@@ -1705,8 +1818,10 @@ class \nodoc\ iso _TestArrayEncoderF64Roundtrip is UnitTest
     "ArrayEncoder/F64/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let arr = PgArray(701,
-      recover val [as (FieldData | None): F64(3.14); None; F64(-1.0)] end)
+    let arr =
+      PgArray(
+        701,
+        recover val [as (FieldData | None): F64(3.14); None; F64(-1.0)] end)
     let decoded = CodecRegistry.decode(1022, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
@@ -1718,11 +1833,15 @@ class \nodoc\ iso _TestArrayEncoderByteaRoundtrip is UnitTest
     "ArrayEncoder/Bytea/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let arr = PgArray(17,
-      recover val [as (FieldData | None):
-        Bytea(recover val [as U8: 1; 2; 3] end)
-        None
-        Bytea(recover val Array[U8] end)] end)
+    let arr =
+      PgArray(
+        17,
+        recover val
+          [ as (FieldData | None):
+            Bytea(recover val [as U8: 1; 2; 3] end)
+            None
+            Bytea(recover val Array[U8] end)]
+        end)
     let decoded = CodecRegistry.decode(1001, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
@@ -1734,9 +1853,13 @@ class \nodoc\ iso _TestArrayEncoderDateRoundtrip is UnitTest
     "ArrayEncoder/Date/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let arr = PgArray(1082,
-      recover val [as (FieldData | None):
-        PgDate(0); PgDate(365); PgDate(-365)] end)
+    let arr =
+      PgArray(
+        1082,
+        recover val
+          [ as (FieldData | None):
+            PgDate(0); PgDate(365); PgDate(-365)]
+        end)
     let decoded = CodecRegistry.decode(1182, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
@@ -1749,10 +1872,14 @@ class \nodoc\ iso _TestArrayEncoderTimeRoundtrip is UnitTest
 
   fun apply(h: TestHelper) ? =>
     let t1 = PgTime(MakePgTimeMicroseconds(0) as PgTimeMicroseconds)
-    let t2 = PgTime(
-      MakePgTimeMicroseconds(43_200_000_000) as PgTimeMicroseconds)
-    let arr = PgArray(1083,
-      recover val [as (FieldData | None): t1; t2] end)
+    let t2 =
+      PgTime(
+        MakePgTimeMicroseconds(43_200_000_000)
+          as PgTimeMicroseconds)
+    let arr =
+      PgArray(
+        1083,
+        recover val [as (FieldData | None): t1; t2] end)
     let decoded = CodecRegistry.decode(1183, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
@@ -1764,10 +1891,15 @@ class \nodoc\ iso _TestArrayEncoderTimestampRoundtrip is UnitTest
     "ArrayEncoder/Timestamp/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let arr = PgArray(1114,
-      recover val [as (FieldData | None):
-        PgTimestamp(0); PgTimestamp(I64.max_value())
-        PgTimestamp(I64.min_value())] end)
+    let arr =
+      PgArray(
+        1114,
+        recover val
+          [ as (FieldData | None):
+            PgTimestamp(0)
+            PgTimestamp(I64.max_value())
+            PgTimestamp(I64.min_value())]
+        end)
     let decoded = CodecRegistry.decode(1115, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
@@ -1779,25 +1911,33 @@ class \nodoc\ iso _TestArrayEncoderIntervalRoundtrip is UnitTest
     "ArrayEncoder/Interval/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let arr = PgArray(1186,
-      recover val [as (FieldData | None):
-        PgInterval(1_000_000, 30, 12)
-        None
-        PgInterval(0, 0, 0)] end)
+    let arr =
+      PgArray(
+        1186,
+        recover val
+          [ as (FieldData | None):
+            PgInterval(1_000_000, 30, 12)
+            None
+            PgInterval(0, 0, 0)]
+        end)
     let decoded = CodecRegistry.decode(1187, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
     else h.fail("Expected PgArray")
     end
 
-class \nodoc\ iso _TestArrayEncoderUuidRoundtrip is UnitTest
+class \nodoc\ iso _TestArrayEncoderUUIDRoundtrip is UnitTest
   fun name(): String =>
-    "ArrayEncoder/Uuid/Roundtrip"
+    "ArrayEncoder/UUID/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let arr = PgArray(2950,
-      recover val [as (FieldData | None):
-        "550e8400-e29b-41d4-a716-446655440000"] end)
+    let arr =
+      PgArray(
+        2950,
+        recover val
+          [ as (FieldData | None):
+            "550e8400-e29b-41d4-a716-446655440000"]
+        end)
     let decoded = CodecRegistry.decode(2951, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray =>
@@ -1814,14 +1954,15 @@ class \nodoc\ iso _TestArrayEncoderUuidRoundtrip is UnitTest
     else h.fail("Expected PgArray")
     end
 
-class \nodoc\ iso _TestArrayEncoderJsonbRoundtrip is UnitTest
+class \nodoc\ iso _TestArrayEncoderJSONBRoundtrip is UnitTest
   fun name(): String =>
-    "ArrayEncoder/Jsonb/Roundtrip"
+    "ArrayEncoder/JSONB/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let arr = PgArray(3802,
-      recover val [as (FieldData | None):
-        "{\"key\": \"value\"}"; "42"] end)
+    let arr =
+      PgArray(
+        3802,
+        recover val [as (FieldData | None): "{\"key\": \"value\"}"; "42"] end)
     let decoded = CodecRegistry.decode(3807, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
@@ -1833,8 +1974,10 @@ class \nodoc\ iso _TestArrayEncoderOidRoundtrip is UnitTest
     "ArrayEncoder/Oid/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let arr = PgArray(26,
-      recover val [as (FieldData | None): "12345"; "0"] end)
+    let arr =
+      PgArray(
+        26,
+        recover val [as (FieldData | None): "12345"; "0"] end)
     let decoded = CodecRegistry.decode(1028, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
@@ -1846,9 +1989,10 @@ class \nodoc\ iso _TestArrayEncoderNumericRoundtrip is UnitTest
     "ArrayEncoder/Numeric/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let arr = PgArray(1700,
-      recover val [as (FieldData | None):
-        "42"; "-99.99"; "0"; "NaN"] end)
+    let arr =
+      PgArray(
+        1700,
+        recover val [as (FieldData | None): "42"; "-99.99"; "0"; "NaN"] end)
     let decoded = CodecRegistry.decode(1231, 1, _ArrayEncoder(arr)?)?
     match decoded
     | let r: PgArray => h.assert_true(arr == r)
@@ -1858,7 +2002,6 @@ class \nodoc\ iso _TestArrayEncoderNumericRoundtrip is UnitTest
 // ============================================================
 // Text decode — remaining element types
 // ============================================================
-
 class \nodoc\ iso _TestTextDecodeInt8Array is UnitTest
   fun name(): String =>
     "Codec/Text/Array/Int8"
@@ -1964,14 +2107,15 @@ class \nodoc\ iso _TestTextDecodeTimestampArray is UnitTest
     else h.fail("Expected PgArray")
     end
 
-class \nodoc\ iso _TestTextDecodeUuidArray is UnitTest
+class \nodoc\ iso _TestTextDecodeUUIDArray is UnitTest
   fun name(): String =>
-    "Codec/Text/Array/Uuid"
+    "Codec/Text/Array/UUID"
 
   fun apply(h: TestHelper) ? =>
-    let data: Array[U8] val = recover val
-      "{550e8400-e29b-41d4-a716-446655440000}".array()
-    end
+    let data: Array[U8] val =
+      recover val
+        "{550e8400-e29b-41d4-a716-446655440000}".array()
+      end
     let result = CodecRegistry.decode(2951, 0, data)?
     match result
     | let arr: PgArray =>
@@ -1991,7 +2135,6 @@ class \nodoc\ iso _TestTextDecodeUuidArray is UnitTest
 // ============================================================
 // Text decode — edge cases
 // ============================================================
-
 class \nodoc\ iso _TestTextDecodeEscapedBackslash is UnitTest
   fun name(): String =>
     "Codec/Text/Array/EscapedBackslash"
@@ -2044,16 +2187,19 @@ class \nodoc\ iso _TestTextDecodeQuotedNullString is UnitTest
 // ============================================================
 // PgArray equality — edge cases
 // ============================================================
-
 class \nodoc\ iso _TestPgArrayEqualitySizeMismatch is UnitTest
   fun name(): String =>
     "PgArray/Equality/SizeMismatch"
 
   fun apply(h: TestHelper) =>
-    let a = PgArray(23,
-      recover val [as (FieldData | None): I32(1); I32(2)] end)
-    let b = PgArray(23,
-      recover val [as (FieldData | None): I32(1)] end)
+    let a =
+      PgArray(
+        23,
+        recover val [as (FieldData | None): I32(1); I32(2)] end)
+    let b =
+      PgArray(
+        23,
+        recover val [as (FieldData | None): I32(1)] end)
     h.assert_false(a == b)
 
 class \nodoc\ iso _TestPgArrayEqualityEmpty is UnitTest
@@ -2061,10 +2207,14 @@ class \nodoc\ iso _TestPgArrayEqualityEmpty is UnitTest
     "PgArray/Equality/Empty"
 
   fun apply(h: TestHelper) =>
-    let a = PgArray(23,
-      recover val Array[(FieldData | None)] end)
-    let b = PgArray(23,
-      recover val Array[(FieldData | None)] end)
+    let a =
+      PgArray(
+        23,
+        recover val Array[(FieldData | None)] end)
+    let b =
+      PgArray(
+        23,
+        recover val Array[(FieldData | None)] end)
     h.assert_true(a == b)
 
 class \nodoc\ iso _TestPgArrayFieldDataEqNonPgArray is UnitTest
@@ -2072,8 +2222,10 @@ class \nodoc\ iso _TestPgArrayFieldDataEqNonPgArray is UnitTest
     "PgArray/FieldDataEq/NonPgArray"
 
   fun apply(h: TestHelper) =>
-    let arr = PgArray(23,
-      recover val [as (FieldData | None): I32(1)] end)
+    let arr =
+      PgArray(
+        23,
+        recover val [as (FieldData | None): I32(1)] end)
     h.assert_false(arr.field_data_eq(I32(1)))
     h.assert_false(arr.field_data_eq("test"))
 
@@ -2082,17 +2234,20 @@ class \nodoc\ iso _TestPgArrayStringNull is UnitTest
     "PgArray/String/NullLookalike"
 
   fun apply(h: TestHelper) =>
-    let a = PgArray(25,
-      recover val [as (FieldData | None): "null"] end)
+    let a =
+      PgArray(
+        25,
+        recover val [as (FieldData | None): "null"] end)
     h.assert_eq[String]("{\"null\"}", a.string())
-    let b = PgArray(25,
-      recover val [as (FieldData | None): "Null"] end)
+    let b =
+      PgArray(
+        25,
+        recover val [as (FieldData | None): "Null"] end)
     h.assert_eq[String]("{\"Null\"}", b.string())
 
 // ============================================================
 // _FieldDataEq.nullable — mismatch tests
 // ============================================================
-
 class \nodoc\ iso _TestFieldDataEqNullableMismatch is UnitTest
   fun name(): String =>
     "FieldDataEq/Nullable/Mismatch"
@@ -2107,13 +2262,16 @@ class \nodoc\ iso _TestFieldDataEqNullableMismatch is UnitTest
 // ============================================================
 // _ArrayEncoder — negative cases
 // ============================================================
-
 class \nodoc\ iso _TestArrayEncoderUnsupportedType is UnitTest
   fun name(): String =>
     "ArrayEncoder/UnsupportedType"
 
   fun apply(h: TestHelper) =>
-    let arr = PgArray(23,
-      recover val [as (FieldData | None):
-        RawBytes(recover val [as U8: 1; 2] end)] end)
+    let arr =
+      PgArray(
+        23,
+        recover val
+          [ as (FieldData | None):
+            RawBytes(recover val [as U8: 1; 2] end)]
+        end)
     h.assert_error({()? => _ArrayEncoder(arr)? })

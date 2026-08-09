@@ -54,7 +54,8 @@ class \nodoc\ iso _TestResponseParserJunkMessage is UnitTest
       let bytes = _IncomingJunkTestMessage.bytes()
       let r: Reader = Reader
       r.append(bytes)
-      _ResponseParser(r)? })
+      _ResponseParser(r)?
+    })
 
 class \nodoc\ iso _TestResponseParserShortLengthField is UnitTest
   """
@@ -78,7 +79,8 @@ class \nodoc\ iso _TestResponseParserShortLengthField is UnitTest
           let bytes: Array[U8] val = [as U8: '1'; 0; 0; 0; len']
           let r: Reader = Reader
           r.append(bytes)
-          _ResponseParser(r)? },
+          _ResponseParser(r)?
+        },
         "length=" + declared_length.string() + " should error")
     end
 
@@ -107,7 +109,8 @@ class \nodoc\ iso _TestResponseParserLongLengthField is UnitTest
         {() ? =>
           let r: Reader = Reader
           r.append(bytes)
-          _ResponseParser(r)? },
+          _ResponseParser(r)?
+        },
         "U32.max length should error on ilp32 (message_size wrap)")
     else
       try
@@ -141,7 +144,8 @@ class \nodoc\ iso _TestResponseParserAuthenticationOkMessage is UnitTest
       h.fail()
     end
 
-class \nodoc\ iso _TestResponseParserAuthenticationMD5PasswordMessage is UnitTest
+class \nodoc\ iso _TestResponseParserAuthenticationMD5PasswordMessage
+  is UnitTest
   """
   Verify that AuthenticationMD5Password messages are parsed correctly
   """
@@ -218,7 +222,7 @@ class \nodoc\ iso _TestResponseParserCommandCompleteMessage is UnitTest
 
   fun _test_expected(h: TestHelper, i: String, id: String, value: USize) ? =>
     let bytes = _IncomingCommandCompleteTestMessage(i).bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     match _ResponseParser(r)?
     | let m: _CommandCompleteMessage =>
@@ -229,11 +233,14 @@ class \nodoc\ iso _TestResponseParserCommandCompleteMessage is UnitTest
     end
 
   fun _test_error(h: TestHelper, i: String) =>
-    h.assert_error({() ? =>
-      let bytes = _IncomingCommandCompleteTestMessage(i).bytes()
-      let r: Reader = Reader.>append(bytes)
+    h.assert_error(
+      {() ? =>
+        let bytes = _IncomingCommandCompleteTestMessage(i).bytes()
+        let r: Reader = Reader .> append(bytes)
 
-    _ResponseParser(r)? }, ("Assert error failed for " + i))
+        _ResponseParser(r)?
+      },
+      ("Assert error failed for " + i))
 
 class \nodoc\ iso _TestResponseParserRowDescriptionMessage is UnitTest
   """
@@ -243,19 +250,20 @@ class \nodoc\ iso _TestResponseParserRowDescriptionMessage is UnitTest
     "ResponseParser/RowDescriptionMessage"
 
   fun apply(h: TestHelper) ? =>
-    let columns: Array[(String, U32, U16)] val = recover val
-      [ ("is_it_true", U32(16), U16(0))
-        ("description", U32(25), U16(0))
-        ("tiny", U32(21), U16(0))
-        ("essay", U32(25), U16(0))
-        ("price", U32(23), U16(0))
-        ("counter", U32(20), U16(0))
-        ("money", U32(700), U16(0))
-        ("big_money", U32(701), U16(0)) ]
-    end
+    let columns: Array[(String, U32, U16)] val =
+      recover val
+        [ ("is_it_true", U32(16), U16(0))
+          ("description", U32(25), U16(0))
+          ("tiny", U32(21), U16(0))
+          ("essay", U32(25), U16(0))
+          ("price", U32(23), U16(0))
+          ("counter", U32(20), U16(0))
+          ("money", U32(700), U16(0))
+          ("big_money", U32(701), U16(0)) ]
+      end
 
     let bytes = _IncomingRowDescriptionTestMessage(columns).bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     match _ResponseParser(r)?
     | let m: _RowDescriptionMessage =>
@@ -278,15 +286,16 @@ class \nodoc\ iso _TestResponseParserRowDescriptionBinaryFormat is UnitTest
     "ResponseParser/RowDescriptionBinaryFormat"
 
   fun apply(h: TestHelper) ? =>
-    let columns: Array[(String, U32, U16)] val = recover val
-      [ ("id", U32(23), U16(1))
-        ("name", U32(25), U16(1))
-        ("created", U32(1114), U16(1))
-        ("mixed", U32(16), U16(0)) ]
-    end
+    let columns: Array[(String, U32, U16)] val =
+      recover val
+        [ ("id", U32(23), U16(1))
+          ("name", U32(25), U16(1))
+          ("created", U32(1114), U16(1))
+          ("mixed", U32(16), U16(0)) ]
+      end
 
     let bytes = _IncomingRowDescriptionTestMessage(columns).bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     match _ResponseParser(r)?
     | let m: _RowDescriptionMessage =>
@@ -327,8 +336,9 @@ class \nodoc\ iso
   _TestResponseParserMultipleMessagesAuthenticationMD5PasswordFirst
   is UnitTest
   """
-  Verify that we correctly advance forward from an authentication md5 password message such that it doesn't corrupt the buffer and lead to an incorrect
-  result for the next message.
+  Verify that we correctly advance forward from an authentication md5
+  password message such that it doesn't corrupt the buffer and lead to
+  an incorrect result for the next message.
   """
   fun name(): String =>
     "ResponseParser/MultipleMessages/AuthenticationMD5PasswordFirst"
@@ -352,7 +362,8 @@ class \nodoc\ iso
       h.fail("Wrong message returned for second message.")
     end
 
-class \nodoc\ iso _TestResponseParserMultipleMessagesErrorResponseFirst is UnitTest
+class \nodoc\ iso
+  _TestResponseParserMultipleMessagesErrorResponseFirst is UnitTest
   """
   Verify that we correctly advance forward from an error response message such
   that it doesn't corrupt the buffer and lead to an incorrect result for the
@@ -410,8 +421,8 @@ class \nodoc\ iso _TestResponseParserReadyForQueryMessage is UnitTest
 
     match _ResponseParser(r)?
     | let m: _ReadyForQueryMessage =>
-      h.assert_is[TransactionStatus](TransactionIdle,
-        m.transaction_status())
+      h.assert_is[TransactionStatus](
+        TransactionIdle, m.transaction_status())
     else
       h.fail("Wrong message returned.")
     end
@@ -425,8 +436,8 @@ class \nodoc\ iso _TestResponseParserReadyForQueryMessage is UnitTest
 
     match _ResponseParser(r)?
     | let m: _ReadyForQueryMessage =>
-      h.assert_is[TransactionStatus](TransactionInBlock,
-        m.transaction_status())
+      h.assert_is[TransactionStatus](
+        TransactionInBlock, m.transaction_status())
     else
       h.fail("Wrong message returned.")
     end
@@ -440,8 +451,8 @@ class \nodoc\ iso _TestResponseParserReadyForQueryMessage is UnitTest
 
     match _ResponseParser(r)?
     | let m: _ReadyForQueryMessage =>
-      h.assert_is[TransactionStatus](TransactionFailed,
-        m.transaction_status())
+      h.assert_is[TransactionStatus](
+        TransactionFailed, m.transaction_status())
     else
       h.fail("Wrong message returned.")
     end
@@ -454,7 +465,8 @@ class \nodoc\ iso _TestResponseParserReadyForQueryMessage is UnitTest
       let r: Reader = Reader
       r.append(bytes)
 
-      _ResponseParser(r)? })
+      _ResponseParser(r)?
+    })
 
 class \nodoc\ iso _TestResponseParserEmptyQueryResponseMessage is UnitTest
   """
@@ -465,7 +477,7 @@ class \nodoc\ iso _TestResponseParserEmptyQueryResponseMessage is UnitTest
 
   fun apply(h: TestHelper) ? =>
     let bytes = _IncomingEmptyQueryResponseTestMessage.bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     match _ResponseParser(r)?
     | let m: _EmptyQueryResponseMessage =>
@@ -483,16 +495,17 @@ class \nodoc\ iso _TestResponseParserDataRowMessage is UnitTest
     "ResponseParser/DataRowMessage"
 
   fun apply(h: TestHelper) ? =>
-    let columns: Array[(String | None)] val = recover val
-      Array[(String | None)]
-        .>push("Hello")
-        .>push("There")
-        .>push(None)
-        .>push("")
-    end
+    let columns: Array[(String | None)] val =
+      recover val
+        Array[(String | None)]
+          .> push("Hello")
+          .> push("There")
+          .> push(None)
+          .> push("")
+      end
 
     let bytes = _IncomingDataRowTestMessage(columns).bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     match _ResponseParser(r)?
     | let m: _DataRowMessage =>
@@ -549,7 +562,8 @@ class \nodoc\ iso _TestResponseParserDataRowBogusColumnLength is UnitTest
           let bytes = WriterToByteArray(wb)
           let r: Reader = Reader
           r.append(bytes)
-          _ResponseParser(r)? },
+          _ResponseParser(r)?
+        },
         "column_length=" + cl.string() + " should error")
     end
 
@@ -631,7 +645,7 @@ class \nodoc\ iso _TestResponseParserParseCompleteMessage is UnitTest
 
   fun apply(h: TestHelper) ? =>
     let bytes = _IncomingParseCompleteTestMessage.bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     if _ResponseParser(r)? isnt _ParseCompleteMessage then
       h.fail("Wrong message returned.")
@@ -643,7 +657,7 @@ class \nodoc\ iso _TestResponseParserBindCompleteMessage is UnitTest
 
   fun apply(h: TestHelper) ? =>
     let bytes = _IncomingBindCompleteTestMessage.bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     if _ResponseParser(r)? isnt _BindCompleteMessage then
       h.fail("Wrong message returned.")
@@ -655,7 +669,7 @@ class \nodoc\ iso _TestResponseParserNoDataMessage is UnitTest
 
   fun apply(h: TestHelper) ? =>
     let bytes = _IncomingNoDataTestMessage.bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     if _ResponseParser(r)? isnt _NoDataMessage then
       h.fail("Wrong message returned.")
@@ -667,7 +681,7 @@ class \nodoc\ iso _TestResponseParserCloseCompleteMessage is UnitTest
 
   fun apply(h: TestHelper) ? =>
     let bytes = _IncomingCloseCompleteTestMessage.bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     if _ResponseParser(r)? isnt _CloseCompleteMessage then
       h.fail("Wrong message returned.")
@@ -680,7 +694,7 @@ class \nodoc\ iso _TestResponseParserParameterDescriptionMessage is UnitTest
   fun apply(h: TestHelper) ? =>
     let oids: Array[U32] val = recover val [as U32: 23; 25; 16] end
     let bytes = _IncomingParameterDescriptionTestMessage(oids).bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     match _ResponseParser(r)?
     | let m: _ParameterDescriptionMessage =>
@@ -698,7 +712,7 @@ class \nodoc\ iso _TestResponseParserPortalSuspendedMessage is UnitTest
 
   fun apply(h: TestHelper) ? =>
     let bytes = _IncomingPortalSuspendedTestMessage.bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     if _ResponseParser(r)? isnt _PortalSuspendedMessage then
       h.fail("Wrong message returned.")
@@ -715,7 +729,7 @@ class \nodoc\ iso _TestResponseParserDigitMessageTypeNotJunk is UnitTest
   fun apply(h: TestHelper) ? =>
     // '1' (ParseComplete) should be accepted
     let bytes = _IncomingParseCompleteTestMessage.bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
     if _ResponseParser(r)? isnt _ParseCompleteMessage then
       h.fail("Digit '1' was not accepted.")
     end
@@ -726,8 +740,9 @@ class \nodoc\ iso _TestResponseParserDigitMessageTypeNotJunk is UnitTest
       wb.u8('/')
       wb.u32_be(4)
       let junk_bytes = WriterToByteArray(wb)
-      let r': Reader = Reader.>append(junk_bytes)
-      _ResponseParser(r')? })
+      let r': Reader = Reader .> append(junk_bytes)
+      _ResponseParser(r')?
+    })
 
 class \nodoc\ iso
   _TestResponseParserMultipleMessagesParseCompleteFirst
@@ -764,8 +779,8 @@ class \nodoc\ iso
 
     match _ResponseParser(r)?
     | let m: _ReadyForQueryMessage =>
-      h.assert_is[TransactionStatus](TransactionIdle,
-        m.transaction_status())
+      h.assert_is[TransactionStatus](
+        TransactionIdle, m.transaction_status())
     else
       h.fail("Wrong message for ReadyForQuery.")
     end
@@ -782,7 +797,7 @@ class \nodoc\ iso _TestResponseParserBackendKeyDataMessage is UnitTest
     let pid: I32 = 12345
     let secret: I32 = 67890
     let bytes = _IncomingBackendKeyDataTestMessage(pid, secret).bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     match _ResponseParser(r)?
     | let m: _BackendKeyDataMessage =>
@@ -817,8 +832,8 @@ class \nodoc\ iso
 
     match _ResponseParser(r)?
     | let m: _ReadyForQueryMessage =>
-      h.assert_is[TransactionStatus](TransactionIdle,
-        m.transaction_status())
+      h.assert_is[TransactionStatus](
+        TransactionIdle, m.transaction_status())
     else
       h.fail("Wrong message returned for second message.")
     end
@@ -1162,10 +1177,10 @@ class \nodoc\ val _IncomingDataRowTestMessage
     // bytes with placeholder for length
     let b = WriterToByteArray(wb)
     // bytes for payload
-    let pw: Writer = Writer.>u32_be(payload_size.u32())
+    let pw: Writer = Writer .> u32_be(payload_size.u32())
     let pb = WriterToByteArray(pw)
     // copy in payload size
-    _bytes = recover val b.clone().>copy_from(pb, 0, 1, 4) end
+    _bytes = recover val b.clone() .> copy_from(pb, 0, 1, 4) end
 
   fun bytes(): Array[U8] val =>
     _bytes
@@ -1201,10 +1216,10 @@ class \nodoc\ val _IncomingRowDescriptionTestMessage
     // bytes with placeholder for length
     let b = WriterToByteArray(wb)
     // bytes for payload
-    let pw: Writer = Writer.>u32_be(payload_size.u32())
+    let pw: Writer = Writer .> u32_be(payload_size.u32())
     let pb = WriterToByteArray(pw)
     // copy in payload size
-    _bytes = recover val b.clone().>copy_from(pb, 0, 1, 4) end
+    _bytes = recover val b.clone() .> copy_from(pb, 0, 1, 4) end
 
   fun bytes(): Array[U8] val =>
     _bytes
@@ -1304,7 +1319,7 @@ class \nodoc\ iso _TestResponseParserCopyInResponseMessage is UnitTest
     // Text format (0) with 3 columns (each text format)
     let col_fmts: Array[U8] val = recover val [as U8: 0; 0; 0] end
     let bytes = _IncomingCopyInResponseTestMessage(0, col_fmts).bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     match _ResponseParser(r)?
     | let msg: _CopyInResponseMessage =>
@@ -1320,7 +1335,7 @@ class \nodoc\ iso _TestResponseParserCopyInResponseMessage is UnitTest
     // Binary format (1) with 1 column (binary format)
     let col_fmts2: Array[U8] val = recover val [as U8: 1] end
     let bytes2 = _IncomingCopyInResponseTestMessage(1, col_fmts2).bytes()
-    let r2: Reader = Reader.>append(bytes2)
+    let r2: Reader = Reader .> append(bytes2)
 
     match _ResponseParser(r2)?
     | let msg: _CopyInResponseMessage =>
@@ -1343,7 +1358,7 @@ class \nodoc\ iso _TestResponseParserCopyOutResponseMessage is UnitTest
     // Text format (0) with 2 columns (each text format)
     let col_fmts: Array[U8] val = recover val [as U8: 0; 0] end
     let bytes = _IncomingCopyOutResponseTestMessage(0, col_fmts).bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     match _ResponseParser(r)?
     | let msg: _CopyOutResponseMessage =>
@@ -1358,7 +1373,7 @@ class \nodoc\ iso _TestResponseParserCopyOutResponseMessage is UnitTest
     // Binary format (1) with 1 column (binary format)
     let col_fmts2: Array[U8] val = recover val [as U8: 1] end
     let bytes2 = _IncomingCopyOutResponseTestMessage(1, col_fmts2).bytes()
-    let r2: Reader = Reader.>append(bytes2)
+    let r2: Reader = Reader .> append(bytes2)
 
     match _ResponseParser(r2)?
     | let msg: _CopyOutResponseMessage =>
@@ -1380,7 +1395,7 @@ class \nodoc\ iso _TestResponseParserCopyDataMessage is UnitTest
   fun apply(h: TestHelper) ? =>
     let data: Array[U8] val = "row1\tvalue1\n".array()
     let bytes = _IncomingCopyDataTestMessage(data).bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     match _ResponseParser(r)?
     | let msg: _CopyDataMessage =>
@@ -1392,7 +1407,7 @@ class \nodoc\ iso _TestResponseParserCopyDataMessage is UnitTest
     // Empty data payload
     let empty: Array[U8] val = recover val Array[U8] end
     let bytes2 = _IncomingCopyDataTestMessage(empty).bytes()
-    let r2: Reader = Reader.>append(bytes2)
+    let r2: Reader = Reader .> append(bytes2)
 
     match _ResponseParser(r2)?
     | let msg: _CopyDataMessage =>
@@ -1411,7 +1426,7 @@ class \nodoc\ iso _TestResponseParserCopyDoneMessage is UnitTest
 
   fun apply(h: TestHelper) ? =>
     let bytes = _IncomingCopyDoneTestMessage.bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     if _ResponseParser(r)? isnt _CopyDoneMessage then
       h.fail("Wrong message type returned.")
@@ -1428,7 +1443,7 @@ class \nodoc\ iso _TestResponseParserParameterStatusMessage is UnitTest
   fun apply(h: TestHelper) ? =>
     let bytes = _IncomingParameterStatusTestMessage(
       "client_encoding", "UTF8").bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     match _ResponseParser(r)?
     | let msg: _ParameterStatusMessage =>
@@ -1449,7 +1464,7 @@ class \nodoc\ iso _TestResponseParserNoticeResponseMessage is UnitTest
   fun apply(h: TestHelper) ? =>
     let bytes = _IncomingNoticeResponseTestMessage(
       "NOTICE", "00000", "test notice").bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     match _ResponseParser(r)?
     | let msg: NoticeResponseMessage =>
@@ -1472,7 +1487,7 @@ class \nodoc\ iso _TestResponseParserNotificationResponseMessage is UnitTest
     // Normal case: non-empty channel and payload
     let bytes = _IncomingNotificationResponseTestMessage(
       12345, "test_channel", "test_payload").bytes()
-    let r: Reader = Reader.>append(bytes)
+    let r: Reader = Reader .> append(bytes)
 
     match _ResponseParser(r)?
     | let msg: _NotificationResponseMessage =>
@@ -1486,7 +1501,7 @@ class \nodoc\ iso _TestResponseParserNotificationResponseMessage is UnitTest
     // Edge case: empty payload
     let bytes2 = _IncomingNotificationResponseTestMessage(
       42, "ch", "").bytes()
-    let r2: Reader = Reader.>append(bytes2)
+    let r2: Reader = Reader .> append(bytes2)
 
     match _ResponseParser(r2)?
     | let msg: _NotificationResponseMessage =>
@@ -1617,7 +1632,7 @@ class \nodoc\ val _IncomingCopyInResponseTestMessage
 
   new val create(format: U8, column_formats: Array[U8] val) =>
     // Payload: 4 (length) + 1 (format) + 2 (num columns) +
-    //   (num_columns * 2) (column format codes as Int16)
+    // (num_columns * 2) (column format codes as Int16)
     let num_cols = column_formats.size()
     let payload_size = 4 + 1 + 2 + (num_cols * 2)
     let wb: Writer = Writer
@@ -1683,8 +1698,11 @@ class \nodoc\ val _IncomingCopyDoneTestMessage
     _bytes
 
 primitive \nodoc\ _RandomMessageBytesGen
-  fun apply(rnd: Randomness, min_count: USize = 2,
-    max_count: USize = 8): Array[Array[U8] val] val
+  fun apply(
+    rnd: Randomness,
+    min_count: USize = 2,
+    max_count: USize = 8)
+    : Array[Array[U8] val] val
   =>
     let count = rnd.usize(min_count, max_count)
     let messages = recover iso Array[Array[U8] val](count) end
@@ -1702,9 +1720,8 @@ primitive \nodoc\ _RandomMessageBytesGen
       _IncomingAuthenticationMD5PasswordTestMessage(
         _random_salt(rnd)).bytes()
     | 3 =>
-      let mechanisms: Array[String] val = recover val
-        ["SCRAM-SHA-256"]
-      end
+      let mechanisms: Array[String] val =
+        recover val ["SCRAM-SHA-256"] end
       _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
     | 4 =>
       _IncomingAuthenticationSASLContinueTestMessage(
@@ -1858,9 +1875,12 @@ primitive \nodoc\ _RandomMessageBytesGen
   fun _random_row_desc_columns(rnd: Randomness):
     Array[(String, U32, U16)] val
   =>
-    let known_oids: Array[U32] val = recover val
-      [as U32: 25; 23; 20; 16; 21; 700; 701; 17; 1082; 1083; 1114; 1184; 1186]
-    end
+    let known_oids: Array[U32] val =
+      recover val
+        [ as U32:
+          25; 23; 20; 16; 21; 700; 701; 17
+          1082; 1083; 1114; 1184; 1186]
+      end
     let size = rnd.usize(1, 5)
     let arr = recover iso Array[(String, U32, U16)](size) end
     for i in Range(0, size) do
@@ -1912,9 +1932,10 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainSimpleQueryResult
     "ResponseParser/MultipleMessages/Chain/SimpleQueryResult"
 
   fun apply(h: TestHelper) ? =>
-    let columns: Array[(String, U32, U16)] val = recover val
-      [("id", U32(23), U16(0)); ("name", U32(25), U16(0))]
-    end
+    let columns: Array[(String, U32, U16)] val =
+      recover val
+        [("id", U32(23), U16(0)); ("name", U32(25), U16(0))]
+      end
     let r: Reader = Reader
     r.append(_IncomingRowDescriptionTestMessage(columns).bytes())
     r.append(_IncomingDataRowTestMessage(
@@ -1991,8 +2012,8 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainSimpleQueryResult
 
     match _ResponseParser(r)?
     | let m: _ReadyForQueryMessage =>
-      h.assert_is[TransactionStatus](TransactionIdle,
-        m.transaction_status())
+      h.assert_is[TransactionStatus](
+        TransactionIdle, m.transaction_status())
     else
       h.fail("Wrong message for ReadyForQuery.")
       return
@@ -2065,8 +2086,8 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainCopyOutSequence
 
     match _ResponseParser(r)?
     | let m: _ReadyForQueryMessage =>
-      h.assert_is[TransactionStatus](TransactionIdle,
-        m.transaction_status())
+      h.assert_is[TransactionStatus](
+        TransactionIdle, m.transaction_status())
     else
       h.fail("Wrong message for ReadyForQuery.")
       return
@@ -2099,8 +2120,8 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainEmptyQuerySequence
 
     match _ResponseParser(r)?
     | let m: _ReadyForQueryMessage =>
-      h.assert_is[TransactionStatus](TransactionIdle,
-        m.transaction_status())
+      h.assert_is[TransactionStatus](
+        TransactionIdle, m.transaction_status())
     else
       h.fail("Wrong message for first ReadyForQuery.")
       return
@@ -2113,8 +2134,8 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainEmptyQuerySequence
 
     match _ResponseParser(r)?
     | let m: _ReadyForQueryMessage =>
-      h.assert_is[TransactionStatus](TransactionInBlock,
-        m.transaction_status())
+      h.assert_is[TransactionStatus](
+        TransactionInBlock, m.transaction_status())
     else
       h.fail("Wrong message for second ReadyForQuery.")
       return
@@ -2163,8 +2184,8 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainPrepareSequence
 
     match _ResponseParser(r)?
     | let m: _ReadyForQueryMessage =>
-      h.assert_is[TransactionStatus](TransactionIdle,
-        m.transaction_status())
+      h.assert_is[TransactionStatus](
+        TransactionIdle, m.transaction_status())
     else
       h.fail("Wrong message for ReadyForQuery.")
       return
@@ -2196,8 +2217,8 @@ class \nodoc\ iso
 
     match _ResponseParser(r)?
     | let m: _ReadyForQueryMessage =>
-      h.assert_is[TransactionStatus](TransactionIdle,
-        m.transaction_status())
+      h.assert_is[TransactionStatus](
+        TransactionIdle, m.transaction_status())
     else
       h.fail("Wrong message for ReadyForQuery.")
       return
@@ -2312,9 +2333,10 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainStreamingQuerySequence
     "ResponseParser/MultipleMessages/Chain/StreamingQuerySequence"
 
   fun apply(h: TestHelper) ? =>
-    let columns: Array[(String, U32, U16)] val = recover val
-      [("id", U32(23), U16(0)); ("name", U32(25), U16(0))]
-    end
+    let columns: Array[(String, U32, U16)] val =
+      recover val
+        [("id", U32(23), U16(0)); ("name", U32(25), U16(0))]
+      end
     let r: Reader = Reader
     r.append(_IncomingRowDescriptionTestMessage(columns).bytes())
     // First batch: 1 row + PortalSuspended
@@ -2429,8 +2451,8 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainStreamingQuerySequence
 
     match _ResponseParser(r)?
     | let m: _ReadyForQueryMessage =>
-      h.assert_is[TransactionStatus](TransactionIdle,
-        m.transaction_status())
+      h.assert_is[TransactionStatus](
+        TransactionIdle, m.transaction_status())
     else
       h.fail("Wrong message for ReadyForQuery.")
       return
@@ -2440,7 +2462,7 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainStreamingQuerySequence
       h.fail("Buffer not fully consumed.")
     end
 
-primitive WriterToByteArray
+primitive \nodoc\ WriterToByteArray
   fun apply(writer: Writer): Array[U8] val =>
     recover val
       let out = Array[U8]

@@ -1,3 +1,7 @@
+"""
+Queries PostgreSQL temporal types (date, time, timestamp, interval) via
+a prepared query and prints the typed results.
+"""
 use "cli"
 use "collections"
 use lori = "lori"
@@ -13,26 +17,44 @@ actor Main
     let client = Client(auth, server_info, env.out)
 
 actor Client is (SessionStatusNotify & ResultReceiver)
+  """
+  Sends a prepared query returning temporal types and prints the results.
+  """
   let _session: Session
   let _out: OutStream
 
   new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
-    _session = Session(
-      ServerConnectInfo(auth, info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(auth, info.host, info.port),
+        DatabaseConnectInfo(info.username, info.password, info.database),
+        this)
 
   be close() =>
     _session.close()
 
   be pg_session_authenticated(session: Session) =>
+    """
+    Sends a prepared query returning all four temporal types.
+    """
     _out.print("Authenticated.")
-    _out.print("Sending query....")
-    let q = SimpleQuery("SELECT 525600::text")
+    _out.print("Querying temporal types...")
+    // PreparedQuery returns typed temporal values via binary format.
+    // Literal casts show all four temporal types without needing a table.
+    let q =
+      PreparedQuery(
+        """
+        SELECT '2024-06-15'::date AS d,
+               '14:30:00.123456'::time AS t,
+               '2024-06-15 14:30:00'::timestamp AS ts,
+               '1 year 2 mons 3 days 04:05:06'::interval AS iv
+        """,
+        recover val Array[FieldDataTypes] end)
     session.execute(q, this)
 
-  be pg_session_connection_failed(session: Session,
+  be pg_session_connection_failed(
+    session: Session,
     reason: ConnectionFailureReason)
   =>
     _out.print("Connection failed.")
@@ -43,41 +65,34 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       _out.print("ResultSet (" + r.rows().size().string() + " rows):")
       for row in r.rows().values() do
         for field in row.fields.values() do
-          _out.write(field.name + "=")
+          _out.write("  " + field.name + "=")
           match field.value
-          | let v: String => _out.print(v)
-          | let v: I16 => _out.print(v.string())
-          | let v: I32 => _out.print(v.string())
-          | let v: I64 => _out.print(v.string())
-          | let v: F32 => _out.print(v.string())
-          | let v: F64 => _out.print(v.string())
-          | let v: Bool => _out.print(v.string())
-          | let v: Bytea =>
-            _out.print(v.data.size().string() + " bytes")
-          | let t: PgTimestamp => _out.print(t.string())
-          | let t: PgTime => _out.print(t.string())
-          | let t: PgDate => _out.print(t.string())
-          | let t: PgInterval => _out.print(t.string())
+          | let v: PgDate => _out.print(v.string())
+          | let v: PgTime => _out.print(v.string())
+          | let v: PgTimestamp => _out.print(v.string())
+          | let v: PgInterval => _out.print(v.string())
           | None => _out.print("NULL")
+          else
+            _out.print("(other type)")
           end
         end
       end
-    | let r: RowModifying =>
-      _out.print(r.command() + " " + r.impacted().string() + " rows")
-    | let r: SimpleResult =>
-      _out.print("Query executed.")
     end
     close()
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _out.print("Query failed.")
-    // Our example program is failing, we want to exit so, let's shut down the
-    // connection.
     close()
 
 class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
   let host: String
   let port: String
   let username: String

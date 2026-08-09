@@ -86,8 +86,8 @@ class \nodoc\ iso _TestInt4BinaryCodecRoundtrip is UnitTest
     let codec = _Int4BinaryCodec
     h.assert_eq[U16](1, codec.format())
 
-    let values: Array[I32] = [0; 1; -1; 42; -1000; I32.max_value()
-      I32.min_value()]
+    let values: Array[I32] =
+      [0; 1; -1; 42; -1000; I32.max_value(); I32.min_value()]
     for v in values.values() do
       let encoded = codec.encode(v)?
       h.assert_eq[USize](4, encoded.size())
@@ -122,8 +122,9 @@ class \nodoc\ iso _TestInt8BinaryCodecRoundtrip is UnitTest
     let codec = _Int8BinaryCodec
     h.assert_eq[U16](1, codec.format())
 
-    let values: Array[I64] = [0; 1; -1; 9999999999; -9999999999
-      I64.max_value(); I64.min_value()]
+    let values: Array[I64] =
+      [ 0; 1; -1; 9999999999; -9999999999
+        I64.max_value(); I64.min_value()]
     for v in values.values() do
       let encoded = codec.encode(v)?
       h.assert_eq[USize](8, encoded.size())
@@ -158,8 +159,8 @@ class \nodoc\ iso _TestFloat4BinaryCodecRoundtrip is UnitTest
     let codec = _Float4BinaryCodec
     h.assert_eq[U16](1, codec.format())
 
-    let values: Array[F32] = [F32(0); F32(1.5); F32(-3.14); F32.max_value()
-      F32.min_value()]
+    let values: Array[F32] =
+      [F32(0); F32(1.5); F32(-3.14); F32.max_value(); F32.min_value()]
     for v in values.values() do
       let encoded = codec.encode(v)?
       h.assert_eq[USize](4, encoded.size())
@@ -194,8 +195,8 @@ class \nodoc\ iso _TestFloat8BinaryCodecRoundtrip is UnitTest
     let codec = _Float8BinaryCodec
     h.assert_eq[U16](1, codec.format())
 
-    let values: Array[F64] = [F64(0); F64(1.5); F64(-3.14); F64.max_value()
-      F64.min_value()]
+    let values: Array[F64] =
+      [F64(0); F64(1.5); F64(-3.14); F64.max_value(); F64.min_value()]
     for v in values.values() do
       let encoded = codec.encode(v)?
       h.assert_eq[USize](8, encoded.size())
@@ -363,13 +364,14 @@ class \nodoc\ iso _TestParamEncoderOids is UnitTest
     "ParamEncoder/Oids"
 
   fun apply(h: TestHelper) ? =>
-    let params: Array[FieldDataTypes] val = recover val
-      [as FieldDataTypes: I16(1); I32(2); I64(3); F32(1.0); F64(2.0)
-        true; recover val [as U8: 0] end; "text"; None
-        PgTimestamp(0)
-        PgTime(MakePgTimeMicroseconds(0) as PgTimeMicroseconds)
-        PgDate(0); PgInterval(0, 0, 0)]
-    end
+    let params: Array[FieldDataTypes] val =
+      recover val
+        [ as FieldDataTypes: I16(1); I32(2); I64(3); F32(1.0); F64(2.0)
+          true; recover val [as U8: 0] end; "text"; None
+          PgTimestamp(0)
+          PgTime(MakePgTimeMicroseconds(0) as PgTimeMicroseconds)
+          PgDate(0); PgInterval(0, 0, 0)]
+      end
     let oids = _ParamEncoder.oids_for(params, CodecRegistry)
     h.assert_eq[USize](13, oids.size())
     try
@@ -400,10 +402,10 @@ class \nodoc\ iso _TestFrontendMessageBindWithBinaryI32 is UnitTest
     // params_data = 4 (length) + 4 (I32 bytes) = 8
     // Result format: num_result_formats=1, format_code=1 (binary)
     // Length = 4 + 0+1 + 0+1 + 2 + 1*2 + 2 + 8 + 2 + 2 = 24, total = 25
-    let params: Array[FieldDataTypes] val = recover val
-      [as FieldDataTypes: I32(42)]
-    end
-    let result = _FrontendMessage.bind("", "", params, CodecRegistry)?
+    let params: Array[FieldDataTypes] val =
+      recover val [as FieldDataTypes: I32(42)] end
+    let result =
+      _FrontendMessage.bind("", "", params, CodecRegistry)?
     h.assert_eq[USize](25, result.size())
 
     // Check format code is binary (1)
@@ -433,10 +435,10 @@ class \nodoc\ iso _TestFrontendMessageBindMixedParams is UnitTest
     // params_data = (4+5) + (4+4) + (4) = 21
     // Result format: num_result_formats=1, format_code=1 (binary)
     // Length = 4 + 0+1 + 0+1 + 2 + 3*2 + 2 + 21 + 2 + 2 = 41, total = 42
-    let params: Array[FieldDataTypes] val = recover val
-      [as FieldDataTypes: "hello"; I32(42); None]
-    end
-    let result = _FrontendMessage.bind("", "", params, CodecRegistry)?
+    let params: Array[FieldDataTypes] val =
+      recover val [as FieldDataTypes: "hello"; I32(42); None] end
+    let result =
+      _FrontendMessage.bind("", "", params, CodecRegistry)?
     h.assert_eq[USize](42, result.size())
 
 class \nodoc\ iso _TestFrontendMessageBindEmptyParams is UnitTest
@@ -448,7 +450,8 @@ class \nodoc\ iso _TestFrontendMessageBindEmptyParams is UnitTest
     // No format codes, no params
     // Result format: num_result_formats=1, format_code=1 (binary)
     // Length = 4 + 0+1 + 0+1 + 2 + 0 + 2 + 0 + 2 + 2 = 14, total = 15
-    let params: Array[FieldDataTypes] val = recover val Array[FieldDataTypes] end
+    let params: Array[FieldDataTypes] val =
+      recover val Array[FieldDataTypes] end
     let result = _FrontendMessage.bind("", "", params, CodecRegistry)?
     h.assert_eq[USize](15, result.size())
 
@@ -461,14 +464,17 @@ class \nodoc\ iso _TestFrontendMessageBindTemporalParams is UnitTest
     // PgTimestamp: 8 bytes, PgTime: 8 bytes, PgDate: 4 bytes,
     // PgInterval: 16 bytes = 36 data bytes + 4*4 length fields = 52
     // Length = 4 + 0+1 + 0+1 + 2 + 4*2 + 2 + 52 + 2 + 2 = 74, total = 75
-    let params: Array[FieldDataTypes] val = recover val
-      [as FieldDataTypes:
-        PgTimestamp(1_000_000) // 1 second after epoch
-        PgTime(MakePgTimeMicroseconds(3_600_000_000) as PgTimeMicroseconds)
-        PgDate(365)            // 2001-01-01
-        PgInterval(0, 30, 1)] // 1 mon 30 days
-    end
-    let result = _FrontendMessage.bind("", "", params, CodecRegistry)?
+    let params: Array[FieldDataTypes] val =
+      recover val
+        [ as FieldDataTypes:
+          PgTimestamp(1_000_000) // 1 second after epoch
+          PgTime(
+            MakePgTimeMicroseconds(3_600_000_000) as PgTimeMicroseconds)
+          PgDate(365)            // 2001-01-01
+          PgInterval(0, 30, 1)] // 1 mon 30 days
+      end
+    let result =
+      _FrontendMessage.bind("", "", params, CodecRegistry)?
     h.assert_eq[USize](75, result.size())
 
     // All 4 format codes should be binary (1)
@@ -523,7 +529,6 @@ class \nodoc\ iso _TestFrontendMessageBindTemporalParams is UnitTest
 // ---------------------------------------------------------------------------
 // TextPassthroughBinaryCodec
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestTextPassthroughBinaryCodecDecode is UnitTest
   fun name(): String =>
     "Codec/Binary/TextPassthrough/Decode"
@@ -567,7 +572,6 @@ class \nodoc\ iso _TestTextPassthroughBinaryCodecTypeMismatch is UnitTest
 // ---------------------------------------------------------------------------
 // OidBinaryCodec
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestOidBinaryCodecRoundtrip is UnitTest
   fun name(): String =>
     "Codec/Binary/Oid/Roundtrip"
@@ -618,7 +622,6 @@ class \nodoc\ iso _TestOidBinaryCodecTypeMismatch is UnitTest
 // ---------------------------------------------------------------------------
 // NumericBinaryCodec
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestNumericBinaryCodecPositiveInteger is UnitTest
   fun name(): String =>
     "Codec/Binary/Numeric/PositiveInteger"
@@ -629,22 +632,23 @@ class \nodoc\ iso _TestNumericBinaryCodecPositiveInteger is UnitTest
 
     // 12345: ndigits=2, weight=1, sign=0x0000(+), dscale=0
     // digits: 1 (weight 1 = 1*10000), 2345 (weight 0)
-    let data: Array[U8] val = recover val
-      let a = Array[U8]
-      // ndigits = 2
-      a.push(0); a.push(2)
-      // weight = 1
-      a.push(0); a.push(1)
-      // sign = 0x0000 (positive)
-      a.push(0); a.push(0)
-      // dscale = 0
-      a.push(0); a.push(0)
-      // digit[0] = 1
-      a.push(0); a.push(1)
-      // digit[1] = 2345
-      a.push(0x09); a.push(0x29)
-      a
-    end
+    let data: Array[U8] val =
+      recover val
+        let a = Array[U8]
+        // ndigits = 2
+        a.push(0); a.push(2)
+        // weight = 1
+        a.push(0); a.push(1)
+        // sign = 0x0000 (positive)
+        a.push(0); a.push(0)
+        // dscale = 0
+        a.push(0); a.push(0)
+        // digit[0] = 1
+        a.push(0); a.push(1)
+        // digit[1] = 2345
+        a.push(0x09); a.push(0x29)
+        a
+      end
     match codec.decode(data)?
     | let s: String => h.assert_eq[String]("12345", s)
     else h.fail("Expected String from decode")
@@ -657,15 +661,16 @@ class \nodoc\ iso _TestNumericBinaryCodecNegative is UnitTest
   fun apply(h: TestHelper) ? =>
     // -42: ndigits=1, weight=0, sign=0x4000(-), dscale=0
     // digit[0] = 42
-    let data: Array[U8] val = recover val
-      let a = Array[U8]
-      a.push(0); a.push(1)    // ndigits = 1
-      a.push(0); a.push(0)    // weight = 0
-      a.push(0x40); a.push(0) // sign = 0x4000
-      a.push(0); a.push(0)    // dscale = 0
-      a.push(0); a.push(42)   // digit = 42
-      a
-    end
+    let data: Array[U8] val =
+      recover val
+        let a = Array[U8]
+        a.push(0); a.push(1)    // ndigits = 1
+        a.push(0); a.push(0)    // weight = 0
+        a.push(0x40); a.push(0) // sign = 0x4000
+        a.push(0); a.push(0)    // dscale = 0
+        a.push(0); a.push(42)   // digit = 42
+        a
+      end
     match _NumericBinaryCodec.decode(data)?
     | let s: String => h.assert_eq[String]("-42", s)
     else h.fail("Expected String from decode")
@@ -677,14 +682,15 @@ class \nodoc\ iso _TestNumericBinaryCodecNaN is UnitTest
 
   fun apply(h: TestHelper) ? =>
     // NaN: ndigits=0, weight=0, sign=0xC000, dscale=0
-    let data: Array[U8] val = recover val
-      let a = Array[U8]
-      a.push(0); a.push(0)    // ndigits = 0
-      a.push(0); a.push(0)    // weight = 0
-      a.push(0xC0); a.push(0) // sign = 0xC000
-      a.push(0); a.push(0)    // dscale = 0
-      a
-    end
+    let data: Array[U8] val =
+      recover val
+        let a = Array[U8]
+        a.push(0); a.push(0)    // ndigits = 0
+        a.push(0); a.push(0)    // weight = 0
+        a.push(0xC0); a.push(0) // sign = 0xC000
+        a.push(0); a.push(0)    // dscale = 0
+        a
+      end
     match _NumericBinaryCodec.decode(data)?
     | let s: String => h.assert_eq[String]("NaN", s)
     else h.fail("Expected 'NaN' from decode")
@@ -697,14 +703,15 @@ class \nodoc\ iso _TestNumericBinaryCodecZero is UnitTest
   fun apply(h: TestHelper) ? =>
     // Canonical zero: ndigits=0, weight=0, sign=0x0000, dscale=0
     // This is how PostgreSQL actually sends 0::numeric on the wire.
-    let canonical: Array[U8] val = recover val
-      let a = Array[U8]
-      a.push(0); a.push(0) // ndigits = 0
-      a.push(0); a.push(0) // weight = 0
-      a.push(0); a.push(0) // sign = 0x0000
-      a.push(0); a.push(0) // dscale = 0
-      a
-    end
+    let canonical: Array[U8] val =
+      recover val
+        let a = Array[U8]
+        a.push(0); a.push(0) // ndigits = 0
+        a.push(0); a.push(0) // weight = 0
+        a.push(0); a.push(0) // sign = 0x0000
+        a.push(0); a.push(0) // dscale = 0
+        a
+      end
     match _NumericBinaryCodec.decode(canonical)?
     | let s: String => h.assert_eq[String]("0", s)
     else h.fail("Expected '0' from canonical zero decode")
@@ -712,14 +719,15 @@ class \nodoc\ iso _TestNumericBinaryCodecZero is UnitTest
 
     // Zero with dscale: ndigits=0, weight=0, sign=0x0000, dscale=2
     // This is how PostgreSQL sends 0.00::numeric.
-    let zero_dscale: Array[U8] val = recover val
-      let a = Array[U8]
-      a.push(0); a.push(0) // ndigits = 0
-      a.push(0); a.push(0) // weight = 0
-      a.push(0); a.push(0) // sign = 0x0000
-      a.push(0); a.push(2) // dscale = 2
-      a
-    end
+    let zero_dscale: Array[U8] val =
+      recover val
+        let a = Array[U8]
+        a.push(0); a.push(0) // ndigits = 0
+        a.push(0); a.push(0) // weight = 0
+        a.push(0); a.push(0) // sign = 0x0000
+        a.push(0); a.push(2) // dscale = 2
+        a
+      end
     match _NumericBinaryCodec.decode(zero_dscale)?
     | let s: String => h.assert_eq[String]("0.00", s)
     else h.fail("Expected '0.00' from zero dscale decode")
@@ -727,15 +735,16 @@ class \nodoc\ iso _TestNumericBinaryCodecZero is UnitTest
 
     // Non-canonical zero: ndigits=1, weight=0, digit[0]=0
     // Some implementations may send this form.
-    let noncanon: Array[U8] val = recover val
-      let a = Array[U8]
-      a.push(0); a.push(1) // ndigits = 1
-      a.push(0); a.push(0) // weight = 0
-      a.push(0); a.push(0) // sign = 0x0000
-      a.push(0); a.push(0) // dscale = 0
-      a.push(0); a.push(0) // digit[0] = 0
-      a
-    end
+    let noncanon: Array[U8] val =
+      recover val
+        let a = Array[U8]
+        a.push(0); a.push(1) // ndigits = 1
+        a.push(0); a.push(0) // weight = 0
+        a.push(0); a.push(0) // sign = 0x0000
+        a.push(0); a.push(0) // dscale = 0
+        a.push(0); a.push(0) // digit[0] = 0
+        a
+      end
     match _NumericBinaryCodec.decode(noncanon)?
     | let s: String => h.assert_eq[String]("0", s)
     else h.fail("Expected '0' from non-canonical zero decode")
@@ -748,16 +757,17 @@ class \nodoc\ iso _TestNumericBinaryCodecFractional is UnitTest
   fun apply(h: TestHelper) ? =>
     // 3.14: ndigits=2, weight=0, sign=0x0000, dscale=2
     // digit[0] = 3 (weight 0), digit[1] = 1400 (fractional, only first 2 used)
-    let data: Array[U8] val = recover val
-      let a = Array[U8]
-      a.push(0); a.push(2)    // ndigits = 2
-      a.push(0); a.push(0)    // weight = 0
-      a.push(0); a.push(0)    // sign = 0x0000
-      a.push(0); a.push(2)    // dscale = 2
-      a.push(0); a.push(3)    // digit[0] = 3
-      a.push(0x05); a.push(0x78) // digit[1] = 1400
-      a
-    end
+    let data: Array[U8] val =
+      recover val
+        let a = Array[U8]
+        a.push(0); a.push(2)    // ndigits = 2
+        a.push(0); a.push(0)    // weight = 0
+        a.push(0); a.push(0)    // sign = 0x0000
+        a.push(0); a.push(2)    // dscale = 2
+        a.push(0); a.push(3)    // digit[0] = 3
+        a.push(0x05); a.push(0x78) // digit[1] = 1400
+        a
+      end
     match _NumericBinaryCodec.decode(data)?
     | let s: String => h.assert_eq[String]("3.14", s)
     else h.fail("Expected String from decode")
@@ -770,15 +780,16 @@ class \nodoc\ iso _TestNumericBinaryCodecPreservedDscale is UnitTest
   fun apply(h: TestHelper) ? =>
     // 1.00: ndigits=1, weight=0, sign=0x0000, dscale=2
     // Only integer digit, dscale forces ".00"
-    let data: Array[U8] val = recover val
-      let a = Array[U8]
-      a.push(0); a.push(1)  // ndigits = 1
-      a.push(0); a.push(0)  // weight = 0
-      a.push(0); a.push(0)  // sign = 0x0000
-      a.push(0); a.push(2)  // dscale = 2
-      a.push(0); a.push(1)  // digit[0] = 1
-      a
-    end
+    let data: Array[U8] val =
+      recover val
+        let a = Array[U8]
+        a.push(0); a.push(1)  // ndigits = 1
+        a.push(0); a.push(0)  // weight = 0
+        a.push(0); a.push(0)  // sign = 0x0000
+        a.push(0); a.push(2)  // dscale = 2
+        a.push(0); a.push(1)  // digit[0] = 1
+        a
+      end
     match _NumericBinaryCodec.decode(data)?
     | let s: String => h.assert_eq[String]("1.00", s)
     else h.fail("Expected '1.00' from decode")
@@ -791,15 +802,16 @@ class \nodoc\ iso _TestNumericBinaryCodecLessThanOne is UnitTest
   fun apply(h: TestHelper) ? =>
     // 0.5: ndigits=1, weight=-1, sign=0x0000, dscale=1
     // digit[0] = 5000 (first fractional group, only 1 digit used by dscale)
-    let data: Array[U8] val = recover val
-      let a = Array[U8]
-      a.push(0); a.push(1)            // ndigits = 1
-      a.push(0xFF); a.push(0xFF)      // weight = -1
-      a.push(0); a.push(0)            // sign = 0x0000
-      a.push(0); a.push(1)            // dscale = 1
-      a.push(0x13); a.push(0x88)      // digit[0] = 5000
-      a
-    end
+    let data: Array[U8] val =
+      recover val
+        let a = Array[U8]
+        a.push(0); a.push(1)            // ndigits = 1
+        a.push(0xFF); a.push(0xFF)      // weight = -1
+        a.push(0); a.push(0)            // sign = 0x0000
+        a.push(0); a.push(1)            // dscale = 1
+        a.push(0x13); a.push(0x88)      // digit[0] = 5000
+        a
+      end
     match _NumericBinaryCodec.decode(data)?
     | let s: String => h.assert_eq[String]("0.5", s)
     else h.fail("Expected '0.5' from decode")
@@ -821,15 +833,16 @@ class \nodoc\ iso _TestNumericBinaryCodecNdigitsMismatch is UnitTest
   fun apply(h: TestHelper) =>
     // Header says ndigits=2 but only 1 digit word provided (10 bytes
     // instead of 12). Should error on the size validation.
-    let data: Array[U8] val = recover val
-      let a = Array[U8]
-      a.push(0); a.push(2) // ndigits = 2
-      a.push(0); a.push(0) // weight = 0
-      a.push(0); a.push(0) // sign = 0x0000
-      a.push(0); a.push(0) // dscale = 0
-      a.push(0); a.push(42) // only 1 digit word
-      a
-    end
+    let data: Array[U8] val =
+      recover val
+        let a = Array[U8]
+        a.push(0); a.push(2) // ndigits = 2
+        a.push(0); a.push(0) // weight = 0
+        a.push(0); a.push(0) // sign = 0x0000
+        a.push(0); a.push(0) // dscale = 0
+        a.push(0); a.push(42) // only 1 digit word
+        a
+      end
     h.assert_error({()? => _NumericBinaryCodec.decode(data)? })
 
 class \nodoc\ iso _TestNumericBinaryCodecInfinity is UnitTest
@@ -838,28 +851,30 @@ class \nodoc\ iso _TestNumericBinaryCodecInfinity is UnitTest
 
   fun apply(h: TestHelper) ? =>
     // Positive infinity: sign = 0xD000
-    let pos_inf: Array[U8] val = recover val
-      let a = Array[U8]
-      a.push(0); a.push(0) // ndigits = 0
-      a.push(0); a.push(0) // weight = 0
-      a.push(0xD0); a.push(0) // sign = 0xD000
-      a.push(0); a.push(0) // dscale = 0
-      a
-    end
+    let pos_inf: Array[U8] val =
+      recover val
+        let a = Array[U8]
+        a.push(0); a.push(0) // ndigits = 0
+        a.push(0); a.push(0) // weight = 0
+        a.push(0xD0); a.push(0) // sign = 0xD000
+        a.push(0); a.push(0) // dscale = 0
+        a
+      end
     match _NumericBinaryCodec.decode(pos_inf)?
     | let s: String => h.assert_eq[String]("Infinity", s)
     else h.fail("Expected 'Infinity' from decode")
     end
 
     // Negative infinity: sign = 0xF000
-    let neg_inf: Array[U8] val = recover val
-      let a = Array[U8]
-      a.push(0); a.push(0) // ndigits = 0
-      a.push(0); a.push(0) // weight = 0
-      a.push(0xF0); a.push(0) // sign = 0xF000
-      a.push(0); a.push(0) // dscale = 0
-      a
-    end
+    let neg_inf: Array[U8] val =
+      recover val
+        let a = Array[U8]
+        a.push(0); a.push(0) // ndigits = 0
+        a.push(0); a.push(0) // weight = 0
+        a.push(0xF0); a.push(0) // sign = 0xF000
+        a.push(0); a.push(0) // dscale = 0
+        a
+      end
     match _NumericBinaryCodec.decode(neg_inf)?
     | let s: String => h.assert_eq[String]("-Infinity", s)
     else h.fail("Expected '-Infinity' from decode")
@@ -885,12 +900,13 @@ class \nodoc\ iso _TestNumericBinaryCodecBadSign is UnitTest
 
   fun apply(h: TestHelper) =>
     // Big-endian wire format: ndigits=0, weight=0, sign=0x8000, dscale=0
-    let data: Array[U8] val = recover val
-      [0x00; 0x00  // ndigits = 0
-       0x00; 0x00  // weight = 0
-       0x80; 0x00  // sign = 0x8000 (invalid)
-       0x00; 0x00] // dscale = 0
-    end
+    let data: Array[U8] val =
+      recover val
+        [ 0x00; 0x00  // ndigits = 0
+          0x00; 0x00  // weight = 0
+          0x80; 0x00  // sign = 0x8000 (invalid)
+          0x00; 0x00] // dscale = 0
+      end
     h.assert_error({()? => _NumericBinaryCodec.decode(data)? })
 
 class \nodoc\ iso _TestNumericBinaryCodecMaxWeight is UnitTest
@@ -904,12 +920,13 @@ class \nodoc\ iso _TestNumericBinaryCodecMaxWeight is UnitTest
 
   fun apply(h: TestHelper) ? =>
     // Big-endian wire format: ndigits=0, weight=32767, sign=0x0000, dscale=0
-    let data: Array[U8] val = recover val
-      [0x00; 0x00  // ndigits = 0
-       0x7F; 0xFF  // weight = 32767 (I16.max_value())
-       0x00; 0x00  // sign = positive
-       0x00; 0x00] // dscale = 0
-    end
+    let data: Array[U8] val =
+      recover val
+        [ 0x00; 0x00  // ndigits = 0
+          0x7F; 0xFF  // weight = 32767 (I16.max_value())
+          0x00; 0x00  // sign = positive
+          0x00; 0x00] // dscale = 0
+      end
     match _NumericBinaryCodec.decode(data)?
     | let s: String =>
       // "0" (first digit, no padding) + 32767 * "0000" = 1 + 131068 = 131069
@@ -918,22 +935,22 @@ class \nodoc\ iso _TestNumericBinaryCodecMaxWeight is UnitTest
     end
 
 // ---------------------------------------------------------------------------
-// UuidBinaryCodec
+// UUIDBinaryCodec
 // ---------------------------------------------------------------------------
-
-class \nodoc\ iso _TestUuidBinaryCodecRoundtrip is UnitTest
+class \nodoc\ iso _TestUUIDBinaryCodecRoundtrip is UnitTest
   fun name(): String =>
-    "Codec/Binary/Uuid/Roundtrip"
+    "Codec/Binary/UUID/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let codec = _UuidBinaryCodec
+    let codec = _UUIDBinaryCodec
     h.assert_eq[U16](1, codec.format())
 
     // 550e8400-e29b-41d4-a716-446655440000
-    let data: Array[U8] val = recover val [
-      0x55; 0x0e; 0x84; 0x00; 0xe2; 0x9b; 0x41; 0xd4
-      0xa7; 0x16; 0x44; 0x66; 0x55; 0x44; 0x00; 0x00
-    ] end
+    let data: Array[U8] val =
+      recover val
+        [ 0x55; 0x0e; 0x84; 0x00; 0xe2; 0x9b; 0x41; 0xd4
+          0xa7; 0x16; 0x44; 0x66; 0x55; 0x44; 0x00; 0x00]
+      end
     match codec.decode(data)?
     | let s: String =>
       h.assert_eq[String]("550e8400-e29b-41d4-a716-446655440000", s)
@@ -944,62 +961,63 @@ class \nodoc\ iso _TestUuidBinaryCodecRoundtrip is UnitTest
     let reencoded = codec.encode("550e8400-e29b-41d4-a716-446655440000")?
     h.assert_array_eq[U8](data, reencoded)
 
-class \nodoc\ iso _TestUuidBinaryCodecAllZeros is UnitTest
+class \nodoc\ iso _TestUUIDBinaryCodecAllZeros is UnitTest
   fun name(): String =>
-    "Codec/Binary/Uuid/AllZeros"
+    "Codec/Binary/UUID/AllZeros"
 
   fun apply(h: TestHelper) ? =>
     let data: Array[U8] val = recover val Array[U8].init(0, 16) end
-    match _UuidBinaryCodec.decode(data)?
+    match _UUIDBinaryCodec.decode(data)?
     | let s: String =>
       h.assert_eq[String]("00000000-0000-0000-0000-000000000000", s)
     else h.fail("Expected String from decode")
     end
 
-class \nodoc\ iso _TestUuidBinaryCodecAllFF is UnitTest
+class \nodoc\ iso _TestUUIDBinaryCodecAllFF is UnitTest
   fun name(): String =>
-    "Codec/Binary/Uuid/AllFF"
+    "Codec/Binary/UUID/AllFF"
 
   fun apply(h: TestHelper) ? =>
     let data: Array[U8] val = recover val Array[U8].init(0xFF, 16) end
-    match _UuidBinaryCodec.decode(data)?
+    match _UUIDBinaryCodec.decode(data)?
     | let s: String =>
       h.assert_eq[String]("ffffffff-ffff-ffff-ffff-ffffffffffff", s)
     else h.fail("Expected String from decode")
     end
 
-class \nodoc\ iso _TestUuidBinaryCodecBadLength is UnitTest
+class \nodoc\ iso _TestUUIDBinaryCodecBadLength is UnitTest
   fun name(): String =>
-    "Codec/Binary/Uuid/BadLength"
+    "Codec/Binary/UUID/BadLength"
 
   fun apply(h: TestHelper) =>
     let short: Array[U8] val = recover val Array[U8].init(0, 15) end
-    h.assert_error({()? => _UuidBinaryCodec.decode(short)? })
+    h.assert_error({()? => _UUIDBinaryCodec.decode(short)? })
     let long: Array[U8] val = recover val Array[U8].init(0, 17) end
-    h.assert_error({()? => _UuidBinaryCodec.decode(long)? })
+    h.assert_error({()? => _UUIDBinaryCodec.decode(long)? })
 
-class \nodoc\ iso _TestUuidBinaryCodecBadStringFormat is UnitTest
+class \nodoc\ iso _TestUUIDBinaryCodecBadStringFormat is UnitTest
   fun name(): String =>
-    "Codec/Binary/Uuid/BadStringFormat"
+    "Codec/Binary/UUID/BadStringFormat"
 
   fun apply(h: TestHelper) =>
     // Wrong length
-    h.assert_error({()? => _UuidBinaryCodec.encode("too-short")? })
+    h.assert_error({()? => _UUIDBinaryCodec.encode("too-short")? })
     // Missing dashes
     h.assert_error(
-      {()? => _UuidBinaryCodec.encode(
-        "550e8400xe29b-41d4-a716-446655440000")? })
+      {()? =>
+        _UUIDBinaryCodec.encode(
+          "550e8400xe29b-41d4-a716-446655440000")?
+      })
 
 // ---------------------------------------------------------------------------
-// JsonbBinaryCodec
+// JSONBBinaryCodec
 // ---------------------------------------------------------------------------
-
-class \nodoc\ iso _TestJsonbBinaryCodecRoundtrip is UnitTest
+class \nodoc\ iso _TestJSONBBinaryCodecRoundtrip is UnitTest
   fun name(): String =>
-    "Codec/Binary/Jsonb/Roundtrip"
+    "Codec/Binary/JSONB/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let codec = _JsonbBinaryCodec
+    let codec = _JSONBBinaryCodec
     h.assert_eq[U16](1, codec.format())
 
     let json = """{"key": "value"}"""
@@ -1015,35 +1033,34 @@ class \nodoc\ iso _TestJsonbBinaryCodecRoundtrip is UnitTest
     else h.fail("Expected String from decode")
     end
 
-class \nodoc\ iso _TestJsonbBinaryCodecBadVersion is UnitTest
+class \nodoc\ iso _TestJSONBBinaryCodecBadVersion is UnitTest
   fun name(): String =>
-    "Codec/Binary/Jsonb/BadVersion"
+    "Codec/Binary/JSONB/BadVersion"
 
   fun apply(h: TestHelper) =>
     // Version byte 0x02 is unsupported
     let data: Array[U8] val = recover val [2; '{'; '}'] end
-    h.assert_error({()? => _JsonbBinaryCodec.decode(data)? })
+    h.assert_error({()? => _JSONBBinaryCodec.decode(data)? })
 
-class \nodoc\ iso _TestJsonbBinaryCodecEmpty is UnitTest
+class \nodoc\ iso _TestJSONBBinaryCodecEmpty is UnitTest
   fun name(): String =>
-    "Codec/Binary/Jsonb/Empty"
+    "Codec/Binary/JSONB/Empty"
 
   fun apply(h: TestHelper) =>
     // No data at all
     let data: Array[U8] val = recover val Array[U8] end
-    h.assert_error({()? => _JsonbBinaryCodec.decode(data)? })
+    h.assert_error({()? => _JSONBBinaryCodec.decode(data)? })
 
-class \nodoc\ iso _TestJsonbBinaryCodecTypeMismatch is UnitTest
+class \nodoc\ iso _TestJSONBBinaryCodecTypeMismatch is UnitTest
   fun name(): String =>
-    "Codec/Binary/Jsonb/TypeMismatch"
+    "Codec/Binary/JSONB/TypeMismatch"
 
   fun apply(h: TestHelper) =>
-    h.assert_error({()? => _JsonbBinaryCodec.encode(I32(42))? })
+    h.assert_error({()? => _JSONBBinaryCodec.encode(I32(42))? })
 
 // ---------------------------------------------------------------------------
 // DateBinaryCodec
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestDateBinaryCodecRoundtrip is UnitTest
   fun name(): String =>
     "Codec/Binary/Date/Roundtrip"
@@ -1120,7 +1137,6 @@ class \nodoc\ iso _TestDateBinaryCodecTypeMismatch is UnitTest
 // ---------------------------------------------------------------------------
 // TimeBinaryCodec
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestTimeBinaryCodecRoundtrip is UnitTest
   fun name(): String =>
     "Codec/Binary/Time/Roundtrip"
@@ -1177,7 +1193,6 @@ class \nodoc\ iso _TestTimeBinaryCodecTypeMismatch is UnitTest
 // ---------------------------------------------------------------------------
 // TimestampBinaryCodec
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestTimestampBinaryCodecRoundtrip is UnitTest
   fun name(): String =>
     "Codec/Binary/Timestamp/Roundtrip"
@@ -1255,7 +1270,6 @@ class \nodoc\ iso _TestTimestampBinaryCodecTypeMismatch is UnitTest
 // ---------------------------------------------------------------------------
 // IntervalBinaryCodec
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestIntervalBinaryCodecRoundtrip is UnitTest
   fun name(): String =>
     "Codec/Binary/Interval/Roundtrip"
@@ -1265,7 +1279,7 @@ class \nodoc\ iso _TestIntervalBinaryCodecRoundtrip is UnitTest
     h.assert_eq[U16](1, codec.format())
 
     // 1 year 2 months 3 days 04:05:06 =
-    //   months=14, days=3, microseconds=14706000000
+    // months=14, days=3, microseconds=14706000000
     let interval = PgInterval(14_706_000_000, 3, 14)
     let encoded = codec.encode(interval)?
     h.assert_eq[USize](16, encoded.size())
@@ -1310,7 +1324,6 @@ class \nodoc\ iso _TestIntervalBinaryCodecTypeMismatch is UnitTest
 // ---------------------------------------------------------------------------
 // DateTextCodec
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestDateTextCodecDecode is UnitTest
   fun name(): String =>
     "Codec/Text/Date/Decode"
@@ -1359,7 +1372,6 @@ class \nodoc\ iso _TestDateTextCodecEncode is UnitTest
 // ---------------------------------------------------------------------------
 // TimeTextCodec
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestTimeTextCodecDecode is UnitTest
   fun name(): String =>
     "Codec/Text/Time/Decode"
@@ -1405,14 +1417,16 @@ class \nodoc\ iso _TestTimeTextCodecEncode is UnitTest
     "Codec/Text/Time/Encode"
 
   fun apply(h: TestHelper) ? =>
-    let encoded = _TimeTextCodec.encode(
-      PgTime(MakePgTimeMicroseconds(52_200_000_000) as PgTimeMicroseconds))?
+    let encoded =
+      _TimeTextCodec.encode(
+        PgTime(
+          MakePgTimeMicroseconds(52_200_000_000)
+            as PgTimeMicroseconds))?
     h.assert_eq[String]("14:30:00", String.from_array(encoded))
 
 // ---------------------------------------------------------------------------
 // TimestampTextCodec
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestTimestampTextCodecDecode is UnitTest
   fun name(): String =>
     "Codec/Text/Timestamp/Decode"
@@ -1476,7 +1490,6 @@ class \nodoc\ iso _TestTimestampTextCodecEncode is UnitTest
 // ---------------------------------------------------------------------------
 // TimestamptzTextCodec
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestTimestamptzTextCodecDecodeUTC is UnitTest
   fun name(): String =>
     "Codec/Text/Timestamptz/DecodeUTC"
@@ -1553,7 +1566,7 @@ class \nodoc\ iso _TestTimestamptzTextCodecEncode is UnitTest
 
   fun apply(h: TestHelper) ? =>
     let ts = PgTimestamp(757_382_400_000_000)
-    match _TimestamptzTextCodec.encode(ts)?
+    match \exhaustive\ _TimestamptzTextCodec.encode(ts)?
     | let encoded: Array[U8] val =>
       h.assert_eq[String]("2024-01-01 00:00:00", String.from_array(encoded))
     end
@@ -1581,7 +1594,6 @@ class \nodoc\ iso _TestTimestamptzTextCodecNegativeYear is UnitTest
 // ---------------------------------------------------------------------------
 // IntervalTextCodec
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestIntervalTextCodecFullFormat is UnitTest
   fun name(): String =>
     "Codec/Text/Interval/FullFormat"
@@ -1689,7 +1701,8 @@ class \nodoc\ iso _TestIntervalTextCodecEncode is UnitTest
   fun apply(h: TestHelper) ? =>
     let interval = PgInterval(3_600_000_000, 5, 14)
     let encoded = _IntervalTextCodec.encode(interval)?
-    h.assert_eq[String]("1 year 2 mons 5 days 01:00:00",
+    h.assert_eq[String](
+      "1 year 2 mons 5 days 01:00:00",
       String.from_array(encoded))
 
 class \nodoc\ iso _TestIntervalTextCodecPostgresMixedSign is UnitTest
@@ -1698,8 +1711,9 @@ class \nodoc\ iso _TestIntervalTextCodecPostgresMixedSign is UnitTest
 
   fun apply(h: TestHelper) ? =>
     // Mixed signs: -1 years -2 mons +3 days -04:05:06
-    match _IntervalTextCodec.decode(
-      "-1 years -2 mons +3 days -04:05:06".array())?
+    match
+      _IntervalTextCodec.decode(
+        "-1 years -2 mons +3 days -04:05:06".array())?
     | let i: PgInterval =>
       h.assert_eq[I32](-14, i.months)
       h.assert_eq[I32](3, i.days)
@@ -1710,7 +1724,6 @@ class \nodoc\ iso _TestIntervalTextCodecPostgresMixedSign is UnitTest
 // ---------------------------------------------------------------------------
 // ISO 8601 intervalstyle tests
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestIntervalTextCodecISO8601Full is UnitTest
   fun name(): String =>
     "Codec/Text/Interval/ISO8601/Full"
@@ -1830,7 +1843,6 @@ class \nodoc\ iso _TestIntervalTextCodecISO8601NegativeFractional is UnitTest
 // ---------------------------------------------------------------------------
 // postgres_verbose intervalstyle tests
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestIntervalTextCodecVerboseFull is UnitTest
   fun name(): String =>
     "Codec/Text/Interval/Verbose/Full"
@@ -1940,7 +1952,6 @@ class \nodoc\ iso _TestIntervalTextCodecVerboseNegFractional is UnitTest
 // ---------------------------------------------------------------------------
 // sql_standard intervalstyle tests
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestIntervalTextCodecSQLFullMixed is UnitTest
   fun name(): String =>
     "Codec/Text/Interval/SQL/FullMixed"
@@ -2061,7 +2072,6 @@ class \nodoc\ iso _TestIntervalTextCodecSQLZeroYM is UnitTest
 // ---------------------------------------------------------------------------
 // Temporal type string() tests
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestPgTimestampString is UnitTest
   fun name(): String =>
     "Temporal/PgTimestamp/String"
@@ -2070,26 +2080,32 @@ class \nodoc\ iso _TestPgTimestampString is UnitTest
     // Epoch
     h.assert_eq[String]("2000-01-01 00:00:00", PgTimestamp(0).string())
     // Positive
-    h.assert_eq[String]("2000-01-02 00:00:00",
+    h.assert_eq[String](
+      "2000-01-02 00:00:00",
       PgTimestamp(86_400_000_000).string())
     // Negative (before epoch)
-    h.assert_eq[String]("1999-12-31 00:00:00",
+    h.assert_eq[String](
+      "1999-12-31 00:00:00",
       PgTimestamp(-86_400_000_000).string())
     // Infinity
-    h.assert_eq[String]("infinity",
-      PgTimestamp(I64.max_value()).string())
-    h.assert_eq[String]("-infinity",
-      PgTimestamp(I64.min_value()).string())
+    h.assert_eq[String](
+      "infinity", PgTimestamp(I64.max_value()).string())
+    h.assert_eq[String](
+      "-infinity", PgTimestamp(I64.min_value()).string())
     // Fractional seconds
-    h.assert_eq[String]("2000-01-01 00:00:00.5",
+    h.assert_eq[String](
+      "2000-01-01 00:00:00.5",
       PgTimestamp(500_000).string())
-    h.assert_eq[String]("2000-01-01 00:00:00.123456",
+    h.assert_eq[String](
+      "2000-01-01 00:00:00.123456",
       PgTimestamp(123_456).string())
     // Negative fractional (1 microsecond before epoch)
-    h.assert_eq[String]("1999-12-31 23:59:59.999999",
+    h.assert_eq[String](
+      "1999-12-31 23:59:59.999999",
       PgTimestamp(-1).string())
     // Negative fractional (half second before epoch)
-    h.assert_eq[String]("1999-12-31 23:59:59.5",
+    h.assert_eq[String](
+      "1999-12-31 23:59:59.5",
       PgTimestamp(-500_000).string())
 
 class \nodoc\ iso _TestPgDateString is UnitTest
@@ -2104,10 +2120,10 @@ class \nodoc\ iso _TestPgDateString is UnitTest
     // Negative days
     h.assert_eq[String]("1999-12-31", PgDate(-1).string())
     // Infinity
-    h.assert_eq[String]("infinity",
-      PgDate(I32.max_value()).string())
-    h.assert_eq[String]("-infinity",
-      PgDate(I32.min_value()).string())
+    h.assert_eq[String](
+      "infinity", PgDate(I32.max_value()).string())
+    h.assert_eq[String](
+      "-infinity", PgDate(I32.min_value()).string())
 
 class \nodoc\ iso _TestPgTimeString is UnitTest
   fun name(): String =>
@@ -2115,20 +2131,29 @@ class \nodoc\ iso _TestPgTimeString is UnitTest
 
   fun apply(h: TestHelper) ? =>
     // Midnight
-    h.assert_eq[String]("00:00:00",
-      PgTime(MakePgTimeMicroseconds(0) as PgTimeMicroseconds).string())
+    h.assert_eq[String](
+      "00:00:00",
+      PgTime(
+        MakePgTimeMicroseconds(0)
+          as PgTimeMicroseconds).string())
     // 14:30:00
-    h.assert_eq[String]("14:30:00",
-      PgTime(MakePgTimeMicroseconds(52_200_000_000)
-        as PgTimeMicroseconds).string())
+    h.assert_eq[String](
+      "14:30:00",
+      PgTime(
+        MakePgTimeMicroseconds(52_200_000_000)
+          as PgTimeMicroseconds).string())
     // With fractional
-    h.assert_eq[String]("14:30:00.123456",
-      PgTime(MakePgTimeMicroseconds(52_200_123_456)
-        as PgTimeMicroseconds).string())
+    h.assert_eq[String](
+      "14:30:00.123456",
+      PgTime(
+        MakePgTimeMicroseconds(52_200_123_456)
+          as PgTimeMicroseconds).string())
     // Short fractional (trimmed trailing zeros)
-    h.assert_eq[String]("14:30:00.5",
-      PgTime(MakePgTimeMicroseconds(52_200_500_000)
-        as PgTimeMicroseconds).string())
+    h.assert_eq[String](
+      "14:30:00.5",
+      PgTime(
+        MakePgTimeMicroseconds(52_200_500_000)
+          as PgTimeMicroseconds).string())
 
 class \nodoc\ iso _TestPgTimeValidation is UnitTest
   """
@@ -2139,34 +2164,34 @@ class \nodoc\ iso _TestPgTimeValidation is UnitTest
 
   fun apply(h: TestHelper) =>
     // Valid boundary: zero (midnight)
-    match MakePgTimeMicroseconds(0)
+    match \exhaustive\ MakePgTimeMicroseconds(0)
     | let _: PgTimeMicroseconds => None
     | let _: ValidationFailure => h.fail("Expected valid for 0")
     end
     // Valid boundary: just before max (23:59:59.999999)
-    match MakePgTimeMicroseconds(86_399_999_999)
+    match \exhaustive\ MakePgTimeMicroseconds(86_399_999_999)
     | let _: PgTimeMicroseconds => None
     | let _: ValidationFailure => h.fail("Expected valid for max-1")
     end
     // Invalid: negative
-    match MakePgTimeMicroseconds(-1)
+    match \exhaustive\ MakePgTimeMicroseconds(-1)
     | let _: PgTimeMicroseconds => h.fail("Expected failure for -1")
     | let _: ValidationFailure => None
     end
     // Invalid: at max (24:00:00 is not a valid time)
-    match MakePgTimeMicroseconds(86_400_000_000)
+    match \exhaustive\ MakePgTimeMicroseconds(86_400_000_000)
     | let _: PgTimeMicroseconds =>
       h.fail("Expected failure for 86_400_000_000")
     | let _: ValidationFailure => None
     end
     // Invalid: well above max
-    match MakePgTimeMicroseconds(I64.max_value())
+    match \exhaustive\ MakePgTimeMicroseconds(I64.max_value())
     | let _: PgTimeMicroseconds =>
       h.fail("Expected failure for I64.max_value()")
     | let _: ValidationFailure => None
     end
     // Invalid: large negative
-    match MakePgTimeMicroseconds(I64.min_value())
+    match \exhaustive\ MakePgTimeMicroseconds(I64.min_value())
     | let _: PgTimeMicroseconds =>
       h.fail("Expected failure for I64.min_value()")
     | let _: ValidationFailure => None
@@ -2178,42 +2203,44 @@ class \nodoc\ iso _TestPgIntervalString is UnitTest
 
   fun apply(h: TestHelper) =>
     // All components: 1 year 2 mons 3 days 04:05:06
-    h.assert_eq[String]("1 year 2 mons 3 days 04:05:06",
+    h.assert_eq[String](
+      "1 year 2 mons 3 days 04:05:06",
       PgInterval(14_706_000_000, 3, 14).string())
     // Zero interval
-    h.assert_eq[String]("00:00:00",
-      PgInterval(0, 0, 0).string())
+    h.assert_eq[String](
+      "00:00:00", PgInterval(0, 0, 0).string())
     // Negative time
-    h.assert_eq[String]("1 day -01:00:00",
+    h.assert_eq[String](
+      "1 day -01:00:00",
       PgInterval(-3_600_000_000, 1, 0).string())
     // Partial: only months
-    h.assert_eq[String]("6 mons",
-      PgInterval(0, 0, 6).string())
+    h.assert_eq[String](
+      "6 mons", PgInterval(0, 0, 6).string())
     // Partial: only days
-    h.assert_eq[String]("10 days",
-      PgInterval(0, 10, 0).string())
+    h.assert_eq[String](
+      "10 days", PgInterval(0, 10, 0).string())
     // Singular forms
-    h.assert_eq[String]("1 year",
-      PgInterval(0, 0, 12).string())
-    h.assert_eq[String]("1 mon",
-      PgInterval(0, 0, 1).string())
-    h.assert_eq[String]("1 day",
-      PgInterval(0, 1, 0).string())
+    h.assert_eq[String](
+      "1 year", PgInterval(0, 0, 12).string())
+    h.assert_eq[String](
+      "1 mon", PgInterval(0, 0, 1).string())
+    h.assert_eq[String](
+      "1 day", PgInterval(0, 1, 0).string())
     // Fractional seconds in interval
-    h.assert_eq[String]("00:00:01.5",
+    h.assert_eq[String](
+      "00:00:01.5",
       PgInterval(1_500_000, 0, 0).string())
     // Plural forms
-    h.assert_eq[String]("2 years",
-      PgInterval(0, 0, 24).string())
-    h.assert_eq[String]("3 mons",
-      PgInterval(0, 0, 3).string())
-    h.assert_eq[String]("5 days",
-      PgInterval(0, 5, 0).string())
+    h.assert_eq[String](
+      "2 years", PgInterval(0, 0, 24).string())
+    h.assert_eq[String](
+      "3 mons", PgInterval(0, 0, 3).string())
+    h.assert_eq[String](
+      "5 days", PgInterval(0, 5, 0).string())
 
 // ---------------------------------------------------------------------------
 // Field.eq temporal tests
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestFieldEqualityTemporal is UnitTest
   fun name(): String =>
     "Field/Equality/Temporal"
@@ -2234,17 +2261,17 @@ class \nodoc\ iso _TestFieldEqualityTemporal is UnitTest
       Field("a", PgDate(100)) == Field("a", PgDate(200)))
 
     // PgTime: same-type equal
+    let t5 =
+      PgTime(
+        MakePgTimeMicroseconds(5000) as PgTimeMicroseconds)
     h.assert_true(
-      Field("a",
-        PgTime(MakePgTimeMicroseconds(5000) as PgTimeMicroseconds))
-        == Field("a",
-        PgTime(MakePgTimeMicroseconds(5000) as PgTimeMicroseconds)))
+      Field("a", t5) == Field("a", t5))
     // PgTime: same-type not-equal
+    let t6 =
+      PgTime(
+        MakePgTimeMicroseconds(6000) as PgTimeMicroseconds)
     h.assert_false(
-      Field("a",
-        PgTime(MakePgTimeMicroseconds(5000) as PgTimeMicroseconds))
-        == Field("a",
-        PgTime(MakePgTimeMicroseconds(6000) as PgTimeMicroseconds)))
+      Field("a", t5) == Field("a", t6))
 
     // PgInterval: same-type equal
     h.assert_true(
@@ -2273,23 +2300,24 @@ class \nodoc\ iso _TestFieldInequalityCrossTypeTemporal is UnitTest
     h.assert_false(
       Field("a", PgDate(100)) == Field("a", I32(100)))
     // PgTime vs I64 with same numeric value
+    let t5000 =
+      PgTime(
+        MakePgTimeMicroseconds(5000) as PgTimeMicroseconds)
     h.assert_false(
-      Field("a",
-        PgTime(MakePgTimeMicroseconds(5000) as PgTimeMicroseconds))
-        == Field("a", I64(5000)))
+      Field("a", t5000) == Field("a", I64(5000)))
     // PgTimestamp vs PgDate: different temporal types
     h.assert_false(
       Field("a", PgTimestamp(0)) == Field("a", PgDate(0)))
     // PgTime vs PgTimestamp
+    let t0 =
+      PgTime(
+        MakePgTimeMicroseconds(0) as PgTimeMicroseconds)
     h.assert_false(
-      Field("a",
-        PgTime(MakePgTimeMicroseconds(0) as PgTimeMicroseconds))
-        == Field("a", PgTimestamp(0)))
+      Field("a", t0) == Field("a", PgTimestamp(0)))
 
 // ---------------------------------------------------------------------------
 // RowsBuilder tests
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestRowsBuilderBinaryFormat is UnitTest
   fun name(): String =>
     "RowsBuilder/BinaryFormat"
@@ -2299,26 +2327,27 @@ class \nodoc\ iso _TestRowsBuilderBinaryFormat is UnitTest
 
     // Simulate a row with binary-format columns:
     // bool (OID 16, format 1), int4 (OID 23, format 1), text (OID 25, format 1)
-    let row_descs: Array[(String, U32, U16)] val = recover val
-      [("flag", 16, 1); ("count", 23, 1); ("name", 25, 1)]
-    end
+    let row_descs: Array[(String, U32, U16)] val =
+      recover val
+        [("flag", 16, 1); ("count", 23, 1); ("name", 25, 1)]
+      end
 
     // bool true = [1], int4 42 = big-endian [0;0;0;42], text "hi" = [104;105]
     let bool_data: Array[U8] val = recover val [1] end
     let int_data: Array[U8] val = recover val [0; 0; 0; 42] end
     let text_data: Array[U8] val = "hi".array()
 
-    let raw_rows: Array[Array[(Array[U8] val | None)] val] val = recover val
-      let row: Array[(Array[U8] val | None)] iso =
-        recover iso
-          let r = Array[(Array[U8] val | None)]
-          r.push(bool_data)
-          r.push(int_data)
-          r.push(text_data)
-          r
-        end
-      [consume row]
-    end
+    let raw_rows: Array[Array[(Array[U8] val | None)] val] val =
+      recover val
+        let row: Array[(Array[U8] val | None)] iso =
+          recover iso
+            Array[(Array[U8] val | None)]
+              .> push(bool_data)
+              .> push(int_data)
+              .> push(text_data)
+          end
+        [consume row]
+      end
 
     let rows = _RowsBuilder(raw_rows, row_descs, reg)?
     h.assert_eq[USize](1, rows.size())
@@ -2348,26 +2377,28 @@ class \nodoc\ iso _TestRowsBuilderTextFormat is UnitTest
     let reg = CodecRegistry
 
     // Simulate text-format columns:
-    // bool (OID 16, format 0), int4 (OID 23, format 0), date (OID 1082, format 0)
-    let row_descs: Array[(String, U32, U16)] val = recover val
-      [("flag", 16, 0); ("count", 23, 0); ("dt", 1082, 0)]
-    end
+    // bool (OID 16, format 0), int4 (OID 23, format 0),
+    // date (OID 1082, format 0)
+    let row_descs: Array[(String, U32, U16)] val =
+      recover val
+        [("flag", 16, 0); ("count", 23, 0); ("dt", 1082, 0)]
+      end
 
     let bool_data: Array[U8] val = "t".array()
     let int_data: Array[U8] val = "42".array()
     let date_data: Array[U8] val = "2024-01-15".array()
 
-    let raw_rows: Array[Array[(Array[U8] val | None)] val] val = recover val
-      let row: Array[(Array[U8] val | None)] iso =
-        recover iso
-          let r = Array[(Array[U8] val | None)]
-          r.push(bool_data)
-          r.push(int_data)
-          r.push(date_data)
-          r
-        end
-      [consume row]
-    end
+    let raw_rows: Array[Array[(Array[U8] val | None)] val] val =
+      recover val
+        let row: Array[(Array[U8] val | None)] iso =
+          recover iso
+            Array[(Array[U8] val | None)]
+              .> push(bool_data)
+              .> push(int_data)
+              .> push(date_data)
+          end
+        [consume row]
+      end
 
     let rows = _RowsBuilder(raw_rows, row_descs, reg)?
     h.assert_eq[USize](1, rows.size())
@@ -2396,19 +2427,18 @@ class \nodoc\ iso _TestRowsBuilderNullHandling is UnitTest
   fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
 
-    let row_descs: Array[(String, U32, U16)] val = recover val
-      [("val", 23, 1)]
-    end
+    let row_descs: Array[(String, U32, U16)] val =
+      recover val [("val", 23, 1)] end
 
-    let raw_rows: Array[Array[(Array[U8] val | None)] val] val = recover val
-      let row: Array[(Array[U8] val | None)] iso =
-        recover iso
-          let r = Array[(Array[U8] val | None)]
-          r.push(None)
-          r
-        end
-      [consume row]
-    end
+    let raw_rows: Array[Array[(Array[U8] val | None)] val] val =
+      recover val
+        let row: Array[(Array[U8] val | None)] iso =
+          recover iso
+            Array[(Array[U8] val | None)]
+              .> push(None)
+          end
+        [consume row]
+      end
 
     let rows = _RowsBuilder(raw_rows, row_descs, reg)?
     match rows(0)?.fields(0)?.value
@@ -2425,29 +2455,35 @@ class \nodoc\ iso _TestRowsBuilderBinaryTemporalTypes is UnitTest
 
     // timestamp (OID 1114, format 1), date (OID 1082, format 1),
     // time (OID 1083, format 1), interval (OID 1186, format 1)
-    let row_descs: Array[(String, U32, U16)] val = recover val
-      [("ts", 1114, 1); ("dt", 1082, 1); ("tm", 1083, 1); ("iv", 1186, 1)]
-    end
+    let row_descs: Array[(String, U32, U16)] val =
+      recover val
+        [ ("ts", 1114, 1); ("dt", 1082, 1)
+          ("tm", 1083, 1); ("iv", 1186, 1)]
+      end
 
     // Encode PgTimestamp(0), PgDate(0), PgTime(0), PgInterval(0,0,0)
     // All zeros in big-endian
-    let ts_data: Array[U8] val = recover val Array[U8].init(0, 8) end
-    let dt_data: Array[U8] val = recover val Array[U8].init(0, 4) end
-    let tm_data: Array[U8] val = recover val Array[U8].init(0, 8) end
-    let iv_data: Array[U8] val = recover val Array[U8].init(0, 16) end
+    let ts_data: Array[U8] val =
+      recover val Array[U8].init(0, 8) end
+    let dt_data: Array[U8] val =
+      recover val Array[U8].init(0, 4) end
+    let tm_data: Array[U8] val =
+      recover val Array[U8].init(0, 8) end
+    let iv_data: Array[U8] val =
+      recover val Array[U8].init(0, 16) end
 
-    let raw_rows: Array[Array[(Array[U8] val | None)] val] val = recover val
-      let row: Array[(Array[U8] val | None)] iso =
-        recover iso
-          let r = Array[(Array[U8] val | None)]
-          r.push(ts_data)
-          r.push(dt_data)
-          r.push(tm_data)
-          r.push(iv_data)
-          r
-        end
-      [consume row]
-    end
+    let raw_rows: Array[Array[(Array[U8] val | None)] val] val =
+      recover val
+        let row: Array[(Array[U8] val | None)] iso =
+          recover iso
+            Array[(Array[U8] val | None)]
+              .> push(ts_data)
+              .> push(dt_data)
+              .> push(tm_data)
+              .> push(iv_data)
+          end
+        [consume row]
+      end
 
     let rows = _RowsBuilder(raw_rows, row_descs, reg)?
     let row = rows(0)?
@@ -2477,7 +2513,6 @@ class \nodoc\ iso _TestRowsBuilderBinaryTemporalTypes is UnitTest
 // ---------------------------------------------------------------------------
 // CodecRegistry tests for new types
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestCodecRegistryDecodeBinaryDate is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/BinaryDate"
@@ -2559,9 +2594,9 @@ class \nodoc\ iso _TestCodecRegistryDecodeTextInterval is UnitTest
     else h.fail("Expected PgInterval from text interval decode")
     end
 
-class \nodoc\ iso _TestCodecRegistryDecodeBinaryUuid is UnitTest
+class \nodoc\ iso _TestCodecRegistryDecodeBinaryUUID is UnitTest
   fun name(): String =>
-    "CodecRegistry/Decode/BinaryUuid"
+    "CodecRegistry/Decode/BinaryUUID"
 
   fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
@@ -2573,19 +2608,19 @@ class \nodoc\ iso _TestCodecRegistryDecodeBinaryUuid is UnitTest
     else h.fail("Expected String from binary uuid decode")
     end
 
-class \nodoc\ iso _TestCodecRegistryDecodeBinaryJsonb is UnitTest
+class \nodoc\ iso _TestCodecRegistryDecodeBinaryJSONB is UnitTest
   fun name(): String =>
-    "CodecRegistry/Decode/BinaryJsonb"
+    "CodecRegistry/Decode/BinaryJSONB"
 
   fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry
     // OID 3802 (jsonb), binary format: version byte + JSON
-    let data: Array[U8] val = recover val
-      let a = Array[U8]
-      a.push(1)
-      a.append("{}".array())
-      a
-    end
+    let data: Array[U8] val =
+      recover val
+        Array[U8]
+          .> push(1)
+          .> append("{}".array())
+      end
     match reg.decode(3802, 1, data)?
     | let s: String => h.assert_eq[String]("{}", s)
     else h.fail("Expected String from binary jsonb decode")
@@ -2627,7 +2662,6 @@ class \nodoc\ iso _TestCodecRegistryDecodeBinaryTextPassthrough is UnitTest
 // ---------------------------------------------------------------------------
 // Text codec direct tests
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestInt2TextCodecRoundtrip is UnitTest
   fun name(): String =>
     "Codec/Text/Int2/Roundtrip"
@@ -2739,12 +2773,12 @@ class \nodoc\ iso _TestNumericTextCodecRoundtrip is UnitTest
     else h.fail("Expected String from decode")
     end
 
-class \nodoc\ iso _TestUuidTextCodecRoundtrip is UnitTest
+class \nodoc\ iso _TestUUIDTextCodecRoundtrip is UnitTest
   fun name(): String =>
-    "Codec/Text/Uuid/Roundtrip"
+    "Codec/Text/UUID/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let codec = _UuidTextCodec
+    let codec = _UUIDTextCodec
     h.assert_eq[U16](0, codec.format())
 
     let uuid = "550e8400-e29b-41d4-a716-446655440000"
@@ -2755,12 +2789,12 @@ class \nodoc\ iso _TestUuidTextCodecRoundtrip is UnitTest
     else h.fail("Expected String from decode")
     end
 
-class \nodoc\ iso _TestJsonbTextCodecRoundtrip is UnitTest
+class \nodoc\ iso _TestJSONBTextCodecRoundtrip is UnitTest
   fun name(): String =>
-    "Codec/Text/Jsonb/Roundtrip"
+    "Codec/Text/JSONB/Roundtrip"
 
   fun apply(h: TestHelper) ? =>
-    let codec = _JsonbTextCodec
+    let codec = _JSONBTextCodec
     h.assert_eq[U16](0, codec.format())
 
     let json = """{"key": "value"}"""
@@ -2774,7 +2808,6 @@ class \nodoc\ iso _TestJsonbTextCodecRoundtrip is UnitTest
 // ---------------------------------------------------------------------------
 // Negative year tests for temporal text codecs
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestDateTextCodecNegativeYear is UnitTest
   fun name(): String =>
     "Codec/Text/Date/NegativeYear"
@@ -2797,7 +2830,6 @@ class \nodoc\ iso _TestDateTextCodecNegativeYear is UnitTest
 // ---------------------------------------------------------------------------
 // Text codec type mismatch tests
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestDateTextCodecTypeMismatch is UnitTest
   fun name(): String =>
     "Codec/Text/Date/TypeMismatch"
@@ -2837,7 +2869,6 @@ class \nodoc\ iso _TestIntervalTextCodecTypeMismatch is UnitTest
 // ---------------------------------------------------------------------------
 // Text codec decode error-path tests
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestDateTextCodecBadInput is UnitTest
   fun name(): String =>
     "Codec/Text/Date/BadInput"
@@ -2923,7 +2954,6 @@ class \nodoc\ iso _TestIntervalTextCodecBadInput is UnitTest
 // ---------------------------------------------------------------------------
 // CodecRegistry dispatch tests for remaining temporal types
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestCodecRegistryDecodeBinaryTime is UnitTest
   fun name(): String =>
     "CodecRegistry/Decode/BinaryTime"
@@ -2994,7 +3024,6 @@ class \nodoc\ iso _TestTimestampTextCodecNegativeYear is UnitTest
 // ---------------------------------------------------------------------------
 // Gap-fill tests identified by ensemble review
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestByteaBinaryCodecTypeMismatch is UnitTest
   fun name(): String =>
     "Codec/Binary/Bytea/TypeMismatch"
@@ -3010,16 +3039,18 @@ class \nodoc\ iso _TestTimeBinaryCodecOutOfRange is UnitTest
   fun apply(h: TestHelper) =>
     // 86_400_000_000 us (exactly 24h) = 0x00000014_1DD76000 big-endian.
     // Out of PgTime's valid range; decode rejects via PgTimeValidator.
-    let at_boundary: Array[U8] val = recover val
-      [0x00; 0x00; 0x00; 0x14; 0x1D; 0xD7; 0x60; 0x00]
-    end
+    let at_boundary: Array[U8] val =
+      recover val
+        [0x00; 0x00; 0x00; 0x14; 0x1D; 0xD7; 0x60; 0x00]
+      end
     h.assert_error({()? => _TimeBinaryCodec.decode(at_boundary)? })
 
     // Negative microseconds (I64(-1) = 0xFFFFFFFF_FFFFFFFF big-endian):
     // also invalid for time-of-day
-    let negative: Array[U8] val = recover val
-      [0xFF; 0xFF; 0xFF; 0xFF; 0xFF; 0xFF; 0xFF; 0xFF]
-    end
+    let negative: Array[U8] val =
+      recover val
+        [0xFF; 0xFF; 0xFF; 0xFF; 0xFF; 0xFF; 0xFF; 0xFF]
+      end
     h.assert_error({()? => _TimeBinaryCodec.decode(negative)? })
 
 class \nodoc\ iso _TestFloat4BinaryCodecNaN is UnitTest
@@ -3061,18 +3092,19 @@ class \nodoc\ iso _TestNumericBinaryCodecLargeNumber is UnitTest
     // base-10000 digits: 9999, 9999, 9999, 9999
     // Integer part: weight=1 means digits[0]*10000 + digits[1] = 99999999
     // Fractional part: dscale=8, digits[2]=9999 (4 digits), digits[3]=9999
-    let data: Array[U8] val = recover val
-      let a = Array[U8]
-      a.push(0); a.push(4)    // ndigits = 4
-      a.push(0); a.push(1)    // weight = 1
-      a.push(0); a.push(0)    // sign = 0x0000 (positive)
-      a.push(0); a.push(8)    // dscale = 8
-      a.push(0x27); a.push(0x0F)  // digit[0] = 9999
-      a.push(0x27); a.push(0x0F)  // digit[1] = 9999
-      a.push(0x27); a.push(0x0F)  // digit[2] = 9999
-      a.push(0x27); a.push(0x0F)  // digit[3] = 9999
-      a
-    end
+    let data: Array[U8] val =
+      recover val
+        let a = Array[U8]
+        a.push(0); a.push(4)    // ndigits = 4
+        a.push(0); a.push(1)    // weight = 1
+        a.push(0); a.push(0)    // sign = 0x0000 (positive)
+        a.push(0); a.push(8)    // dscale = 8
+        a.push(0x27); a.push(0x0F)  // digit[0] = 9999
+        a.push(0x27); a.push(0x0F)  // digit[1] = 9999
+        a.push(0x27); a.push(0x0F)  // digit[2] = 9999
+        a.push(0x27); a.push(0x0F)  // digit[3] = 9999
+        a
+      end
     match _NumericBinaryCodec.decode(data)?
     | let s: String => h.assert_eq[String]("99999999.99999999", s)
     else h.fail("Expected String from decode")
@@ -3081,18 +3113,19 @@ class \nodoc\ iso _TestNumericBinaryCodecLargeNumber is UnitTest
     // Large integer with many digit groups: 1000000000000 (1 trillion)
     // ndigits=4, weight=3, sign=0x0000, dscale=0
     // digits: 1, 0, 0, 0
-    let trillion: Array[U8] val = recover val
-      let a = Array[U8]
-      a.push(0); a.push(4)    // ndigits = 4
-      a.push(0); a.push(3)    // weight = 3
-      a.push(0); a.push(0)    // sign = 0x0000
-      a.push(0); a.push(0)    // dscale = 0
-      a.push(0); a.push(1)    // digit[0] = 1
-      a.push(0); a.push(0)    // digit[1] = 0
-      a.push(0); a.push(0)    // digit[2] = 0
-      a.push(0); a.push(0)    // digit[3] = 0
-      a
-    end
+    let trillion: Array[U8] val =
+      recover val
+        let a = Array[U8]
+        a.push(0); a.push(4)    // ndigits = 4
+        a.push(0); a.push(3)    // weight = 3
+        a.push(0); a.push(0)    // sign = 0x0000
+        a.push(0); a.push(0)    // dscale = 0
+        a.push(0); a.push(1)    // digit[0] = 1
+        a.push(0); a.push(0)    // digit[1] = 0
+        a.push(0); a.push(0)    // digit[2] = 0
+        a.push(0); a.push(0)    // digit[3] = 0
+        a
+      end
     match _NumericBinaryCodec.decode(trillion)?
     | let s: String => h.assert_eq[String]("1000000000000", s)
     else h.fail("Expected String from decode")
@@ -3108,12 +3141,13 @@ class \nodoc\ iso _TestNumericBinaryCodecNegativeNdigits is UnitTest
 
   fun apply(h: TestHelper) =>
     // Big-endian wire format: ndigits=-1, weight=0, sign=0x0000, dscale=0
-    let data: Array[U8] val = recover val
-      [0xFF; 0xFF  // ndigits = -1
-       0x00; 0x00  // weight = 0
-       0x00; 0x00  // sign = positive
-       0x00; 0x00] // dscale = 0
-    end
+    let data: Array[U8] val =
+      recover val
+        [ 0xFF; 0xFF  // ndigits = -1
+          0x00; 0x00  // weight = 0
+          0x00; 0x00  // sign = positive
+          0x00; 0x00] // dscale = 0
+      end
     h.assert_error({()? => _NumericBinaryCodec.decode(data)? })
 
 class \nodoc\ iso _TestPgIntervalStringMinValue is UnitTest
@@ -3138,7 +3172,6 @@ class \nodoc\ iso _TestPgIntervalStringMinValue is UnitTest
 // ---------------------------------------------------------------------------
 // Wrapper type tests
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestByteaString is UnitTest
   fun name(): String =>
     "Bytea/String"
@@ -3205,8 +3238,8 @@ class \nodoc\ iso _TestRawBytesEquality is UnitTest
 // ---------------------------------------------------------------------------
 // Custom codec tests
 // ---------------------------------------------------------------------------
-
-class \nodoc\ val _TestPoint is (FieldData & FieldDataEquatable & Equatable[_TestPoint])
+class \nodoc\ val _TestPoint is
+  (FieldData & FieldDataEquatable & Equatable[_TestPoint])
   let x: F64
   let y: F64
 
@@ -3216,13 +3249,12 @@ class \nodoc\ val _TestPoint is (FieldData & FieldDataEquatable & Equatable[_Tes
 
   fun string(): String iso^ =>
     recover iso
-      let s = String
-      s.append("(")
-      s.append(x.string())
-      s.append(",")
-      s.append(y.string())
-      s.append(")")
-      s
+      String
+        .> append("(")
+        .> append(x.string())
+        .> append(",")
+        .> append(y.string())
+        .> append(")")
     end
 
   fun eq(that: box->_TestPoint): Bool =>
@@ -3242,16 +3274,18 @@ primitive \nodoc\ _TestPointCodec is Codec
 
   fun decode(data: Array[U8] val): FieldData ? =>
     if data.size() != 16 then error end
-    let x = ifdef bigendian then
-      F64.from_bits(data.read_u64(0)?)
-    else
-      F64.from_bits(data.read_u64(0)?.bswap())
-    end
-    let y = ifdef bigendian then
-      F64.from_bits(data.read_u64(8)?)
-    else
-      F64.from_bits(data.read_u64(8)?.bswap())
-    end
+    let x =
+      ifdef bigendian then
+        F64.from_bits(data.read_u64(0)?)
+      else
+        F64.from_bits(data.read_u64(0)?.bswap())
+      end
+    let y =
+      ifdef bigendian then
+        F64.from_bits(data.read_u64(8)?)
+      else
+        F64.from_bits(data.read_u64(8)?.bswap())
+      end
     _TestPoint(x, y)
 
 class \nodoc\ iso _TestCodecRegistryWithCodecBinary is UnitTest
@@ -3278,7 +3312,9 @@ class \nodoc\ iso _TestCodecRegistryWithCodecText is UnitTest
     let data: Array[U8] val = "(1,2)".array()
     match reg.decode(600, 0, data)?
     | let s: String => h.assert_eq[String]("(1,2)", s)
-    else h.fail("Expected String fallback for text format of custom binary codec")
+    else
+      h.fail(
+        "Expected String fallback for text format of custom binary codec")
     end
 
 class \nodoc\ iso _TestCodecRegistryWithCodecRejectsBuiltinOverride
@@ -3372,23 +3408,24 @@ class \nodoc\ iso _TestRowsBuilderWithCustomCodec is UnitTest
     "RowsBuilder/WithCustomCodec"
 
   fun apply(h: TestHelper) ? =>
-    let reg = CodecRegistry.with_codec(600, _TestPointCodec)?
+    let reg =
+      CodecRegistry.with_codec(600, _TestPointCodec)?
 
-    let row_descs: Array[(String, U32, U16)] val = recover val
-      [("pt", 600, 1)]
-    end
+    let row_descs: Array[(String, U32, U16)] val =
+      recover val [("pt", 600, 1)] end
 
-    let point_data: Array[U8] val = recover val Array[U8].init(0, 16) end
+    let point_data: Array[U8] val =
+      recover val Array[U8].init(0, 16) end
 
-    let raw_rows: Array[Array[(Array[U8] val | None)] val] val = recover val
-      let row: Array[(Array[U8] val | None)] iso =
-        recover iso
-          let r = Array[(Array[U8] val | None)]
-          r.push(point_data)
-          r
-        end
-      [consume row]
-    end
+    let raw_rows: Array[Array[(Array[U8] val | None)] val] val =
+      recover val
+        let row: Array[(Array[U8] val | None)] iso =
+          recover iso
+            Array[(Array[U8] val | None)]
+              .> push(point_data)
+          end
+        [consume row]
+      end
 
     let rows = _RowsBuilder(raw_rows, row_descs, reg)?
     h.assert_eq[USize](1, rows.size())
@@ -3402,7 +3439,6 @@ class \nodoc\ iso _TestRowsBuilderWithCustomCodec is UnitTest
 // ---------------------------------------------------------------------------
 // Custom equality tests
 // ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestFieldEqualityCustomType is UnitTest
   fun name(): String =>
     "Field/Equality/CustomType"
@@ -3475,7 +3511,6 @@ class \nodoc\ iso _TestFieldEqualityCustomEquatableVsNonEquatable is UnitTest
 // ---------------------------------------------------------------------------
 // Custom text codec test
 // ---------------------------------------------------------------------------
-
 primitive \nodoc\ _TestUppercaseTextCodec is Codec
   """
   Trivial custom text codec for testing the text branch of with_codec.
@@ -3519,7 +3554,9 @@ class \nodoc\ iso _TestCodecRegistryWithCodecCustomText is UnitTest
     // (no binary codec registered)
     match reg.decode(99900, 1, data)?
     | let r: RawBytes => h.assert_array_eq[U8](data, r.data)
-    else h.fail("Expected RawBytes fallback for binary format of text-only codec")
+    else
+      h.fail(
+        "Expected RawBytes fallback for binary format of text-only codec")
     end
 
 class \nodoc\ iso _TestCodecRegistryDecodeErrorPropagatesText is UnitTest
@@ -3572,8 +3609,8 @@ class \nodoc\ iso _TestCodecRegistryWithEnumTypeBinary is UnitTest
 
   fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry.with_enum_type(99990)?
-    let data: Array[U8] val = recover val [
-      'h'; 'a'; 'p'; 'p'; 'y'] end
+    let data: Array[U8] val =
+      recover val ['h'; 'a'; 'p'; 'p'; 'y'] end
     let result = reg.decode(99990, 1, data)?
     match result
     | let s: String => h.assert_eq[String]("happy", s)
@@ -3589,8 +3626,8 @@ class \nodoc\ iso _TestCodecRegistryWithEnumTypeText is UnitTest
 
   fun apply(h: TestHelper) ? =>
     let reg = CodecRegistry.with_enum_type(99990)?
-    let data: Array[U8] val = recover val [
-      'h'; 'a'; 'p'; 'p'; 'y'] end
+    let data: Array[U8] val =
+      recover val ['h'; 'a'; 'p'; 'p'; 'y'] end
     let result = reg.decode(99990, 0, data)?
     match result
     | let s: String => h.assert_eq[String]("happy", s)
@@ -3698,13 +3735,14 @@ class \nodoc\ iso _TestCodecRegistryWithEnumTypeChaining is UnitTest
     "CodecRegistry/WithEnumType/Chaining"
 
   fun apply(h: TestHelper) ? =>
-    let reg = CodecRegistry
-      .with_enum_type(99990)?
-      .with_enum_type(99991)?
-    let data1: Array[U8] val = recover val [
-      'h'; 'a'; 'p'; 'p'; 'y'] end
-    let data2: Array[U8] val = recover val [
-      'r'; 'e'; 'd'] end
+    let reg =
+      CodecRegistry
+        .with_enum_type(99990)?
+        .with_enum_type(99991)?
+    let data1: Array[U8] val =
+      recover val ['h'; 'a'; 'p'; 'p'; 'y'] end
+    let data2: Array[U8] val =
+      recover val ['r'; 'e'; 'd'] end
     match reg.decode(99990, 1, data1)?
     | let s: String => h.assert_eq[String]("happy", s)
     else h.fail("expected String for OID 99990")
@@ -3779,27 +3817,28 @@ class \nodoc\ iso _TestCodecRegistryWithEnumTypeComposesWithArrayType
       .with_array_type(99991, 99990)?
 
     // Build a binary array with element OID 99990, one element "happy"
-    let data: Array[U8] val = recover val
-      let d = Array[U8]
-      // ndim = 1
-      d.push(0); d.push(0); d.push(0); d.push(1)
-      // has_null = 0
-      d.push(0); d.push(0); d.push(0); d.push(0)
-      // element_oid = 99990 (big-endian)
-      let oid: U32 = 99990
-      d.push((oid >> 24).u8())
-      d.push((oid >> 16).u8())
-      d.push((oid >> 8).u8())
-      d.push((oid and 0xFF).u8())
-      // dim_size = 1
-      d.push(0); d.push(0); d.push(0); d.push(1)
-      // lower_bound = 1
-      d.push(0); d.push(0); d.push(0); d.push(1)
-      // element: len=5, "happy"
-      d.push(0); d.push(0); d.push(0); d.push(5)
-      d.push('h'); d.push('a'); d.push('p'); d.push('p'); d.push('y')
-      d
-    end
+    let data: Array[U8] val =
+      recover val
+        let d = Array[U8]
+        // ndim = 1
+        d.push(0); d.push(0); d.push(0); d.push(1)
+        // has_null = 0
+        d.push(0); d.push(0); d.push(0); d.push(0)
+        // element_oid = 99990 (big-endian)
+        let oid: U32 = 99990
+        d.push((oid >> 24).u8())
+        d.push((oid >> 16).u8())
+        d.push((oid >> 8).u8())
+        d.push((oid and 0xFF).u8())
+        // dim_size = 1
+        d.push(0); d.push(0); d.push(0); d.push(1)
+        // lower_bound = 1
+        d.push(0); d.push(0); d.push(0); d.push(1)
+        // element: len=5, "happy"
+        d.push(0); d.push(0); d.push(0); d.push(5)
+        d.push('h'); d.push('a'); d.push('p'); d.push('p'); d.push('y')
+        d
+      end
 
     let result = reg.decode(99991, 1, data)?
     match result
@@ -3828,21 +3867,22 @@ class \nodoc\ iso _TestCodecRegistryWithEnumTypeComposesArrayFirst
       .with_enum_type(99990)?
 
     // Same binary array payload as ComposesWithArrayType
-    let data: Array[U8] val = recover val
-      let d = Array[U8]
-      d.push(0); d.push(0); d.push(0); d.push(1)
-      d.push(0); d.push(0); d.push(0); d.push(0)
-      let oid: U32 = 99990
-      d.push((oid >> 24).u8())
-      d.push((oid >> 16).u8())
-      d.push((oid >> 8).u8())
-      d.push((oid and 0xFF).u8())
-      d.push(0); d.push(0); d.push(0); d.push(1)
-      d.push(0); d.push(0); d.push(0); d.push(1)
-      d.push(0); d.push(0); d.push(0); d.push(5)
-      d.push('h'); d.push('a'); d.push('p'); d.push('p'); d.push('y')
-      d
-    end
+    let data: Array[U8] val =
+      recover val
+        let d = Array[U8]
+        d.push(0); d.push(0); d.push(0); d.push(1)
+        d.push(0); d.push(0); d.push(0); d.push(0)
+        let oid: U32 = 99990
+        d.push((oid >> 24).u8())
+        d.push((oid >> 16).u8())
+        d.push((oid >> 8).u8())
+        d.push((oid and 0xFF).u8())
+        d.push(0); d.push(0); d.push(0); d.push(1)
+        d.push(0); d.push(0); d.push(0); d.push(1)
+        d.push(0); d.push(0); d.push(0); d.push(5)
+        d.push('h'); d.push('a'); d.push('p'); d.push('p'); d.push('y')
+        d
+      end
 
     let result = reg.decode(99991, 1, data)?
     match result

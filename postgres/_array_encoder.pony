@@ -35,10 +35,11 @@ primitive _ArrayEncoder
     end
 
     // Encode each element first
-    let encoded: Array[(Array[U8] val | None)] val = recover val
+    let encoded: Array[(Array[U8] val | None)] val =
+      recover val
       let enc = Array[(Array[U8] val | None)](a.elements.size())
       for elem in a.elements.values() do
-        match elem
+        match \exhaustive\ elem
         | None => enc.push(None)
         | let fd: FieldData =>
           enc.push(_encode_element(fd, a.element_oid, registry)?)
@@ -53,7 +54,7 @@ primitive _ArrayEncoder
     var data_size: USize = 20
     for e in encoded.values() do
       data_size = data_size + 4
-      match e
+      match \exhaustive\ e
       | None => has_null = 1
       | let bytes: Array[U8] val => data_size = data_size + bytes.size()
       end
@@ -77,7 +78,7 @@ primitive _ArrayEncoder
 
       var offset: USize = 20
       for e in encoded.values() do
-        match e
+        match \exhaustive\ e
         | None =>
           // NULL: length = -1
           ifdef bigendian then
@@ -100,7 +101,9 @@ primitive _ArrayEncoder
       msg
     end
 
-  fun _encode_element(fd: FieldData, element_oid: U32,
+  fun _encode_element(
+    fd: FieldData,
+    element_oid: U32,
     registry: CodecRegistry): Array[U8] val ?
   =>
     match fd
@@ -119,8 +122,8 @@ primitive _ArrayEncoder
     | let v: String =>
       // Route by element_oid for string-producing types
       match element_oid
-      | 2950 => _UuidBinaryCodec.encode(v)?
-      | 3802 => _JsonbBinaryCodec.encode(v)?
+      | 2950 => _UUIDBinaryCodec.encode(v)?
+      | 3802 => _JSONBBinaryCodec.encode(v)?
       | 26 => _OidBinaryCodec.encode(v)?
       | 1700 => _NumericBinaryCodec.encode(v)?
       else

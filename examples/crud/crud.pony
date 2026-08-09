@@ -1,3 +1,8 @@
+"""
+Basic CRUD operations using `SimpleQuery` and `PreparedQuery`. Creates a
+table, inserts rows with parameterized queries, selects them back, deletes
+them, and drops the table.
+"""
 use "cli"
 use "collections"
 use lori = "lori"
@@ -18,16 +23,21 @@ actor Main
 // its own state machine and issues queries as needed from different parts of
 // your code rather than cramming everything into one client.
 actor Client is (SessionStatusNotify & ResultReceiver)
+  """
+  Runs CREATE, INSERT, SELECT, DELETE, DROP in sequence using a
+  phase counter.
+  """
   let _session: Session
   let _out: OutStream
   var _phase: USize = 0
 
   new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
-    _session = Session(
-      ServerConnectInfo(auth, info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(auth, info.host, info.port),
+        DatabaseConnectInfo(info.username, info.password, info.database),
+        this)
 
   be close() =>
     _session.close()
@@ -83,14 +93,16 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       _out.print("Selecting rows...")
       _session.execute(
         PreparedQuery(
-          "SELECT name, age FROM crud_example WHERE age >= $1 ORDER BY name",
+          "SELECT name, age FROM crud_example"
+            + " WHERE age >= $1 ORDER BY name",
           recover val [as FieldDataTypes: I32(0)] end),
         this)
     | 5 =>
       // Select done. Print results and delete all rows.
       match result
       | let r: ResultSet =>
-        _out.print("ResultSet (" + r.rows().size().string() + " rows):")
+        _out.print(
+          "ResultSet (" + r.rows().size().string() + " rows):")
         for row in r.rows().values() do
           _out.write(" ")
           for field in row.fields.values() do
@@ -133,22 +145,30 @@ actor Client is (SessionStatusNotify & ResultReceiver)
   fun _print_row_modifying(result: Result) =>
     match result
     | let r: RowModifying =>
-      _out.print(r.command() + " " + r.impacted().string() + " rows")
+      _out.print(
+        r.command() + " " + r.impacted().string() + " rows")
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
-      _out.print("Query failed: [" + e.severity + "] " + e.code + ": "
-        + e.message)
+      _out.print(
+        "Query failed: [" + e.severity + "] " + e.code + ": "
+          + e.message)
     | let e: ClientQueryError =>
       _out.print("Query failed: client error")
     end
     close()
 
 class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
   let host: String
   let port: String
   let username: String

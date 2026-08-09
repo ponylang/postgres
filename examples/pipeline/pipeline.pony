@@ -1,3 +1,12 @@
+"""
+Query pipelining for reduced round-trip latency. Creates a table, pipelines
+three SELECTs with different WHERE clauses in a single `session.pipeline()`
+call, prints the indexed results, and drops the table.
+
+Pipelining sends all queries to the server in one TCP write and processes
+responses as they arrive. Each query has its own error isolation boundary —
+if one fails, the others continue executing.
+"""
 use "cli"
 use "collections"
 use lori = "lori"
@@ -12,25 +21,22 @@ actor Main
 
     let client = Client(auth, server_info, env.out)
 
-// This example demonstrates query pipelining for reduced round-trip latency.
-// It creates a table with 3 rows, pipelines 3 SELECTs with different WHERE
-// clauses in a single call, prints the indexed results, then drops the table.
-//
-// Pipelining sends all queries to the server in one TCP write and processes
-// responses as they arrive. Each query has its own error isolation boundary —
-// if one fails, the others continue executing.
 actor Client is
   (SessionStatusNotify & ResultReceiver & PipelineReceiver)
+  """
+  Pipelines three prepared queries and prints each result by index.
+  """
   let _session: Session
   let _out: OutStream
   var _phase: USize = 0
 
   new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
-    _session = Session(
-      ServerConnectInfo(auth, info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this)
+    _session =
+      Session(
+        ServerConnectInfo(auth, info.host, info.port),
+        DatabaseConnectInfo(info.username, info.password, info.database),
+        this)
 
   be close() =>
     _session.close()
@@ -71,29 +77,32 @@ actor Client is
         this)
     | 3 =>
       _out.print("Pipelining 3 SELECTs...")
-      let queries = recover val
-        [as (PreparedQuery | NamedPreparedQuery):
-          PreparedQuery(
-            "SELECT id, name FROM pipeline_example WHERE id = $1",
-            recover val [as FieldDataTypes: I32(1)] end)
-          PreparedQuery(
-            "SELECT id, name FROM pipeline_example WHERE id = $1",
-            recover val [as FieldDataTypes: I32(2)] end)
-          PreparedQuery(
-            "SELECT id, name FROM pipeline_example WHERE id = $1",
-            recover val [as FieldDataTypes: I32(3)] end)
-        ]
-      end
+      let queries =
+        recover val
+          [ as (PreparedQuery | NamedPreparedQuery):
+            PreparedQuery(
+              "SELECT id, name FROM pipeline_example WHERE id = $1",
+              recover val [as FieldDataTypes: I32(1)] end)
+            PreparedQuery(
+              "SELECT id, name FROM pipeline_example WHERE id = $1",
+              recover val [as FieldDataTypes: I32(2)] end)
+            PreparedQuery(
+              "SELECT id, name FROM pipeline_example WHERE id = $1",
+              recover val [as FieldDataTypes: I32(3)] end)
+          ]
+        end
       _session.pipeline(queries, this)
     | 5 =>
       _out.print("Done.")
       close()
     end
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print("Query failed: [" + e.severity + "] " + e.code + ": "
         + e.message)
@@ -104,7 +113,7 @@ actor Client is
 
   be pg_pipeline_result(session: Session, index: USize, result: Result) =>
     _out.print("  Pipeline query " + index.string() + ":")
-    match result
+    match \exhaustive\ result
     | let rs: ResultSet =>
       for row in rs.rows().values() do
         _out.write("   ")
@@ -129,11 +138,13 @@ actor Client is
       _out.print("    (empty)")
     end
 
-  be pg_pipeline_failed(session: Session, index: USize,
+  be pg_pipeline_failed(
+    session: Session,
+    index: USize,
     query: (PreparedQuery | NamedPreparedQuery),
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
-    match failure
+    match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print("  Pipeline query " + index.string() + " failed: ["
         + e.severity + "] " + e.code + ": " + e.message)
@@ -143,6 +154,9 @@ actor Client is
     end
 
   be pg_pipeline_complete(session: Session) =>
+    """
+    Drops the example table after the pipeline finishes.
+    """
     _out.print("Pipeline complete.")
     _out.print("Dropping table...")
     _phase = _phase + 1
@@ -150,6 +164,10 @@ actor Client is
       SimpleQuery("DROP TABLE pipeline_example"), this)
 
 class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
   let host: String
   let port: String
   let username: String

@@ -1,8 +1,8 @@
 """
-Custom codec for PostgreSQL's `point` type (OID 600). Demonstrates how to
-create a custom `FieldData` type, implement a binary `Codec` for it, register
-the codec with `CodecRegistry.with_codec()`, and match on the custom type in
-query results.
+Custom codec for PostgreSQL's `point` type (OID 600). Creates a custom
+`FieldData` type, implements a binary `Codec` for it, registers the codec
+with `CodecRegistry.with_codec()`, and matches on the custom type in query
+results.
 """
 use "cli"
 use "collections"
@@ -34,13 +34,12 @@ class val Point is (FieldData & Equatable[Point])
 
   fun string(): String iso^ =>
     recover iso
-      let s = String
-      s.append("(")
-      s.append(x.string())
-      s.append(",")
-      s.append(y.string())
-      s.append(")")
-      s
+      String
+        .> append("(")
+        .> append(x.string())
+        .> append(",")
+        .> append(y.string())
+        .> append(")")
     end
 
 primitive PointBinaryCodec is Codec
@@ -55,20 +54,29 @@ primitive PointBinaryCodec is Codec
     error
 
   fun decode(data: Array[U8] val): FieldData ? =>
+    """
+    Decodes 16 bytes (two big-endian float8 values) into a `Point`.
+    """
     if data.size() != 16 then error end
-    let x = ifdef bigendian then
-      F64.from_bits(data.read_u64(0)?)
-    else
-      F64.from_bits(data.read_u64(0)?.bswap())
-    end
-    let y = ifdef bigendian then
-      F64.from_bits(data.read_u64(8)?)
-    else
-      F64.from_bits(data.read_u64(8)?.bswap())
-    end
+    let x =
+      ifdef bigendian then
+        F64.from_bits(data.read_u64(0)?)
+      else
+        F64.from_bits(data.read_u64(0)?.bswap())
+      end
+    let y =
+      ifdef bigendian then
+        F64.from_bits(data.read_u64(8)?)
+      else
+        F64.from_bits(data.read_u64(8)?.bswap())
+      end
     Point(x, y)
 
 actor Client is (SessionStatusNotify & ResultReceiver)
+  """
+  Connects to PostgreSQL, registers a custom point codec, and queries
+  point-typed data.
+  """
   let _session: Session
   let _out: OutStream
 
@@ -76,23 +84,30 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     _out = out
     // Register the custom codec for point (OID 600) and pass it to Session.
     // The fallback can't execute — OID 600 is not a built-in.
-    let registry = try CodecRegistry.with_codec(600, PointBinaryCodec)?
-    else CodecRegistry end
-    _session = Session(
-      ServerConnectInfo(auth, info.host, info.port),
-      DatabaseConnectInfo(info.username, info.password, info.database),
-      this where registry = registry)
+    let registry =
+      try CodecRegistry.with_codec(600, PointBinaryCodec)?
+      else CodecRegistry
+      end
+    _session =
+      Session(
+        ServerConnectInfo(auth, info.host, info.port),
+        DatabaseConnectInfo(info.username, info.password, info.database),
+        this where registry = registry)
 
   be close() =>
     _session.close()
 
   be pg_session_authenticated(session: Session) =>
+    """
+    Runs a prepared query for a point value on authentication.
+    """
     _out.print("Authenticated.")
     _out.print("Querying point data...")
     // Use PreparedQuery to get binary format results
-    let q = PreparedQuery(
-      "SELECT '(1.5,2.5)'::point AS pt",
-      recover val Array[FieldDataTypes] end)
+    let q =
+      PreparedQuery(
+        "SELECT '(1.5,2.5)'::point AS pt",
+        recover val Array[FieldDataTypes] end)
     session.execute(q, this)
 
   be pg_session_connection_failed(session: Session,
@@ -119,13 +134,19 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     end
     close()
 
-  be pg_query_failed(session: Session, query: Query,
+  be pg_query_failed(
+    session: Session,
+    query: Query,
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _out.print("Query failed.")
     close()
 
 class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
   let host: String
   let port: String
   let username: String

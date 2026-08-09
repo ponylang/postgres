@@ -51,7 +51,8 @@ primitive _ByteaTextCodec is Codec
     if (s.size() < 2) or (s(0)? != '\\') or (s(1)? != 'x') then error end
     let hex_len = s.size() - 2
     if (hex_len % 2) != 0 then error end
-    let decoded_bytes: Array[U8] val = recover val
+    let decoded_bytes: Array[U8] val =
+      recover val
       let result = Array[U8](hex_len / 2)
       var i: USize = 2
       while i < s.size() do
@@ -201,7 +202,7 @@ primitive _NumericTextCodec is Codec
   fun decode(data: Array[U8] val): FieldData =>
     String.from_array(data)
 
-primitive _UuidTextCodec is Codec
+primitive _UUIDTextCodec is Codec
   """
   Text codec for PostgreSQL `uuid` (OID 2950).
   """
@@ -217,7 +218,7 @@ primitive _UuidTextCodec is Codec
   fun decode(data: Array[U8] val): FieldData =>
     String.from_array(data)
 
-primitive _JsonbTextCodec is Codec
+primitive _JSONBTextCodec is Codec
   """
   Text codec for PostgreSQL `jsonb` (OID 3802).
   """
@@ -263,11 +264,12 @@ primitive _DateTextCodec is Codec
     """
     let parts = s.split("-")
     let negative_year = s.at("-", 0) and (parts.size() > 3)
-    let year: I32 = if negative_year then
-      -parts(1)?.i32()?
-    else
-      parts(0)?.i32()?
-    end
+    let year: I32 =
+      if negative_year then
+        -parts(1)?.i32()?
+      else
+        parts(0)?.i32()?
+      end
     let month_idx: USize = if negative_year then 2 else 1 end
     let day_idx: USize = if negative_year then 3 else 2 end
     let month = parts(month_idx)?.i32()?
@@ -316,11 +318,12 @@ primitive _TimeTextCodec is Codec
     let sec_str = time_parts(2)?
     let sec_parts = sec_str.split(".")
     let seconds = sec_parts(0)?.i64()?
-    let frac: I64 = if sec_parts.size() > 1 then
-      _parse_fractional(sec_parts(1)?)?
-    else
-      0
-    end
+    let frac: I64 =
+      if sec_parts.size() > 1 then
+        _parse_fractional(sec_parts(1)?)?
+      else
+        0
+      end
     (hours, minutes, seconds, frac)
 
   fun _parse_fractional(s: String): I64 ? =>
@@ -424,11 +427,12 @@ primitive _TimestamptzTextCodec is Codec
       i = i + 1
     end
 
-    let ts_str = if tz_pos > 0 then
-      s.substring(0, tz_pos)
-    else
-      s
-    end
+    let ts_str =
+      if tz_pos > 0 then
+        s.substring(0, tz_pos)
+      else
+        s
+      end
 
     _TimestampTextCodec._parse_timestamp(consume ts_str)?
 
@@ -570,11 +574,12 @@ primitive _IntervalTextCodec is Codec
         (let neg, let raw) = _strip_sign(current)
         let dot_parts = raw.split(".")
         let sec_val = dot_parts(0)?.i64()?
-        let frac_us: I64 = if dot_parts.size() > 1 then
-          _TimeTextCodec._parse_fractional(dot_parts(1)?)?
-        else
-          0
-        end
+        let frac_us: I64 =
+          if dot_parts.size() > 1 then
+            _TimeTextCodec._parse_fractional(dot_parts(1)?)?
+          else
+            0
+          end
         let signed_sec: I64 = if neg then -sec_val else sec_val end
         let signed_frac: I64 = if neg then -frac_us else frac_us end
         total_us = total_us + (signed_sec * 1_000_000) + signed_frac
@@ -653,11 +658,12 @@ primitive _IntervalTextCodec is Codec
         (let neg, let raw) = _strip_sign(num_tok)
         let dot_parts = raw.split(".")
         let sec_val = dot_parts(0)?.i64()?
-        let frac_us: I64 = if dot_parts.size() > 1 then
-          _TimeTextCodec._parse_fractional(dot_parts(1)?)?
-        else
-          0
-        end
+        let frac_us: I64 =
+          if dot_parts.size() > 1 then
+            _TimeTextCodec._parse_fractional(dot_parts(1)?)?
+          else
+            0
+          end
         let signed_sec: I64 = if neg then -sec_val else sec_val end
         let signed_frac: I64 = if neg then -frac_us else frac_us end
         total_us = total_us + (signed_sec * 1_000_000) + signed_frac
@@ -721,7 +727,9 @@ primitive _IntervalTextCodec is Codec
     error
 
   fun _parse_sql_year_month(s: String): I32 ? =>
-    """Parse `[+|-]Y-M` into total months."""
+    """
+    Parse `[+|-]Y-M` into total months.
+    """
     (let neg, let r) = _strip_sign(s)
     let parts = r.split("-")
     if parts.size() != 2 then error end
@@ -731,13 +739,17 @@ primitive _IntervalTextCodec is Codec
     (if neg then -total else total end).i32()
 
   fun _parse_sql_day(s: String): I32 ? =>
-    """Parse `[+|-]D` into days."""
+    """
+    Parse `[+|-]D` into days.
+    """
     (let neg, let r) = _strip_sign(s)
     let v = r.i64()?
     (if neg then -v else v end).i32()
 
   fun _parse_sql_time(s: String): I64 ? =>
-    """Parse `[+|-]H:MM:SS[.ffffff]` into microseconds."""
+    """
+    Parse `[+|-]H:MM:SS[.ffffff]` into microseconds.
+    """
     (let neg, let time_str) = _strip_sign(s)
     (let h, let m, let sec, let frac) =
       _TimeTextCodec._parse_time(consume time_str)?
@@ -746,7 +758,9 @@ primitive _IntervalTextCodec is Codec
     if neg then -us else us end
 
   fun _has_alpha(s: String box): Bool =>
-    """Scan for any ASCII letter."""
+    """
+    Scan for any ASCII letter.
+    """
     try
       var i: USize = 0
       while i < s.size() do

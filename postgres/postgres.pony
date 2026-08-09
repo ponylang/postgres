@@ -404,7 +404,8 @@ let registry = CodecRegistry
 ## Composite Types
 
 User-defined composite types (created with `CREATE TYPE ... AS (...)`) are
-decoded as `PgComposite` when registered with `CodecRegistry.with_composite_type()`.
+decoded as `PgComposite` when registered with
+`CodecRegistry.with_composite_type()`.
 Register the composite OID and its field descriptors (name + OID pairs):
 
 ```pony

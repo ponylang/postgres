@@ -22,3 +22,6 @@ interface val FieldDataEquatable
   preserve symmetry of `Field.eq()`.
   """
   fun field_data_eq(that: FieldData box): Bool
+    """
+    Returns `true` when `that` has the same type and value as this one.
+    """

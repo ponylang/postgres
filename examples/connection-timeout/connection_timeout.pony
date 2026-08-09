@@ -20,25 +20,33 @@ actor Main
     let client = Client(auth, server_info, env.out)
 
 actor Client is SessionStatusNotify
+  """
+  Connects with a 3-second timeout and reports the outcome.
+  """
   let _session: Session
   let _out: OutStream
 
   new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
-    match lori.MakeConnectionTimeout(3000)
+    match \exhaustive\ lori.MakeConnectionTimeout(3000)
     | let ct: lori.ConnectionTimeout =>
       _out.print("Connecting with 3-second timeout...")
-      _session = Session(
-        ServerConnectInfo(auth, info.host, info.port
-          where connection_timeout' = ct),
-        DatabaseConnectInfo(info.username, info.password, info.database),
-        this)
+      _session =
+        Session(
+          ServerConnectInfo(
+            auth, info.host, info.port
+            where connection_timeout' = ct),
+          DatabaseConnectInfo(
+            info.username, info.password, info.database),
+          this)
     | let _: ValidationFailure =>
       _out.print("Failed to create connection timeout.")
-      _session = Session(
-        ServerConnectInfo(auth, info.host, info.port),
-        DatabaseConnectInfo(info.username, info.password, info.database),
-        this)
+      _session =
+        Session(
+          ServerConnectInfo(auth, info.host, info.port),
+          DatabaseConnectInfo(
+            info.username, info.password, info.database),
+          this)
     end
 
   be pg_session_connected(session: Session) =>
@@ -67,6 +75,10 @@ actor Client is SessionStatusNotify
     session.close()
 
 class val ServerInfo
+  """
+  Connection parameters from POSTGRES_* environment variables, with
+  defaults for local development.
+  """
   let host: String
   let port: String
   let username: String

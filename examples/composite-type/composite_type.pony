@@ -65,8 +65,8 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       // SELECT a composite literal
       session.execute(
         PreparedQuery(
-          "SELECT ROW('123 Main St','Springfield',62704)"
-            + "::address AS addr",
+          "SELECT ROW('123 Main St','Springfield',62704)" +
+            "::address AS addr",
           recover val Array[FieldDataTypes] end),
         this)
     end
@@ -85,8 +85,8 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       _out.print("Creating composite type 'address'...")
       session.execute(
         SimpleQuery(
-          "CREATE TYPE address AS "
-            + "(street text, city text, zip_code int4)"),
+          "CREATE TYPE address AS " +
+            "(street text, city text, zip_code int4)"),
         this)
     | 2 =>
       // Type created. Query its OID from pg_type.
@@ -118,8 +118,8 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       _out.print("Querying array OID from pg_type...")
       session.execute(
         SimpleQuery(
-          "SELECT typarray FROM pg_type WHERE oid = "
-            + oid.string()),
+          "SELECT typarray FROM pg_type WHERE oid = " +
+            oid.string()),
         this)
     | 4 =>
       // Got the array OID. Build registry, close, reconnect.
@@ -246,8 +246,8 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print(
-        "Query failed: [" + e.severity + "] " + e.code + ": "
-          + e.message)
+        "Query failed: [" + e.severity + "] " + e.code + ": " +
+          e.message)
     | let _: SessionClosed =>
       return
     | let e: ClientQueryError =>

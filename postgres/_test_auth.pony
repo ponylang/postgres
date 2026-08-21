@@ -1521,8 +1521,8 @@ actor \nodoc\ _SCRAMMalformedSASLContinueTestServer
           let combined_nonce: String val =
             r.client_nonce + "servernonce123456"
           let server_first: String val =
-            "r=" + combined_nonce
-              + ",s=c2FsdA==,i=notanumber"
+            "r=" + combined_nonce +
+              ",s=c2FsdA==,i=notanumber"
           let sasl_continue =
             _IncomingAuthenticationSASLContinueTestMessage(
               server_first.array()).bytes()
@@ -1602,8 +1602,8 @@ primitive \nodoc\ _SCRAMMockHelper
       let iterations: U32 = 4096
 
       let server_first: String val =
-        "r=" + combined_nonce
-          + ",s=" + salt_b64 + ",i=4096"
+        "r=" + combined_nonce +
+          ",s=" + salt_b64 + ",i=4096"
 
       (let client_proof, let server_signature) =
         _ScramSha256.compute_proof(
@@ -1690,8 +1690,8 @@ class \nodoc\ iso
       end
     else
       h.fail(
-        "Expected InvalidAuthorizationSpecification"
-          + " for SQLSTATE 28000.")
+        "Expected InvalidAuthorizationSpecification" +
+          " for SQLSTATE 28000.")
     end
 
 class \nodoc\ iso _TestConnectionFailureReasonFromErrorTooManyConnections
@@ -1878,8 +1878,8 @@ actor \nodoc\ _TooManyConnectionsTestNotify is SessionStatusNotify
     | let r: TooManyConnections =>
       if r.response().code != "53300" then
         _h.fail(
-          "TooManyConnections carried wrong SQLSTATE code: "
-            + r.response().code)
+          "TooManyConnections carried wrong SQLSTATE code: " +
+            r.response().code)
         _h.complete(false)
         return
       end

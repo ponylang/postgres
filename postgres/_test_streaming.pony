@@ -62,9 +62,9 @@ actor \nodoc\ _StreamingSuccessTestClient is
     if (_batches == 3) and (_total_rows == 5) then
       _close_and_complete(true)
     else
-      _h.fail("Expected 3 batches with 5 total rows but got "
-        + _batches.string() + " batches with " + _total_rows.string()
-        + " rows")
+      _h.fail("Expected 3 batches with 5 total rows but got " +
+        _batches.string() + " batches with " + _total_rows.string() +
+        " rows")
       _close_and_complete(false)
     end
 
@@ -1057,9 +1057,9 @@ actor \nodoc\ _StreamingQueryResultsNotify is
       session.execute(
         SimpleQuery("DROP TABLE streaming_test"), this)
     else
-      _h.fail("Expected 3 batches with 5 total rows but got "
-        + _batches.string() + " batches with " + _total_rows.string()
-        + " rows")
+      _h.fail("Expected 3 batches with 5 total rows but got " +
+        _batches.string() + " batches with " + _total_rows.string() +
+        " rows")
       _close_and_complete(false)
     end
 

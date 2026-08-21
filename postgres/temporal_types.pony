@@ -258,8 +258,8 @@ class val PgInterval is Equatable[PgInterval]
       let second = time_us / us_per_second
       let frac = time_us % us_per_second
 
-      if (hour != 0) or (minute != 0) or (second != 0) or (frac != 0)
-        or (not has_output)
+      if (hour != 0) or (minute != 0) or (second != 0) or (frac != 0) or
+        (not has_output)
       then
         if has_output then s.append(" ") end
         if negative_time then s.append("-") end

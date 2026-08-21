@@ -1741,9 +1741,9 @@ class \nodoc\ iso _TestArrayBinaryRoundtripProperty
       h.assert_eq[U32](arr.element_oid, result.element_oid)
       h.assert_true(
         arr == result,
-        "Roundtrip mismatch for element_oid="
-          + arr.element_oid.string()
-          + " size=" + arr.size().string())
+        "Roundtrip mismatch for element_oid=" +
+          arr.element_oid.string() +
+          " size=" + arr.size().string())
     else
       h.fail("Expected PgArray for array_oid " + array_oid.string())
     end

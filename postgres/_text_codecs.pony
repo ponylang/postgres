@@ -304,8 +304,8 @@ primitive _TimeTextCodec is Codec
   fun decode(data: Array[U8] val): FieldData ? =>
     let s = String.from_array(data)
     (let hours, let minutes, let seconds, let frac) = _parse_time(s)?
-    let us: I64 = (hours * 3_600_000_000) + (minutes * 60_000_000)
-      + (seconds * 1_000_000) + frac
+    let us: I64 = (hours * 3_600_000_000) + (minutes * 60_000_000) +
+      (seconds * 1_000_000) + frac
     PgTime(MakePgTimeMicroseconds(us) as PgTimeMicroseconds)
 
   fun _parse_time(s: String): (I64, I64, I64, I64) ? =>
@@ -381,8 +381,8 @@ primitive _TimestampTextCodec is Codec
     let julian = _DateTextCodec._gregorian_to_julian(year, month, day)
     let day_offset = julian - _TemporalFormat.pg_epoch_jdn()
     let us_per_day: I64 = 86_400_000_000
-    let time_us = (hours * 3_600_000_000) + (minutes * 60_000_000)
-      + (seconds * 1_000_000) + frac
+    let time_us = (hours * 3_600_000_000) + (minutes * 60_000_000) +
+      (seconds * 1_000_000) + frac
     PgTimestamp((day_offset * us_per_day) + time_us)
 
 primitive _TimestamptzTextCodec is Codec
@@ -490,8 +490,8 @@ primitive _IntervalTextCodec is Codec
         (let negative, let time_str) = _strip_sign(tok)
         (let h, let m, let sec, let frac) =
           _TimeTextCodec._parse_time(consume time_str)?
-        let us = (h * 3_600_000_000) + (m * 60_000_000)
-          + (sec * 1_000_000) + frac
+        let us = (h * 3_600_000_000) + (m * 60_000_000) +
+          (sec * 1_000_000) + frac
         total_us = if negative then -us else us end
         ti = ti + 1
       else
@@ -550,8 +550,9 @@ primitive _IntervalTextCodec is Codec
       if c == 'Y' then
         (let neg, let r) = _strip_sign(current)
         let v = r.i64()?
-        total_months = total_months
-          + ((if neg then -v else v end).i32() * 12)
+        total_months =
+          total_months +
+          ((if neg then -v else v end).i32() * 12)
       elseif (c == 'M') and not in_time then
         (let neg, let r) = _strip_sign(current)
         let v = r.i64()?
@@ -753,8 +754,8 @@ primitive _IntervalTextCodec is Codec
     (let neg, let time_str) = _strip_sign(s)
     (let h, let m, let sec, let frac) =
       _TimeTextCodec._parse_time(consume time_str)?
-    let us = (h * 3_600_000_000) + (m * 60_000_000)
-      + (sec * 1_000_000) + frac
+    let us = (h * 3_600_000_000) + (m * 60_000_000) +
+      (sec * 1_000_000) + frac
     if neg then -us else us end
 
   fun _has_alpha(s: String box): Bool =>

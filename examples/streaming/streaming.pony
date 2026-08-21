@@ -96,8 +96,8 @@ actor Client is
   =>
     match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
-      _out.print("Query failed: [" + e.severity + "] " + e.code + ": "
-        + e.message)
+      _out.print("Query failed: [" + e.severity + "] " + e.code + ": " +
+        e.message)
     | let e: ClientQueryError =>
       _out.print("Query failed: client error")
     end
@@ -140,8 +140,8 @@ actor Client is
   =>
     match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
-      _out.print("Stream failed: [" + e.severity + "] " + e.code + ": "
-        + e.message)
+      _out.print("Stream failed: [" + e.severity + "] " + e.code + ": " +
+        e.message)
     | let e: ClientQueryError =>
       _out.print("Stream failed: client error")
     end

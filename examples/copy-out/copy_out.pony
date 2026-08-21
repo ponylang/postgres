@@ -76,8 +76,8 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyOutReceiver)
     match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print(
-        "COPY failed: [" + e.severity + "] " + e.code + ": "
-          + e.message)
+        "COPY failed: [" + e.severity + "] " + e.code + ": " +
+          e.message)
     | let e: ClientQueryError =>
       _out.print("COPY failed: client error")
     end
@@ -126,8 +126,8 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyOutReceiver)
     match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print(
-        "Query failed: [" + e.severity + "] " + e.code + ": "
-          + e.message)
+        "Query failed: [" + e.severity + "] " + e.code + ": " +
+          e.message)
     | let e: ClientQueryError =>
       _out.print("Query failed: client error")
     end

@@ -147,36 +147,36 @@ actor \nodoc\ _TimeoutTestServer
         // Verify CancelRequest: 16 bytes total
         // Int32(16) Int32(80877102) Int32(pid=12345) Int32(key=67890)
         if msg.size() != 16 then
-          _h.fail("CancelRequest should be 16 bytes, got "
-            + msg.size().string())
+          _h.fail("CancelRequest should be 16 bytes, got " +
+            msg.size().string())
           _h.complete(false)
           return
         end
 
         try
-          if (msg(0)? != 0) or (msg(1)? != 0) or (msg(2)? != 0)
-            or (msg(3)? != 16) then
+          if (msg(0)? != 0) or (msg(1)? != 0) or (msg(2)? != 0) or
+            (msg(3)? != 16) then
             _h.fail("CancelRequest length field is incorrect")
             _h.complete(false)
             return
           end
 
-          if (msg(4)? != 4) or (msg(5)? != 210) or (msg(6)? != 22)
-            or (msg(7)? != 46) then
+          if (msg(4)? != 4) or (msg(5)? != 210) or (msg(6)? != 22) or
+            (msg(7)? != 46) then
             _h.fail("CancelRequest magic number is incorrect")
             _h.complete(false)
             return
           end
 
-          if (msg(8)? != 0) or (msg(9)? != 0) or (msg(10)? != 48)
-            or (msg(11)? != 57) then
+          if (msg(8)? != 0) or (msg(9)? != 0) or (msg(10)? != 48) or
+            (msg(11)? != 57) then
             _h.fail("CancelRequest process_id is incorrect")
             _h.complete(false)
             return
           end
 
-          if (msg(12)? != 0) or (msg(13)? != 1) or (msg(14)? != 9)
-            or (msg(15)? != 50) then
+          if (msg(12)? != 0) or (msg(13)? != 1) or (msg(14)? != 9) or
+            (msg(15)? != 50) then
             _h.fail("CancelRequest secret_key is incorrect")
             _h.complete(false)
             return

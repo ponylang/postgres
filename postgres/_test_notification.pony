@@ -55,24 +55,24 @@ actor \nodoc\ _NotificationDeliveryClient
     _got_notification = true
     if notification.channel != "test_ch" then
       _h.fail(
-        "Expected channel 'test_ch' but got '"
-          + notification.channel + "'")
+        "Expected channel 'test_ch' but got '" +
+          notification.channel + "'")
       session.close()
       _h.complete(false)
       return
     end
     if notification.payload != "hello" then
       _h.fail(
-        "Expected payload 'hello' but got '"
-          + notification.payload + "'")
+        "Expected payload 'hello' but got '" +
+          notification.payload + "'")
       session.close()
       _h.complete(false)
       return
     end
     if notification.pid != 42 then
       _h.fail(
-        "Expected pid 42 but got "
-          + notification.pid.string())
+        "Expected pid 42 but got " +
+          notification.pid.string())
       session.close()
       _h.complete(false)
       return
@@ -142,8 +142,8 @@ actor \nodoc\ _NotificationDuringDataRowsClient
     | let r: ResultSet =>
       if r.rows().size() != 2 then
         _h.fail(
-          "Expected 2 rows but got "
-            + r.rows().size().string())
+          "Expected 2 rows but got " +
+            r.rows().size().string())
         session.close()
         _h.complete(false)
       end
@@ -168,8 +168,8 @@ actor \nodoc\ _NotificationDuringDataRowsClient
     _got_notification = true
     if notification.channel != "ch" then
       _h.fail(
-        "Expected channel 'ch' but got '"
-          + notification.channel + "'")
+        "Expected channel 'ch' but got '" +
+          notification.channel + "'")
       session.close()
       _h.complete(false)
     end
@@ -500,8 +500,8 @@ actor \nodoc\ _ListenNotifyClient
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail(
-      "Unexpected query failure at phase "
-        + _phase.string())
+      "Unexpected query failure at phase " +
+        _phase.string())
     _h.complete(false)
 
   be pg_notification(
@@ -511,16 +511,16 @@ actor \nodoc\ _ListenNotifyClient
     _got_notification = true
     if notification.channel != _channel then
       _h.fail(
-        "Expected channel '" + _channel
-          + "' but got '" + notification.channel + "'")
+        "Expected channel '" + _channel +
+          "' but got '" + notification.channel + "'")
       _session.close()
       _h.complete(false)
       return
     end
     if notification.payload != "hello" then
       _h.fail(
-        "Expected payload 'hello' but got '"
-          + notification.payload + "'")
+        "Expected payload 'hello' but got '" +
+          notification.payload + "'")
       _session.close()
       _h.complete(false)
       return

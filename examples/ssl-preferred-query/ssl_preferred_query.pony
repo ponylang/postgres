@@ -58,8 +58,8 @@ actor Client is (SessionStatusNotify & ResultReceiver)
 
   be pg_session_connected(session: Session) =>
     _out.print(
-      "Connected (SSL negotiation complete"
-        + " — may be encrypted or plaintext).")
+      "Connected (SSL negotiation complete" +
+        " — may be encrypted or plaintext).")
 
   be pg_session_connection_failed(
     session: Session,

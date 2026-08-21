@@ -55,16 +55,16 @@ actor \nodoc\ _ParameterStatusDeliveryClient
     _got_status = true
     if status.name != "application_name" then
       _h.fail(
-        "Expected name 'application_name' but got '"
-          + status.name + "'")
+        "Expected name 'application_name' but got '" +
+          status.name + "'")
       session.close()
       _h.complete(false)
       return
     end
     if status.value != "test_app" then
       _h.fail(
-        "Expected value 'test_app' but got '"
-          + status.value + "'")
+        "Expected value 'test_app' but got '" +
+          status.value + "'")
       session.close()
       _h.complete(false)
       return
@@ -133,8 +133,8 @@ actor \nodoc\ _ParameterStatusDuringDataRowsClient
     | let r: ResultSet =>
       if r.rows().size() != 2 then
         _h.fail(
-          "Expected 2 rows but got "
-            + r.rows().size().string())
+          "Expected 2 rows but got " +
+            r.rows().size().string())
         session.close()
         _h.complete(false)
       end
@@ -159,8 +159,8 @@ actor \nodoc\ _ParameterStatusDuringDataRowsClient
     _got_status = true
     if status.name != "application_name" then
       _h.fail(
-        "Expected name 'application_name' but got '"
-          + status.name + "'")
+        "Expected name 'application_name' but got '" +
+          status.name + "'")
       session.close()
       _h.complete(false)
     end
@@ -477,8 +477,8 @@ actor \nodoc\ _ParameterStatusStartupClient is SessionStatusNotify
   =>
     if not _got_server_version then
       _h.fail(
-        "No server_version ParameterStatus received"
-          + " during startup.")
+        "No server_version ParameterStatus received" +
+          " during startup.")
       _session.close()
       _h.complete(false)
       return
@@ -556,8 +556,8 @@ actor \nodoc\ _ParameterStatusSetClient
     session: Session,
     status: ParameterStatus)
   =>
-    if (status.name == "application_name")
-      and (status.value == "pony_test_app")
+    if (status.name == "application_name") and
+      (status.value == "pony_test_app")
     then
       _got_app_name = true
     end
@@ -569,8 +569,8 @@ actor \nodoc\ _ParameterStatusSetClient
     if _got_result then
       if not _got_app_name then
         _h.fail(
-          "SET completed but no application_name"
-            + " ParameterStatus received.")
+          "SET completed but no application_name" +
+            " ParameterStatus received.")
         _session.close()
         _h.complete(false)
         return

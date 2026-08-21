@@ -57,8 +57,8 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyInReceiver)
       // Send one row per callback. Tab-delimited, newline-terminated.
       let row: Array[U8] val =
         recover val
-          ("row" + _rows_sent.string() + "\t"
-            + (_rows_sent * 10).string() + "\n").array()
+          ("row" + _rows_sent.string() + "\t" +
+            (_rows_sent * 10).string() + "\n").array()
         end
       _out.print("  Sending row " + _rows_sent.string() + "...")
       session.send_copy_data(row)
@@ -82,8 +82,8 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyInReceiver)
     match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print(
-        "COPY failed: [" + e.severity + "] " + e.code + ": "
-          + e.message)
+        "COPY failed: [" + e.severity + "] " + e.code + ": " +
+          e.message)
     | let e: ClientQueryError =>
       _out.print("COPY failed: client error")
     end
@@ -150,8 +150,8 @@ actor Client is (SessionStatusNotify & ResultReceiver & CopyInReceiver)
     match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print(
-        "Query failed: [" + e.severity + "] " + e.code + ": "
-          + e.message)
+        "Query failed: [" + e.severity + "] " + e.code + ": " +
+          e.message)
     | let e: ClientQueryError =>
       _out.print("Query failed: client error")
     end

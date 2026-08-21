@@ -556,8 +556,8 @@ actor \nodoc\ _CopyInServerErrorTestServer
       | let msg: Array[U8] val =>
         try
           let msg_type = msg(0)?
-          if (msg_type == 'd')
-            and (not _copy_error_sent)
+          if (msg_type == 'd') and
+            (not _copy_error_sent)
           then
             _copy_error_sent = true
             let err =

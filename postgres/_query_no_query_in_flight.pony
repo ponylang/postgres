@@ -123,8 +123,8 @@ class _QueryReady is _QueryNoQueryInFlight
                 let execute = _FrontendMessage.execute_msg("", 0)
                 let sync = _FrontendMessage.sync()
                 recover val
-                  let total = parse.size() + bind.size()
-                    + describe.size() + execute.size() + sync.size()
+                  let total = parse.size() + bind.size() +
+                    describe.size() + execute.size() + sync.size()
                   Array[U8](total)
                     .> copy_from(parse, 0, 0, parse.size())
                     .> copy_from(bind, 0, parse.size(), bind.size())
@@ -141,8 +141,8 @@ class _QueryReady is _QueryNoQueryInFlight
                     .> copy_from(
                       sync,
                       0,
-                      parse.size() + bind.size() + describe.size()
-                        + execute.size(),
+                      parse.size() + bind.size() + describe.size() +
+                        execute.size(),
                       sync.size())
                 end
               else
@@ -163,8 +163,8 @@ class _QueryReady is _QueryNoQueryInFlight
                 let execute = _FrontendMessage.execute_msg("", 0)
                 let sync = _FrontendMessage.sync()
                 recover val
-                  let total = bind.size() + describe.size()
-                    + execute.size() + sync.size()
+                  let total = bind.size() + describe.size() +
+                    execute.size() + sync.size()
                   Array[U8](total)
                     .> copy_from(bind, 0, 0, bind.size())
                     .> copy_from(
@@ -247,9 +247,9 @@ class _QueryReady is _QueryNoQueryInFlight
                   _FrontendMessage.execute_msg("", sq.window_size)
                 let flush_msg = _FrontendMessage.flush()
                 recover val
-                  let total = parse.size() + bind.size()
-                    + describe.size() + execute.size()
-                    + flush_msg.size()
+                  let total = parse.size() + bind.size() +
+                    describe.size() + execute.size() +
+                    flush_msg.size()
                   Array[U8](total)
                     .> copy_from(parse, 0, 0, parse.size())
                     .> copy_from(bind, 0, parse.size(), bind.size())
@@ -266,8 +266,8 @@ class _QueryReady is _QueryNoQueryInFlight
                     .> copy_from(
                       flush_msg,
                       0,
-                      parse.size() + bind.size() + describe.size()
-                        + execute.size(),
+                      parse.size() + bind.size() + describe.size() +
+                        execute.size(),
                       flush_msg.size())
                 end
               else
@@ -289,8 +289,8 @@ class _QueryReady is _QueryNoQueryInFlight
                   _FrontendMessage.execute_msg("", sq.window_size)
                 let flush_msg = _FrontendMessage.flush()
                 recover val
-                  let total = bind.size() + describe.size()
-                    + execute.size() + flush_msg.size()
+                  let total = bind.size() + describe.size() +
+                    execute.size() + flush_msg.size()
                   Array[U8](total)
                     .> copy_from(bind, 0, 0, bind.size())
                     .> copy_from(
@@ -303,8 +303,8 @@ class _QueryReady is _QueryNoQueryInFlight
                     .> copy_from(
                       flush_msg,
                       0,
-                      bind.size() + describe.size()
-                        + execute.size(),
+                      bind.size() + describe.size() +
+                        execute.size(),
                       flush_msg.size())
                 end
               else

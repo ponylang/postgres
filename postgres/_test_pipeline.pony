@@ -277,9 +277,9 @@ actor \nodoc\ _PipelineWithFailureTestClient is
     if (_results == 2) and (_failures == 1) and (_failed_index == 1) then
       _close_and_complete(true)
     else
-      _h.fail("Expected 2 results, 1 failure at index 1; got "
-        + _results.string() + " results, " + _failures.string()
-        + " failures, failed_index=" + _failed_index.string())
+      _h.fail("Expected 2 results, 1 failure at index 1; got " +
+        _results.string() + " results, " + _failures.string() +
+        " failures, failed_index=" + _failed_index.string())
       _close_and_complete(false)
     end
 
@@ -478,9 +478,9 @@ actor \nodoc\ _PipelineEmptyTestClient is
     if (_results == 0) and (_failures == 0) then
       _close_and_complete(true)
     else
-      _h.fail("Expected 0 results and 0 failures but got "
-        + _results.string() + " results, " + _failures.string()
-        + " failures")
+      _h.fail("Expected 0 results and 0 failures but got " +
+        _results.string() + " results, " + _failures.string() +
+        " failures")
       _close_and_complete(false)
     end
 
@@ -1628,8 +1628,8 @@ actor \nodoc\ _PipelineIntegrationNotify is
         SimpleQuery("DROP TABLE pipeline_test"), this)
     else
       _h.fail(
-        "Expected 3 pipeline results but got "
-          + _results.string())
+        "Expected 3 pipeline results but got " +
+          _results.string())
       _close_and_complete(false)
     end
 
@@ -1721,11 +1721,11 @@ actor \nodoc\ _PipelineIntegrationWithFailureNotify is
       _close_and_complete(true)
     else
       _h.fail(
-        "Expected 2 results, 1 failure at index 1; got "
-          + _results.string() + " results, "
-          + _failures.string()
-          + " failures, failed_index="
-          + _failed_index.string())
+        "Expected 2 results, 1 failure at index 1; got " +
+          _results.string() + " results, " +
+          _failures.string() +
+          " failures, failed_index=" +
+          _failed_index.string())
       _close_and_complete(false)
     end
 

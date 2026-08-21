@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a CHANGELOG](http://keepachangelog.com/).
 
+## [unreleased] - unreleased
+
+### Fixed
+
+
+### Added
+
+
+### Changed
+
+- Require ponyc 0.69.1 or later ([PR #256](https://github.com/ponylang/postgres/pull/256))
+
 ## [0.8.2] - 2026-08-06
 
 ## [0.8.2] - 2026-08-06

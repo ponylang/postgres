@@ -47,6 +47,11 @@ actor _CancelSender is
       _tcp_connection.send(_FrontendMessage.ssl_request())
     end
 
+  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
+    // Fire-and-forget: the cancel connection never established, silently give
+    // up. There is nothing to clean up; the connection never connected.
+    None
+
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     // Only called during SSL negotiation — server responds 'S' or 'N'.
     try

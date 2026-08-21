@@ -113,6 +113,9 @@ actor \nodoc\ _JunkSendingTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
+
   fun ref _on_started() =>
     let junk = _IncomingJunkTestMessage.bytes()
     _tcp_connection.send(junk)
@@ -262,6 +265,9 @@ actor \nodoc\ _DoesntAnswerTestServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     """
@@ -418,6 +424,9 @@ actor \nodoc\ _ZeroRowSelectTestServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
@@ -659,6 +668,9 @@ actor \nodoc\ _TerminateSentTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
+
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
@@ -856,6 +868,9 @@ actor \nodoc\ _ByteaTestServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)

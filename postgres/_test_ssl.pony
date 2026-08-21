@@ -124,6 +124,9 @@ actor \nodoc\ _SSLRefusedTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
+
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     let response: Array[U8] val = ['N']
     _tcp_connection.send(response)
@@ -250,6 +253,9 @@ actor \nodoc\ _SSLJunkTestServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     let response: Array[U8] val = ['X']
@@ -397,6 +403,9 @@ actor \nodoc\ _SSLSuccessTestServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
@@ -687,6 +696,9 @@ actor \nodoc\ _SSLPreferredFallbackTestServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
@@ -1091,6 +1103,9 @@ actor \nodoc\ _SSLPreferredCancelTestServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)

@@ -128,6 +128,9 @@ actor \nodoc\ _RemoteCloseAfterSSLRequestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
+
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     if _closed then return lori.KeepReading end
     _reader.append(consume data)
@@ -240,6 +243,9 @@ actor \nodoc\ _RemoteCloseAfterStartupServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     if _closed then return lori.KeepReading end
@@ -355,6 +361,9 @@ actor \nodoc\ _RemoteCloseSCRAMServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
@@ -476,6 +485,9 @@ actor \nodoc\ _RemoteCloseLoggedInIdleServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     if _closed then return lori.KeepReading end
@@ -624,6 +636,9 @@ actor \nodoc\ _RemoteCloseAfterQueryServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
@@ -1411,6 +1426,9 @@ actor \nodoc\ _RemoteClosePostAuthPreReadyServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
+
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     if _closed then return lori.KeepReading end
     _reader.append(consume data)
@@ -1658,6 +1676,9 @@ actor \nodoc\ _RemoteCloseAfterErrorResponseServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     if _closed then return lori.KeepReading end

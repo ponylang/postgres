@@ -127,6 +127,9 @@ actor \nodoc\ _PVParseSCRAMServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
+
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     if _phase == 0 then
@@ -271,6 +274,9 @@ actor \nodoc\ _PVParseInFlightServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
+
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     if not _authed then
@@ -391,6 +397,9 @@ actor \nodoc\ _PVParseIdleServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
+
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     match _reader.read_startup_message()
@@ -479,6 +488,9 @@ actor \nodoc\ _PVWrongStatePreAuthServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
@@ -571,6 +583,9 @@ actor \nodoc\ _PVWrongStateSCRAMServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
@@ -671,6 +686,9 @@ actor \nodoc\ _PVWrongStateIdleServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
+
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     match _reader.read_startup_message()
@@ -761,6 +779,9 @@ actor \nodoc\ _PVWrongStateInFlightServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)

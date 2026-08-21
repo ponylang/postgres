@@ -325,6 +325,9 @@ actor \nodoc\ _UnsupportedAuthenticationTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
+
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     if not _received then
       _received = true
@@ -460,6 +463,9 @@ actor \nodoc\ _CleartextTestServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
@@ -669,6 +675,9 @@ actor \nodoc\ _SCRAMTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
+
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
@@ -793,6 +802,9 @@ actor \nodoc\ _SCRAMUnsupportedTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
+
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     if not _authed then
       _authed = true
@@ -862,6 +874,9 @@ actor \nodoc\ _SCRAMErrorTestServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
@@ -959,6 +974,9 @@ actor \nodoc\ _SCRAMSkipSASLFinalTestServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
@@ -1079,6 +1097,9 @@ actor \nodoc\ _SCRAMDuplicateSASLContinueTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
+
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
@@ -1184,6 +1205,9 @@ actor \nodoc\ _SCRAMSASLFinalBeforeContinueTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
+
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
@@ -1282,6 +1306,9 @@ actor \nodoc\ _SCRAMMalformedSASLFinalTestServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
@@ -1391,6 +1418,9 @@ actor \nodoc\ _SCRAMNonceMismatchTestServer
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
 
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
+
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
     _process()
@@ -1494,6 +1524,9 @@ actor \nodoc\ _SCRAMMalformedSASLContinueTestServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)
@@ -1843,6 +1876,9 @@ actor \nodoc\ _TooManyConnectionsTestServer
 
   fun ref _connection(): lori.TCPConnection =>
     _tcp_connection
+
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    None
 
   fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _reader.append(consume data)

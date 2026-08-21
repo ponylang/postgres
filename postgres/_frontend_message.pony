@@ -97,9 +97,9 @@ primitive _FrontendMessage
       recover val
         // 1 type + 4 length + name + null + query + null + 2 num_params
         // + (4 * num_oids)
-        let length: U32 = 4 + name.size().u32() + 1
-          + query_string.size().u32() + 1 + 2
-          + (param_type_oids.size().u32() * 4)
+        let length: U32 = 4 + name.size().u32() + 1 +
+          query_string.size().u32() + 1 + 2 +
+          (param_type_oids.size().u32() * 4)
         let msg_size = (length + 1).usize()
         let msg: Array[U8] = Array[U8].init(0, msg_size)
         msg.update_u8(0, 'P')?
@@ -213,8 +213,8 @@ primitive _FrontendMessage
       // + 2 num_param_formats + (2 * num_params) for format codes
       // + 2 num_params + params_data_size
       // + 2 num_result_formats + 2 result_format_code (all binary)
-      let length: U32 = 4 + portal.size().u32() + 1 + stmt.size().u32() + 1
-        + 2 + (params.size().u32() * 2) + 2 + params_data_size.u32() + 4
+      let length: U32 = 4 + portal.size().u32() + 1 + stmt.size().u32() + 1 +
+        2 + (params.size().u32() * 2) + 2 + params_data_size.u32() + 4
       let msg_size = (length + 1).usize()
       let msg: Array[U8] = Array[U8].init(0, msg_size)
       msg.update_u8(0, 'B')?
@@ -661,8 +661,9 @@ primitive _FrontendMessage
     try
       recover val
         // 1 type + 4 length + mechanism + null + 4 response_length + response
-        let length: U32 = 4 + mechanism.size().u32() + 1 + 4
-          + response.size().u32()
+        let length: U32 =
+          4 + mechanism.size().u32() + 1 + 4 +
+          response.size().u32()
         let msg_size = (length + 1).usize()
         let msg: Array[U8] = Array[U8].init(0, msg_size)
         msg.update_u8(0, 'p')?

@@ -50,8 +50,8 @@ actor \nodoc\ _CopyOutSuccessTestClient is
     if (count == 2) and (_chunks.size() == 2) then
       _close_and_complete(true)
     else
-      _h.fail("Expected count 2 and 2 chunks but got "
-        + count.string() + " and " + _chunks.size().string())
+      _h.fail("Expected count 2 and 2 chunks but got " +
+        count.string() + " and " + _chunks.size().string())
       _close_and_complete(false)
     end
 
@@ -216,8 +216,8 @@ actor \nodoc\ _CopyOutEmptyTestClient is
     if (count == 0) and (not _data_received) then
       _close_and_complete(true)
     else
-      _h.fail("Expected count 0 and no data but got "
-        + count.string())
+      _h.fail("Expected count 0 and no data but got " +
+        count.string())
       _close_and_complete(false)
     end
 
@@ -791,8 +791,8 @@ actor \nodoc\ _CopyOutExportTestClient is
       // Table created. Insert 3 rows.
       session.execute(
         SimpleQuery(
-          "INSERT INTO copy_out_test VALUES "
-            + "(1, 'alice'), (2, 'bob'), (3, 'charlie')"),
+          "INSERT INTO copy_out_test VALUES " +
+            "(1, 'alice'), (2, 'bob'), (3, 'charlie')"),
         this)
     | 3 =>
       // Rows inserted. Start COPY OUT.

@@ -93,8 +93,8 @@ actor Failover is (SessionStatusNotify & ResultReceiver)
   be pg_query_result(session: Session, result: Result) =>
     match result
     | let r: ResultSet =>
-      _out.print("Query succeeded on winner ("
-        + r.rows().size().string() + " row).")
+      _out.print("Query succeeded on winner (" +
+        r.rows().size().string() + " row).")
     end
     session.close()
 

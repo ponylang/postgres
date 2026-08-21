@@ -123,9 +123,9 @@ class val PgArray is (FieldData & FieldDataEquatable & Equatable[PgArray])
 
   fun tag _needs_quoting(v: String val): Bool =>
     for ch in v.values() do
-      if (ch == ',') or (ch == '{') or (ch == '}')
-        or (ch == '"') or (ch == '\\')
-        or (ch == ' ') or (ch == '\t') or (ch == '\n') or (ch == '\r')
+      if (ch == ',') or (ch == '{') or (ch == '}') or
+        (ch == '"') or (ch == '\\') or
+        (ch == ' ') or (ch == '\t') or (ch == '\n') or (ch == '\r')
       then
         return true
       end
@@ -137,10 +137,10 @@ class val PgArray is (FieldData & FieldDataEquatable & Equatable[PgArray])
         let c1 = v(1)?
         let c2 = v(2)?
         let c3 = v(3)?
-        if ((c0 == 'N') or (c0 == 'n'))
-          and ((c1 == 'U') or (c1 == 'u'))
-          and ((c2 == 'L') or (c2 == 'l'))
-          and ((c3 == 'L') or (c3 == 'l'))
+        if ((c0 == 'N') or (c0 == 'n')) and
+          ((c1 == 'U') or (c1 == 'u')) and
+          ((c2 == 'L') or (c2 == 'l')) and
+          ((c3 == 'L') or (c3 == 'l'))
         then
           return true
         end

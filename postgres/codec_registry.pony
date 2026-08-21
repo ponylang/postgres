@@ -453,10 +453,10 @@ class val CodecRegistry
     known array OIDs (built-in and custom) and composite OIDs in addition
     to scalar codecs.
     """
-    _binary_codecs.contains(oid)
-      or _ArrayOidMap.is_array_oid(oid)
-      or _custom_array_element_oids.contains(oid)
-      or _composite_field_descriptors.contains(oid)
+    _binary_codecs.contains(oid) or
+      _ArrayOidMap.is_array_oid(oid) or
+      _custom_array_element_oids.contains(oid) or
+      _composite_field_descriptors.contains(oid)
 
   fun _parse_binary_array(data: Array[U8] val)
     : (U32, Array[(Array[U8] val | None)] val) ?
@@ -619,15 +619,15 @@ class val CodecRegistry
               s.substring(
                 start.isize(), pos.isize())
             // Case-insensitive NULL check
-            if (token.size() == 4)
-              and (((token(0)? == 'N')
-                or (token(0)? == 'n'))
-              and ((token(1)? == 'U')
-                or (token(1)? == 'u'))
-              and ((token(2)? == 'L')
-                or (token(2)? == 'l'))
-              and ((token(3)? == 'L')
-                or (token(3)? == 'l')))
+            if (token.size() == 4) and
+              (((token(0)? == 'N') or
+                (token(0)? == 'n')) and
+              ((token(1)? == 'U') or
+                (token(1)? == 'u')) and
+              ((token(2)? == 'L') or
+                (token(2)? == 'l')) and
+              ((token(3)? == 'L') or
+                (token(3)? == 'l')))
             then
               elems.push(None)
             else
@@ -786,8 +786,8 @@ class val CodecRegistry
 
         // start of content is like after a delimiter
         var after_comma = true
-        while (pos <= end_pos)
-          and (field_idx < field_oids.size())
+        while (pos <= end_pos) and
+          (field_idx < field_oids.size())
         do
           let field_oid = field_oids(field_idx)?
 
@@ -813,8 +813,8 @@ class val CodecRegistry
               let ch = s(pos)?
               if ch == '"' then
                 // Check for doubled double-quote
-                if ((pos + 1) < end_pos)
-                  and (s(pos + 1)? == '"')
+                if ((pos + 1) < end_pos) and
+                  (s(pos + 1)? == '"')
                 then
                   buf.push('"')
                   pos = pos + 2
@@ -824,8 +824,8 @@ class val CodecRegistry
                 end
               elseif ch == '\\' then
                 // Check for doubled backslash
-                if ((pos + 1) < end_pos)
-                  and (s(pos + 1)? == '\\')
+                if ((pos + 1) < end_pos) and
+                  (s(pos + 1)? == '\\')
                 then
                   buf.push('\\')
                   pos = pos + 2
@@ -838,8 +838,8 @@ class val CodecRegistry
                 pos = pos + 1
               end
             end
-            if (pos >= end_pos)
-              and (s(pos)? != '"')
+            if (pos >= end_pos) and
+              (s(pos)? != '"')
             then
               error
             end
@@ -847,8 +847,8 @@ class val CodecRegistry
             fields.push((field_oid, consume buf))
             // Skip comma separator
             after_comma = false
-            if (pos < end_pos)
-              and (s(pos)? == ',')
+            if (pos < end_pos) and
+              (s(pos)? == ',')
             then
               pos = pos + 1
               after_comma = true
@@ -857,8 +857,8 @@ class val CodecRegistry
           else
             // Unquoted value — read until ',' or ')'
             let start = pos
-            while (pos < end_pos)
-              and (s(pos)? != ',')
+            while (pos < end_pos) and
+              (s(pos)? != ',')
             do
               pos = pos + 1
             end
@@ -869,8 +869,8 @@ class val CodecRegistry
               (field_oid, token.array()))
             // Skip comma separator
             after_comma = false
-            if (pos < end_pos)
-              and (s(pos)? == ',')
+            if (pos < end_pos) and
+              (s(pos)? == ',')
             then
               pos = pos + 1
               after_comma = true

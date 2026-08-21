@@ -453,8 +453,8 @@ actor \nodoc\ _TransactionCommitClient is
       | let r: RowModifying =>
         if r.impacted() != 1 then
           _h.fail(
-            "Expected 1 impacted row but got "
-              + r.impacted().string())
+            "Expected 1 impacted row but got " +
+              r.impacted().string())
           _drop_and_finish()
           return
         end
@@ -480,8 +480,8 @@ actor \nodoc\ _TransactionCommitClient is
     failure: (ErrorResponseMessage | ClientQueryError))
   =>
     _h.fail(
-      "Unexpected query failure at phase "
-        + _phase.string())
+      "Unexpected query failure at phase " +
+        _phase.string())
     _drop_and_finish()
 
   fun ref _drop_and_finish() =>
@@ -576,8 +576,8 @@ actor \nodoc\ _TransactionRollbackClient is
       _session.execute(SimpleQuery("ROLLBACK"), this)
     else
       _h.fail(
-        "Unexpected query failure at phase "
-          + _phase.string())
+        "Unexpected query failure at phase " +
+          _phase.string())
       _h.complete(false)
     end
 

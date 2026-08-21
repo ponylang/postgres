@@ -1912,8 +1912,8 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainProperty
 
     for i in Range(0, arg1.size()) do
       if _ResponseParser(r)? is None then
-        h.fail("Expected message at position " + i.string()
-          + " but got None")
+        h.fail("Expected message at position " + i.string() +
+          " but got None")
         return
       end
     end

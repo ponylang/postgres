@@ -660,8 +660,8 @@ actor \nodoc\ _MultiStatementMixedClient is
       // Table created, now send multi-statement query
       _session.execute(
         SimpleQuery(
-          "SELECT * FROM mixed_test WHERE false; "
-            + "INSERT INTO mixed_test (col) VALUES ('x')"),
+          "SELECT * FROM mixed_test WHERE false; " +
+            "INSERT INTO mixed_test (col) VALUES ('x')"),
         this)
     | 2 =>
       // First result from multi-statement: should be ResultSet (zero rows)
@@ -669,8 +669,8 @@ actor \nodoc\ _MultiStatementMixedClient is
       | let r: ResultSet =>
         if r.rows().size() != 0 then
           _h.fail(
-            "Expected zero rows in SELECT result but got "
-              + r.rows().size().string())
+            "Expected zero rows in SELECT result but got " +
+              r.rows().size().string())
           _drop_and_finish()
           return
         end
@@ -2082,10 +2082,10 @@ actor \nodoc\ _CopyInInsertClient is
     if _rows_sent <= 3 then
       let row: Array[U8] val =
         recover val
-          (_rows_sent.string()
-            + "\trow"
-            + _rows_sent.string()
-            + "\n").array()
+          (_rows_sent.string() +
+            "\trow" +
+            _rows_sent.string() +
+            "\n").array()
         end
       _session.send_copy_data(row)
     else

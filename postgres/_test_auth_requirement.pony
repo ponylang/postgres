@@ -227,8 +227,8 @@ actor \nodoc\ _AuthMethodRejectedTestServer
           let type_byte = msg(0)?
           if type_byte == 'p' then
             _h.fail(
-              "Client sent PasswordMessage despite "
-                + "AuthenticationMethodRejected")
+              "Client sent PasswordMessage despite " +
+                "AuthenticationMethodRejected")
             _h.complete(false)
           elseif type_byte == 'X' then
             _h.complete_action("no-password-leak")

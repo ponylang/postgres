@@ -59,8 +59,8 @@ class val PgComposite is
     path where names, OIDs, and values arrive as separate arrays. Prefer
     `from_fields` for user construction.
     """
-    if (field_oids'.size() != field_names'.size())
-      or (field_oids'.size() != fields'.size())
+    if (field_oids'.size() != field_names'.size()) or
+      (field_oids'.size() != fields'.size())
     then
       error
     end
@@ -218,9 +218,9 @@ class val PgComposite is
 
   fun tag _needs_quoting(v: String val): Bool =>
     for ch in v.values() do
-      if (ch == ',') or (ch == '(') or (ch == ')')
-        or (ch == '"') or (ch == '\\')
-        or (ch == ' ') or (ch == '\t') or (ch == '\n') or (ch == '\r')
+      if (ch == ',') or (ch == '(') or (ch == ')') or
+        (ch == '"') or (ch == '\\') or
+        (ch == ' ') or (ch == '\t') or (ch == '\n') or (ch == '\r')
       then
         return true
       end

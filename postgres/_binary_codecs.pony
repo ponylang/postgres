@@ -482,8 +482,8 @@ primitive _NumericBinaryCodec is Codec
       end
 
       // Trim trailing zero groups (they're tracked by dscale)
-      while (base10k.size() > 0)
-        and (try base10k(base10k.size() - 1)? == 0 else false end)
+      while (base10k.size() > 0) and
+        (try base10k(base10k.size() - 1)? == 0 else false end)
       do
         try base10k.pop()? end
       end

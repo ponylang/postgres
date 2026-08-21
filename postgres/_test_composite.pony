@@ -2130,8 +2130,8 @@ class \nodoc\ iso
       None // expected
     else
       h.fail(
-        "Expected RawBytes for unregistered"
-        + " binary OID")
+        "Expected RawBytes for unregistered" +
+        " binary OID")
     end
 
     // Text format: unregistered composite OID
@@ -2145,8 +2145,8 @@ class \nodoc\ iso
       None // expected
     else
       h.fail(
-        "Expected String for unregistered"
-        + " text OID")
+        "Expected String for unregistered" +
+        " text OID")
     end
 
 // ============================================================
@@ -2271,17 +2271,17 @@ actor \nodoc\ _CompositeSelectClient is
     | 1 =>
       session.execute(
         SimpleQuery(
-          "CREATE TYPE _test_address_sel AS"
-          + " (street text, city text,"
-          + " zip int4)"),
+          "CREATE TYPE _test_address_sel AS" +
+          " (street text, city text," +
+          " zip int4)"),
         this)
     | 2 =>
       if _use_prepared then
         session.execute(
           PreparedQuery(
-            "SELECT ROW("
-            + "'123 Main','Springfield',62704)"
-            + "::_test_address_sel",
+            "SELECT ROW(" +
+            "'123 Main','Springfield',62704)" +
+            "::_test_address_sel",
             recover val
               Array[FieldDataTypes]
             end),
@@ -2289,9 +2289,9 @@ actor \nodoc\ _CompositeSelectClient is
       else
         session.execute(
           SimpleQuery(
-            "SELECT ROW("
-            + "'123 Main','Springfield',62704)"
-            + "::_test_address_sel"),
+            "SELECT ROW(" +
+            "'123 Main','Springfield',62704)" +
+            "::_test_address_sel"),
           this)
       end
     | 3 =>
@@ -2307,9 +2307,9 @@ actor \nodoc\ _CompositeSelectClient is
             | let _: RawBytes => None // expected
             else
               _h.fail(
-                "Expected RawBytes for"
-                + " unregistered binary"
-                + " composite")
+                "Expected RawBytes for" +
+                " unregistered binary" +
+                " composite")
             end
           else
             // Text format, unregistered OID
@@ -2317,9 +2317,9 @@ actor \nodoc\ _CompositeSelectClient is
             | let _: String => None // expected
             else
               _h.fail(
-                "Expected String for"
-                + " unregistered text"
-                + " composite")
+                "Expected String for" +
+                " unregistered text" +
+                " composite")
             end
           end
         else
@@ -2389,8 +2389,8 @@ actor \nodoc\ _CompositeRoundtripClient is
     | 0 =>
       session.execute(
         SimpleQuery(
-          "DROP TABLE IF EXISTS"
-          + " _test_comp_rt"),
+          "DROP TABLE IF EXISTS" +
+          " _test_comp_rt"),
         this)
     | 5 =>
       _phase = 6
@@ -2405,8 +2405,8 @@ actor \nodoc\ _CompositeRoundtripClient is
           end)
       session.execute(
         PreparedQuery(
-          "INSERT INTO _test_comp_rt"
-          + " (addr) VALUES ($1)",
+          "INSERT INTO _test_comp_rt" +
+          " (addr) VALUES ($1)",
           recover val
             [ as FieldDataTypes: addr]
           end),
@@ -2430,29 +2430,29 @@ actor \nodoc\ _CompositeRoundtripClient is
     | 1 =>
       session.execute(
         SimpleQuery(
-          "DROP TYPE IF EXISTS"
-          + " _test_address_rt"),
+          "DROP TYPE IF EXISTS" +
+          " _test_address_rt"),
         this)
     | 2 =>
       session.execute(
         SimpleQuery(
-          "CREATE TYPE _test_address_rt AS"
-          + " (street text, city text,"
-          + " zip int4)"),
+          "CREATE TYPE _test_address_rt AS" +
+          " (street text, city text," +
+          " zip int4)"),
         this)
     | 3 =>
       session.execute(
         SimpleQuery(
-          "CREATE TABLE _test_comp_rt"
-          + " (id serial PRIMARY KEY,"
-          + " addr _test_address_rt)"),
+          "CREATE TABLE _test_comp_rt" +
+          " (id serial PRIMARY KEY," +
+          " addr _test_address_rt)"),
         this)
     | 4 =>
       session.execute(
         SimpleQuery(
-          "SELECT oid FROM pg_type"
-          + " WHERE typname ="
-          + " '_test_address_rt'"),
+          "SELECT oid FROM pg_type" +
+          " WHERE typname =" +
+          " '_test_address_rt'"),
         this)
     | 5 =>
       match result
@@ -2557,8 +2557,8 @@ actor \nodoc\ _CompositeRoundtripClient is
       end
       session.execute(
         SimpleQuery(
-          "DROP TABLE _test_comp_rt;"
-          + " DROP TYPE _test_address_rt"),
+          "DROP TABLE _test_comp_rt;" +
+          " DROP TYPE _test_address_rt"),
         this)
     | 9 =>
       _h.complete(true)

@@ -35,8 +35,8 @@ primitive _ScramSha256
     """
     Returns the complete client-final-message with proof appended.
     """
-    client_final_message_without_proof(combined_nonce)
-      + ",p=" + client_proof_b64
+    client_final_message_without_proof(combined_nonce) +
+      ",p=" + client_proof_b64
 
   fun compute_proof(
     password: String,
@@ -69,8 +69,8 @@ primitive _ScramSha256
     let stored_key = SHA256(client_key)
     let auth_message: String val =
       recover val
-        client_first_bare + "," + server_first + ","
-          + client_final_message_without_proof(combined_nonce)
+        client_first_bare + "," + server_first + "," +
+          client_final_message_without_proof(combined_nonce)
       end
     let client_signature = HmacSha256(stored_key, auth_message)?
 

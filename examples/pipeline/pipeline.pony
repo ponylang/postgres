@@ -104,8 +104,8 @@ actor Client is
   =>
     match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
-      _out.print("Query failed: [" + e.severity + "] " + e.code + ": "
-        + e.message)
+      _out.print("Query failed: [" + e.severity + "] " + e.code + ": " +
+        e.message)
     | let e: ClientQueryError =>
       _out.print("Query failed: client error")
     end
@@ -132,8 +132,8 @@ actor Client is
         _out.print("")
       end
     | let rm: RowModifying =>
-      _out.print("    " + rm.command() + ": " + rm.impacted().string()
-        + " rows")
+      _out.print("    " + rm.command() + ": " + rm.impacted().string() +
+        " rows")
     | let _: SimpleResult =>
       _out.print("    (empty)")
     end
@@ -146,11 +146,11 @@ actor Client is
   =>
     match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
-      _out.print("  Pipeline query " + index.string() + " failed: ["
-        + e.severity + "] " + e.code + ": " + e.message)
+      _out.print("  Pipeline query " + index.string() + " failed: [" +
+        e.severity + "] " + e.code + ": " + e.message)
     | let e: ClientQueryError =>
-      _out.print("  Pipeline query " + index.string()
-        + " failed: client error")
+      _out.print("  Pipeline query " + index.string() +
+        " failed: client error")
     end
 
   be pg_pipeline_complete(session: Session) =>

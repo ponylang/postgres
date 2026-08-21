@@ -2275,18 +2275,18 @@ class \nodoc\ iso _TestFieldEqualityTemporal is UnitTest
 
     // PgInterval: same-type equal
     h.assert_true(
-      Field("a", PgInterval(100, 2, 3))
-        == Field("a", PgInterval(100, 2, 3)))
+      Field("a", PgInterval(100, 2, 3)) ==
+        Field("a", PgInterval(100, 2, 3)))
     // PgInterval: same-type not-equal (differs in each component)
     h.assert_false(
-      Field("a", PgInterval(100, 2, 3))
-        == Field("a", PgInterval(200, 2, 3)))
+      Field("a", PgInterval(100, 2, 3)) ==
+        Field("a", PgInterval(200, 2, 3)))
     h.assert_false(
-      Field("a", PgInterval(100, 2, 3))
-        == Field("a", PgInterval(100, 5, 3)))
+      Field("a", PgInterval(100, 2, 3)) ==
+        Field("a", PgInterval(100, 5, 3)))
     h.assert_false(
-      Field("a", PgInterval(100, 2, 3))
-        == Field("a", PgInterval(100, 2, 7)))
+      Field("a", PgInterval(100, 2, 3)) ==
+        Field("a", PgInterval(100, 2, 7)))
 
 class \nodoc\ iso _TestFieldInequalityCrossTypeTemporal is UnitTest
   fun name(): String =>

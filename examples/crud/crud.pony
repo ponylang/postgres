@@ -93,8 +93,8 @@ actor Client is (SessionStatusNotify & ResultReceiver)
       _out.print("Selecting rows...")
       _session.execute(
         PreparedQuery(
-          "SELECT name, age FROM crud_example"
-            + " WHERE age >= $1 ORDER BY name",
+          "SELECT name, age FROM crud_example" +
+            " WHERE age >= $1 ORDER BY name",
           recover val [as FieldDataTypes: I32(0)] end),
         this)
     | 5 =>
@@ -157,8 +157,8 @@ actor Client is (SessionStatusNotify & ResultReceiver)
     match \exhaustive\ failure
     | let e: ErrorResponseMessage =>
       _out.print(
-        "Query failed: [" + e.severity + "] " + e.code + ": "
-          + e.message)
+        "Query failed: [" + e.severity + "] " + e.code + ": " +
+          e.message)
     | let e: ClientQueryError =>
       _out.print("Query failed: client error")
     end

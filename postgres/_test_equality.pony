@@ -45,8 +45,8 @@ class \nodoc\ iso _TestFieldEqualityStructural is UnitTest
 
   fun apply(h: TestHelper) ? =>
     h.assert_true(
-      Field("a", Bytea(recover val [as U8: 1; 2] end))
-        == Field("a", Bytea(recover val [as U8: 1; 2] end)))
+      Field("a", Bytea(recover val [as U8: 1; 2] end)) ==
+        Field("a", Bytea(recover val [as U8: 1; 2] end)))
     h.assert_true(Field("a", true) == Field("a", true))
     h.assert_true(Field("a", F32(1.5)) == Field("a", F32(1.5)))
     h.assert_true(Field("a", F64(2.5)) == Field("a", F64(2.5)))
@@ -56,21 +56,21 @@ class \nodoc\ iso _TestFieldEqualityStructural is UnitTest
     h.assert_true(Field("a", None) == Field("a", None))
     h.assert_true(Field("a", PgDate(100)) == Field("a", PgDate(100)))
     h.assert_true(
-      Field("a", PgInterval(1000, 2, 3))
-        == Field("a", PgInterval(1000, 2, 3)))
+      Field("a", PgInterval(1000, 2, 3)) ==
+        Field("a", PgInterval(1000, 2, 3)))
     h.assert_true(
       Field(
         "a",
-        PgTime(MakePgTimeMicroseconds(1000) as PgTimeMicroseconds))
-        == Field(
+        PgTime(MakePgTimeMicroseconds(1000) as PgTimeMicroseconds)) ==
+        Field(
         "a",
         PgTime(MakePgTimeMicroseconds(1000) as PgTimeMicroseconds)))
     h.assert_true(
       Field("a", PgTimestamp(1000)) == Field("a", PgTimestamp(1000)))
     h.assert_true(Field("a", "hello") == Field("a", "hello"))
     h.assert_true(
-      Field("a", RawBytes(recover val [as U8: 7; 8] end))
-        == Field("a", RawBytes(recover val [as U8: 7; 8] end)))
+      Field("a", RawBytes(recover val [as U8: 7; 8] end)) ==
+        Field("a", RawBytes(recover val [as U8: 7; 8] end)))
 
 class \nodoc\ iso _TestFieldEqualitySymmetric is UnitTest
   """
@@ -129,39 +129,39 @@ class \nodoc\ iso _TestFieldInequality is UnitTest
 
     // Bytea vs different Bytea
     h.assert_false(
-      Field("a", Bytea(recover val [as U8: 1; 2] end))
-        == Field("a", Bytea(recover val [as U8: 1; 3] end)))
+      Field("a", Bytea(recover val [as U8: 1; 2] end)) ==
+        Field("a", Bytea(recover val [as U8: 1; 3] end)))
     h.assert_false(
-      Field("a", Bytea(recover val [as U8: 1; 2] end))
-        == Field("a", Bytea(recover val [as U8: 1; 2; 3] end)))
+      Field("a", Bytea(recover val [as U8: 1; 2] end)) ==
+        Field("a", Bytea(recover val [as U8: 1; 2; 3] end)))
 
     // Bytea vs RawBytes (same underlying bytes, different types)
     h.assert_false(
-      Field("a", Bytea(recover val [as U8: 1; 2] end))
-        == Field("a", RawBytes(recover val [as U8: 1; 2] end)))
+      Field("a", Bytea(recover val [as U8: 1; 2] end)) ==
+        Field("a", RawBytes(recover val [as U8: 1; 2] end)))
     h.assert_false(
-      Field("a", RawBytes(recover val [as U8: 1; 2] end))
-        == Field("a", Bytea(recover val [as U8: 1; 2] end)))
+      Field("a", RawBytes(recover val [as U8: 1; 2] end)) ==
+        Field("a", Bytea(recover val [as U8: 1; 2] end)))
 
     // Bytea vs String
     h.assert_false(
-      Field("a", Bytea(recover val [as U8: 1; 2] end))
-        == Field("a", "hello"))
+      Field("a", Bytea(recover val [as U8: 1; 2] end)) ==
+        Field("a", "hello"))
 
     // Temporal type cross-type inequality
     h.assert_false(Field("a", PgDate(0)) == Field("a", I32(0)))
     h.assert_false(
       Field(
         "a",
-        PgTime(MakePgTimeMicroseconds(0) as PgTimeMicroseconds))
-        == Field("a", I64(0)))
+        PgTime(MakePgTimeMicroseconds(0) as PgTimeMicroseconds)) ==
+        Field("a", I64(0)))
     h.assert_false(Field("a", PgTimestamp(0)) == Field("a", I64(0)))
     h.assert_false(Field("a", PgDate(0)) == Field("a", PgTimestamp(0)))
     h.assert_false(
       Field(
         "a",
-        PgTime(MakePgTimeMicroseconds(0) as PgTimeMicroseconds))
-        == Field("a", PgTimestamp(0)))
+        PgTime(MakePgTimeMicroseconds(0) as PgTimeMicroseconds)) ==
+        Field("a", PgTimestamp(0)))
     h.assert_false(
       Field("a", PgInterval(0, 0, 0)) == Field("a", PgTimestamp(0)))
 
@@ -170,8 +170,8 @@ class \nodoc\ iso _TestFieldInequality is UnitTest
     h.assert_false(
       Field(
         "a",
-        PgTime(MakePgTimeMicroseconds(1) as PgTimeMicroseconds))
-        == Field(
+        PgTime(MakePgTimeMicroseconds(1) as PgTimeMicroseconds)) ==
+        Field(
         "a",
         PgTime(MakePgTimeMicroseconds(2) as PgTimeMicroseconds)))
     h.assert_false(

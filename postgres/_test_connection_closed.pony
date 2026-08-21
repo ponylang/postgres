@@ -551,14 +551,14 @@ actor \nodoc\ _RemoteCloseLoggedInInFlightClient is
   be pg_session_shutdown(s: Session) =>
     _shutdown_count = _shutdown_count + 1
     if _query_failed_count != 1 then
-      _h.fail("pg_query_failed fired " + _query_failed_count.string()
-        + " times; expected exactly 1.")
+      _h.fail("pg_query_failed fired " + _query_failed_count.string() +
+        " times; expected exactly 1.")
       _h.complete(false)
       return
     end
     if _shutdown_count != 1 then
-      _h.fail("pg_session_shutdown fired " + _shutdown_count.string()
-        + " times; expected exactly 1.")
+      _h.fail("pg_session_shutdown fired " + _shutdown_count.string() +
+        " times; expected exactly 1.")
       _h.complete(false)
       return
     end
@@ -707,8 +707,8 @@ actor \nodoc\ _RemoteCloseLoggedInPipelineClient is
     | (1, SessionClosed) => _got_index_1 = true
     else
       _h.fail(
-        "Unexpected pipeline failure at index "
-          + index.string() + ".")
+        "Unexpected pipeline failure at index " +
+          index.string() + ".")
       _h.complete(false)
     end
 
@@ -1581,16 +1581,16 @@ actor \nodoc\ _RemoteCloseAfterErrorResponseClient is
       return
     end
     if _query_failed_count != 1 then
-      _h.fail("pg_query_failed fired "
-        + _query_failed_count.string()
-        + " times; expected exactly 1.")
+      _h.fail("pg_query_failed fired " +
+        _query_failed_count.string() +
+        " times; expected exactly 1.")
       _h.complete(false)
       return
     end
     if _shutdown_count != 1 then
-      _h.fail("pg_session_shutdown fired "
-        + _shutdown_count.string()
-        + " times; expected exactly 1.")
+      _h.fail("pg_session_shutdown fired " +
+        _shutdown_count.string() +
+        " times; expected exactly 1.")
       _h.complete(false)
       return
     end

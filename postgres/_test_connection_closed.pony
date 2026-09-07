@@ -1,7 +1,6 @@
 use "files"
 use lori = "lori"
 use "pony_test"
-use "ssl/net"
 
 // Tests for peer-initiated TCP close. Each test puts the session in a
 // specific state, then the mock server closes the TCP connection; the
@@ -23,7 +22,7 @@ class \nodoc\ iso _TestRemoteCloseSSLNegotiating is UnitTest
 
     let sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
@@ -73,14 +72,14 @@ actor \nodoc\ _RemoteCloseSSLNegotiatingListener is lori.TCPListenerActor
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _sslctx: SSLContext val
+  let _sslctx: lori.SSLContext val
 
   new create(
     listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    sslctx: SSLContext val)
+    sslctx: lori.SSLContext val)
   =>
     _host = host
     _port = port
@@ -1721,7 +1720,7 @@ class \nodoc\ iso _TestRemoteCloseSSLNegotiatingPreferred is UnitTest
 
     let sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
@@ -1743,14 +1742,14 @@ actor \nodoc\ _RemoteCloseSSLNegotiatingPreferredListener
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _sslctx: SSLContext val
+  let _sslctx: lori.SSLContext val
 
   new create(
     listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    sslctx: SSLContext val)
+    sslctx: lori.SSLContext val)
   =>
     _host = host
     _port = port

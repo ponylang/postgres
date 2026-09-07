@@ -2,7 +2,7 @@ use "buffered"
 use "encode/base64"
 use lori = "lori"
 use "ssl/crypto"
-use "ssl/net"
+
 
 actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   """
@@ -504,7 +504,7 @@ class ref _SessionSSLNegotiating
   """
   let _notify: SessionStatusNotify
   let _database_connect_info: DatabaseConnectInfo
-  let _ssl_ctx: SSLContext val
+  let _ssl_ctx: lori.SSLContext val
   let _host: String
   let _fallback_on_refusal: Bool
   let _codec_registry: CodecRegistry
@@ -513,7 +513,7 @@ class ref _SessionSSLNegotiating
   new ref create(
     notify': SessionStatusNotify,
     database_connect_info': DatabaseConnectInfo,
-    ssl_ctx': SSLContext val,
+    ssl_ctx': lori.SSLContext val,
     host': String,
     fallback_on_refusal': Bool,
     codec_registry': CodecRegistry = CodecRegistry)

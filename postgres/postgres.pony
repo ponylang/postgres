@@ -70,10 +70,8 @@ Two SSL modes are available:
   as plaintext — `pg_session_connection_failed` fires.
 
 ```pony
-use "ssl/net"
-
 let sslctx = recover val
-  SSLContext
+  lori.SSLContext
     .> set_client_verify(true)
     .> set_authority(FilePath(FileAuth(env.root), "/path/to/ca.pem"))?
 end

@@ -1,7 +1,6 @@
 use "files"
 use lori = "lori"
 use "pony_test"
-use "ssl/net"
 
 // SSL negotiation unit tests
 
@@ -19,7 +18,7 @@ class \nodoc\ iso _TestSSLNegotiationRefused is UnitTest
 
     let sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
@@ -71,13 +70,13 @@ actor \nodoc\ _SSLRefusedTestListener is lori.TCPListenerActor
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _sslctx: SSLContext val
+  let _sslctx: lori.SSLContext val
 
   new create(listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    sslctx: SSLContext val)
+    sslctx: lori.SSLContext val)
   =>
     _host = host
     _port = port
@@ -148,7 +147,7 @@ class \nodoc\ iso _TestSSLNegotiationJunkResponse is UnitTest
 
     let sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
@@ -201,13 +200,13 @@ actor \nodoc\ _SSLJunkTestListener is lori.TCPListenerActor
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _sslctx: SSLContext val
+  let _sslctx: lori.SSLContext val
 
   new create(listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    sslctx: SSLContext val)
+    sslctx: lori.SSLContext val)
   =>
     _host = host
     _port = port
@@ -282,14 +281,14 @@ class \nodoc\ iso _TestSSLNegotiationSuccess is UnitTest
 
     let client_sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
 
     let server_sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_cert(cert_path, key_path)?
           .> set_client_verify(false)
           .> set_server_verify(false)
@@ -341,15 +340,15 @@ actor \nodoc\ _SSLSuccessTestListener is lori.TCPListenerActor
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _client_sslctx: SSLContext val
-  let _server_sslctx: SSLContext val
+  let _client_sslctx: lori.SSLContext val
+  let _server_sslctx: lori.SSLContext val
 
   new create(listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    client_sslctx: SSLContext val,
-    server_sslctx: SSLContext val)
+    client_sslctx: lori.SSLContext val,
+    server_sslctx: lori.SSLContext val)
   =>
     _host = host
     _port = port
@@ -393,11 +392,11 @@ actor \nodoc\ _SSLSuccessTestServer
   connection once it receives the StartupMessage.
   """
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
-  let _sslctx: SSLContext val
+  let _sslctx: lori.SSLContext val
   var _ssl_started: Bool = false
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, sslctx: SSLContext val, fd: U32) =>
+  new create(auth: lori.TCPServerAuth, sslctx: lori.SSLContext val, fd: U32) =>
     _sslctx = sslctx
     _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
 
@@ -450,7 +449,7 @@ class \nodoc\ iso _TestSSLConnect is UnitTest
 
     let sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
@@ -482,7 +481,7 @@ class \nodoc\ iso _TestSSLAuthenticate is UnitTest
 
     let sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
@@ -514,7 +513,7 @@ class \nodoc\ iso _TestSSLQueryResults is UnitTest
 
     let sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
@@ -550,7 +549,7 @@ class \nodoc\ iso _TestSSLRefused is UnitTest
 
     let sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
@@ -585,7 +584,7 @@ class \nodoc\ iso _TestSSLPreferredFallback is UnitTest
 
     let sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
@@ -640,13 +639,13 @@ actor \nodoc\ _SSLPreferredFallbackTestListener is lori.TCPListenerActor
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _sslctx: SSLContext val
+  let _sslctx: lori.SSLContext val
 
   new create(listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    sslctx: SSLContext val)
+    sslctx: lori.SSLContext val)
   =>
     _host = host
     _port = port
@@ -746,14 +745,14 @@ class \nodoc\ iso _TestSSLPreferredSuccess is UnitTest
 
     let client_sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
 
     let server_sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_cert(cert_path, key_path)?
           .> set_client_verify(false)
           .> set_server_verify(false)
@@ -804,15 +803,15 @@ actor \nodoc\ _SSLPreferredSuccessTestListener is lori.TCPListenerActor
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _client_sslctx: SSLContext val
-  let _server_sslctx: SSLContext val
+  let _client_sslctx: lori.SSLContext val
+  let _server_sslctx: lori.SSLContext val
 
   new create(listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    client_sslctx: SSLContext val,
-    server_sslctx: SSLContext val)
+    client_sslctx: lori.SSLContext val,
+    server_sslctx: lori.SSLContext val)
   =>
     _host = host
     _port = port
@@ -867,10 +866,10 @@ class \nodoc\ iso _TestSSLPreferredTLSFailure is UnitTest
     // handshake to fail.
     let client_sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
-          .> set_min_proto_version(TLS1u3Version())?
+          .> set_min_proto_version(lori.TLS1u3Version())?
       end
 
     let cert_path =
@@ -880,11 +879,11 @@ class \nodoc\ iso _TestSSLPreferredTLSFailure is UnitTest
 
     let server_sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_cert(cert_path, key_path)?
           .> set_client_verify(false)
           .> set_server_verify(false)
-          .> set_max_proto_version(TLS1u2Version())?
+          .> set_max_proto_version(lori.TLS1u2Version())?
       end
 
     let listener =
@@ -924,15 +923,15 @@ actor \nodoc\ _SSLPreferredTLSFailureTestListener is lori.TCPListenerActor
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _client_sslctx: SSLContext val
-  let _server_sslctx: SSLContext val
+  let _client_sslctx: lori.SSLContext val
+  let _server_sslctx: lori.SSLContext val
 
   new create(listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    client_sslctx: SSLContext val,
-    server_sslctx: SSLContext val)
+    client_sslctx: lori.SSLContext val,
+    server_sslctx: lori.SSLContext val)
   =>
     _host = host
     _port = port
@@ -990,14 +989,14 @@ class \nodoc\ iso _TestSSLPreferredCancelFallback is UnitTest
 
     let client_sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
 
     let server_sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_cert(cert_path, key_path)?
           .> set_client_verify(false)
           .> set_server_verify(false)
@@ -1021,16 +1020,16 @@ actor \nodoc\ _SSLPreferredCancelTestListener is lori.TCPListenerActor
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _client_sslctx: SSLContext val
-  let _server_sslctx: SSLContext val
+  let _client_sslctx: lori.SSLContext val
+  let _server_sslctx: lori.SSLContext val
   var _connection_count: USize = 0
 
   new create(listen_auth: lori.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    client_sslctx: SSLContext val,
-    server_sslctx: SSLContext val)
+    client_sslctx: lori.SSLContext val,
+    server_sslctx: lori.SSLContext val)
   =>
     _host = host
     _port = port
@@ -1081,7 +1080,7 @@ actor \nodoc\ _SSLPreferredCancelTestServer
   cancel falls back to plaintext, then verifies the CancelRequest.
   """
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
-  let _sslctx: SSLContext val
+  let _sslctx: lori.SSLContext val
   let _h: TestHelper
   let _is_cancel_connection: Bool
   var _ssl_started: Bool = false
@@ -1091,7 +1090,7 @@ actor \nodoc\ _SSLPreferredCancelTestServer
 
   new create(
     auth: lori.TCPServerAuth,
-    sslctx: SSLContext val,
+    sslctx: lori.SSLContext val,
     fd: U32,
     h: TestHelper,
     is_cancel: Bool)
@@ -1219,7 +1218,7 @@ class \nodoc\ iso _TestSSLPreferredWithSSLServer is UnitTest
 
     let sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
@@ -1252,7 +1251,7 @@ class \nodoc\ iso _TestSSLPreferredWithPlainServer is UnitTest
 
     let sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end

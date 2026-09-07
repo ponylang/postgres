@@ -1,7 +1,6 @@
 use "files"
 use lori = "lori"
 use "pony_test"
-use "ssl/net"
 
 class \nodoc\ iso _TestCancelQueryInFlight is UnitTest
   """
@@ -231,14 +230,14 @@ class \nodoc\ iso _TestSSLCancelQueryInFlight is UnitTest
 
     let client_sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
 
     let server_sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_cert(cert_path, key_path)?
           .> set_client_verify(false)
           .> set_server_verify(false)
@@ -262,8 +261,8 @@ actor \nodoc\ _SSLCancelTestListener is lori.TCPListenerActor
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _client_sslctx: SSLContext val
-  let _server_sslctx: SSLContext val
+  let _client_sslctx: lori.SSLContext val
+  let _server_sslctx: lori.SSLContext val
   var _connection_count: USize = 0
 
   new create(
@@ -271,8 +270,8 @@ actor \nodoc\ _SSLCancelTestListener is lori.TCPListenerActor
     host: String,
     port: String,
     h: TestHelper,
-    client_sslctx: SSLContext val,
-    server_sslctx: SSLContext val)
+    client_sslctx: lori.SSLContext val,
+    server_sslctx: lori.SSLContext val)
   =>
     _host = host
     _port = port
@@ -323,7 +322,7 @@ actor \nodoc\ _SSLCancelTestServer
   (SSL negotiation + verify CancelRequest format and content).
   """
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
-  let _sslctx: SSLContext val
+  let _sslctx: lori.SSLContext val
   let _h: TestHelper
   let _is_cancel_connection: Bool
   var _ssl_started: Bool = false
@@ -332,7 +331,7 @@ actor \nodoc\ _SSLCancelTestServer
 
   new create(
     auth: lori.TCPServerAuth,
-    sslctx: SSLContext val,
+    sslctx: lori.SSLContext val,
     fd: U32,
     h: TestHelper,
     is_cancel: Bool)
@@ -529,7 +528,7 @@ class \nodoc\ iso _TestCancelSSLPgSleep is UnitTest
 
     let sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end

@@ -12,7 +12,6 @@ use "cli"
 use "collections"
 use "files"
 use lori = "lori"
-use "ssl/net"
 // in your code this `use` statement would be:
 // use "postgres"
 use "../../postgres"
@@ -23,7 +22,7 @@ actor Main
 
     let sslctx =
       recover val
-        SSLContext
+        lori.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
@@ -41,7 +40,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
   new create(
     auth: lori.TCPConnectAuth,
     info: ServerInfo,
-    sslctx: SSLContext val,
+    sslctx: lori.SSLContext val,
     out: OutStream)
   =>
     _out = out

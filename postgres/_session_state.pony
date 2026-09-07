@@ -2,7 +2,7 @@ use "buffered"
 use "encode/base64"
 use lori = "lori"
 use "ssl/crypto"
-use "ssl/net"
+
 
 interface _SessionState
   fun on_connected(s: Session ref)
@@ -330,7 +330,7 @@ trait _ConnectableState is _UnconnectedState
 
   fun _start_ssl_negotiation(
     s: Session ref,
-    ctx: SSLContext val,
+    ctx: lori.SSLContext val,
     fallback_on_refusal: Bool)
   =>
     // Set buffer_until(1) BEFORE sending SSLRequest so lori delivers exactly

@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file. This projec
 ### Changed
 
 - SSLContext now comes from lori instead of ponylang/ssl ([PR #258](https://github.com/ponylang/postgres/pull/258))
+- Update to work with ponyc 0.71.0 ([PR #259](https://github.com/ponylang/postgres/pull/259))
 
 ## [0.10.0] - 2026-09-05
 

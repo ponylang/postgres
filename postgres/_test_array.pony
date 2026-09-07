@@ -1602,86 +1602,85 @@ primitive \nodoc\ _PgArrayGen
   """
   fun apply(): Generator[(PgArray, U32)] =>
     Generator[(PgArray, U32)](object is GenObj[(PgArray, U32)]
-      fun generate(rnd: Randomness): (PgArray, U32) =>
-        match rnd.usize(0, 17)
-        | 0 => _gen(rnd, 16, 1000)      // bool
-        | 1 => _gen(rnd, 21, 1005)      // int2
-        | 2 => _gen(rnd, 23, 1007)      // int4
-        | 3 => _gen(rnd, 20, 1016)      // int8
-        | 4 => _gen(rnd, 700, 1021)     // float4
-        | 5 => _gen(rnd, 701, 1022)     // float8
-        | 6 => _gen(rnd, 25, 1009)      // text
-        | 7 => _gen(rnd, 1043, 1015)    // varchar
-        | 8 => _gen(rnd, 17, 1001)      // bytea
-        | 9 => _gen(rnd, 1082, 1182)    // date
-        | 10 => _gen(rnd, 1083, 1183)   // time
-        | 11 => _gen(rnd, 1114, 1115)   // timestamp
-        | 12 => _gen(rnd, 1184, 1185)   // timestamptz
-        | 13 => _gen(rnd, 1186, 1187)   // interval
-        | 14 => _gen(rnd, 2950, 2951)   // uuid
-        | 15 => _gen(rnd, 1700, 1231)   // numeric
-        | 16 => _gen(rnd, 26, 1028)     // oid
+      fun generate(rnd: Randomness): (PgArray, U32) ? =>
+        match rnd.usize(0, 17)?
+        | 0 => _gen(rnd, 16, 1000)?      // bool
+        | 1 => _gen(rnd, 21, 1005)?      // int2
+        | 2 => _gen(rnd, 23, 1007)?      // int4
+        | 3 => _gen(rnd, 20, 1016)?      // int8
+        | 4 => _gen(rnd, 700, 1021)?     // float4
+        | 5 => _gen(rnd, 701, 1022)?     // float8
+        | 6 => _gen(rnd, 25, 1009)?      // text
+        | 7 => _gen(rnd, 1043, 1015)?    // varchar
+        | 8 => _gen(rnd, 17, 1001)?      // bytea
+        | 9 => _gen(rnd, 1082, 1182)?    // date
+        | 10 => _gen(rnd, 1083, 1183)?   // time
+        | 11 => _gen(rnd, 1114, 1115)?   // timestamp
+        | 12 => _gen(rnd, 1184, 1185)?   // timestamptz
+        | 13 => _gen(rnd, 1186, 1187)?   // interval
+        | 14 => _gen(rnd, 2950, 2951)?   // uuid
+        | 15 => _gen(rnd, 1700, 1231)?   // numeric
+        | 16 => _gen(rnd, 26, 1028)?     // oid
         else
-          _gen(rnd, 3802, 3807)          // jsonb
+          _gen(rnd, 3802, 3807)?          // jsonb
         end
 
       fun _gen(rnd: Randomness, element_oid: U32, array_oid: U32)
-        : (PgArray, U32)
+        : (PgArray, U32) ?
       =>
-        let size = rnd.usize(0, 5)
+        let size = rnd.usize(0, 5)?
         let elems = recover iso Array[(FieldData | None)](size) end
         for _ in Range(0, size) do
-          if rnd.usize(0, 4) == 0 then
+          if rnd.usize(0, 4)? == 0 then
             elems.push(None)
           else
-            elems.push(_value(rnd, element_oid))
+            elems.push(_value(rnd, element_oid)?)
           end
         end
         (PgArray(element_oid, consume elems), array_oid)
 
-      fun _value(rnd: Randomness, oid: U32): FieldData =>
+      fun _value(rnd: Randomness, oid: U32): FieldData ? =>
         match oid
-        | 16 => rnd.bool()
-        | 21 => rnd.i16()
-        | 23 => rnd.i32()
-        | 20 => rnd.i64()
-        | 700 => F32.from[I32](rnd.i32())
-        | 701 => F64.from[I64](rnd.i64())
+        | 16 => rnd.bool()?
+        | 21 => rnd.i16()?
+        | 23 => rnd.i32()?
+        | 20 => rnd.i64()?
+        | 700 => F32.from[I32](rnd.i32()?)
+        | 701 => F64.from[I64](rnd.i64()?)
         | 17 =>
           Bytea(recover val
-            let a = Array[U8](rnd.usize(0, 10))
+            let a = Array[U8](rnd.usize(0, 10)?)
             for _ in Range(0, a.space()) do
-              a.push(rnd.u8())
+              a.push(rnd.u8()?)
             end
             a
           end)
-        | 1082 => PgDate(rnd.i32())
+        | 1082 => PgDate(rnd.i32()?)
         | 1083 =>
           try
             PgTime(MakePgTimeMicroseconds(
-              (rnd.i64().abs() % 86_400_000_000).i64())
+              (rnd.i64()?.abs() % 86_400_000_000).i64())
               as PgTimeMicroseconds)
           else _Unreachable(); I64(0)
           end
-        | 1114 | 1184 => PgTimestamp(rnd.i64())
-        | 1186 => PgInterval(rnd.i64(), rnd.i32(), rnd.i32())
+        | 1114 | 1184 => PgTimestamp(rnd.i64()?)
+        | 1186 => PgInterval(rnd.i64()?, rnd.i32()?, rnd.i32()?)
         | 2950 => _uuid(rnd)
-        | 1700 => _numeric(rnd)
-        | 26 => rnd.u32().string()
+        | 1700 => _numeric(rnd)?
+        | 26 => rnd.u32()?.string()
         | 3802 =>
-          match rnd.usize(0, 2)
+          match rnd.usize(0, 2)?
           | 0 => "{}"
           | 1 => "\"test\""
           else
-            rnd.i32().string()
+            rnd.i32()?.string()
           end
         else
-          // text-like types: generate simple alpha strings
-          let len = rnd.usize(1, 10)
+          let len = rnd.usize(1, 10)?
           recover val
             let s = String(len)
             for _ in Range(0, len) do
-              s.push((rnd.usize(0, 25) + 97).u8())
+              s.push((rnd.usize(0, 25)? + 97).u8())
             end
             s
           end
@@ -1695,7 +1694,7 @@ primitive \nodoc\ _PgArrayGen
             if (i == 8) or (i == 13) or (i == 18) or (i == 23) then
               s.push('-')
             else
-              try s.push(hex(rnd.usize(0, 15))?)
+              try s.push(hex(rnd.usize(0, 15)?)?)
               else s.push('0')
               end
             end
@@ -1703,12 +1702,12 @@ primitive \nodoc\ _PgArrayGen
           s
         end
 
-      fun _numeric(rnd: Randomness): String =>
-        match rnd.usize(0, 4)
+      fun _numeric(rnd: Randomness): String ? =>
+        match rnd.usize(0, 4)?
         | 0 => "0"
-        | 1 => rnd.u16().string()
+        | 1 => rnd.u16()?.string()
         | 2 =>
-          let v = (rnd.usize(1, 65535)).string()
+          let v = (rnd.usize(1, 65535)?).string()
           recover val "-".clone() .> append(consume v) end
         | 3 => "NaN"
         else

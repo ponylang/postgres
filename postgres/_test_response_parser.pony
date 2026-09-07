@@ -1702,134 +1702,134 @@ primitive \nodoc\ _RandomMessageBytesGen
     rnd: Randomness,
     min_count: USize = 2,
     max_count: USize = 8)
-    : Array[Array[U8] val] val
+    : Array[Array[U8] val] val ?
   =>
-    let count = rnd.usize(min_count, max_count)
+    let count = rnd.usize(min_count, max_count)?
     let messages = recover iso Array[Array[U8] val](count) end
     for _ in Range(0, count) do
-      messages.push(_random_message(rnd))
+      messages.push(_random_message(rnd)?)
     end
     consume messages
 
-  fun _random_message(rnd: Randomness): Array[U8] val =>
-    match rnd.usize(0, 26)
+  fun _random_message(rnd: Randomness): Array[U8] val ? =>
+    match rnd.usize(0, 26)?
     | 0 => _IncomingAuthenticationOkTestMessage.bytes()
     | 1 =>
       _IncomingAuthenticationCleartextPasswordTestMessage.bytes()
     | 2 =>
       _IncomingAuthenticationMD5PasswordTestMessage(
-        _random_salt(rnd)).bytes()
+        _random_salt(rnd)?).bytes()
     | 3 =>
       let mechanisms: Array[String] val =
         recover val ["SCRAM-SHA-256"] end
       _IncomingAuthenticationSASLTestMessage(mechanisms).bytes()
     | 4 =>
       _IncomingAuthenticationSASLContinueTestMessage(
-        _random_bytes(rnd)).bytes()
+        _random_bytes(rnd)?).bytes()
     | 5 =>
       _IncomingAuthenticationSASLFinalTestMessage(
-        _random_bytes(rnd)).bytes()
+        _random_bytes(rnd)?).bytes()
     | 6 =>
       _IncomingUnsupportedAuthenticationTestMessage(
-        _random_unsupported_auth_type(rnd)).bytes()
+        _random_unsupported_auth_type(rnd)?).bytes()
     | 7 =>
-      _IncomingBackendKeyDataTestMessage(rnd.i32(), rnd.i32()).bytes()
+      _IncomingBackendKeyDataTestMessage(rnd.i32()?, rnd.i32()?).bytes()
     | 8 =>
       _IncomingCommandCompleteTestMessage(
-        _random_command_tag(rnd)).bytes()
+        _random_command_tag(rnd)?).bytes()
     | 9 =>
       _IncomingCopyInResponseTestMessage(
-        _random_copy_format(rnd), _random_column_formats(rnd)).bytes()
+        _random_copy_format(rnd)?, _random_column_formats(rnd)?).bytes()
     | 10 =>
       _IncomingCopyOutResponseTestMessage(
-        _random_copy_format(rnd), _random_column_formats(rnd)).bytes()
+        _random_copy_format(rnd)?, _random_column_formats(rnd)?).bytes()
     | 11 =>
-      _IncomingCopyDataTestMessage(_random_bytes(rnd)).bytes()
+      _IncomingCopyDataTestMessage(_random_bytes(rnd)?).bytes()
     | 12 => _IncomingCopyDoneTestMessage.bytes()
     | 13 =>
       _IncomingDataRowTestMessage(
-        _random_data_row_columns(rnd)).bytes()
+        _random_data_row_columns(rnd)?).bytes()
     | 14 => _IncomingEmptyQueryResponseTestMessage.bytes()
     | 15 =>
       _IncomingErrorResponseTestMessage(
-        _safe_string(rnd), _safe_string(rnd), _safe_string(rnd)).bytes()
+        _safe_string(rnd)?, _safe_string(rnd)?, _safe_string(rnd)?).bytes()
     | 16 =>
       _IncomingNoticeResponseTestMessage(
-        _safe_string(rnd), _safe_string(rnd), _safe_string(rnd)).bytes()
+        _safe_string(rnd)?, _safe_string(rnd)?, _safe_string(rnd)?).bytes()
     | 17 =>
       _IncomingNotificationResponseTestMessage(
-        rnd.i32(), _safe_string(rnd), _safe_string(rnd)).bytes()
+        rnd.i32()?, _safe_string(rnd)?, _safe_string(rnd)?).bytes()
     | 18 =>
       _IncomingParameterStatusTestMessage(
-        _safe_string(rnd), _safe_string(rnd)).bytes()
+        _safe_string(rnd)?, _safe_string(rnd)?).bytes()
     | 19 =>
-      _IncomingReadyForQueryTestMessage(_random_rfq_status(rnd)).bytes()
+      _IncomingReadyForQueryTestMessage(_random_rfq_status(rnd)?).bytes()
     | 20 =>
       _IncomingRowDescriptionTestMessage(
-        _random_row_desc_columns(rnd)).bytes()
+        _random_row_desc_columns(rnd)?).bytes()
     | 21 => _IncomingParseCompleteTestMessage.bytes()
     | 22 => _IncomingBindCompleteTestMessage.bytes()
     | 23 => _IncomingNoDataTestMessage.bytes()
     | 24 => _IncomingCloseCompleteTestMessage.bytes()
     | 25 =>
       _IncomingParameterDescriptionTestMessage(
-        _random_oids(rnd)).bytes()
+        _random_oids(rnd)?).bytes()
     | 26 => _IncomingPortalSuspendedTestMessage.bytes()
     else
       _IncomingAuthenticationOkTestMessage.bytes()
     end
 
-  fun _safe_string(rnd: Randomness): String =>
-    let size = rnd.usize(1, 20)
+  fun _safe_string(rnd: Randomness): String ? =>
+    let size = rnd.usize(1, 20)?
     recover val
       let s = String(size)
       for _ in Range(0, size) do
-        s.push(rnd.u8(32, 126))
+        s.push(rnd.u8(32, 126)?)
       end
       s
     end
 
-  fun _random_salt(rnd: Randomness): String =>
+  fun _random_salt(rnd: Randomness): String ? =>
     recover val
       let s = String(4)
       for _ in Range(0, 4) do
-        s.push(rnd.u8(32, 126))
+        s.push(rnd.u8(32, 126)?)
       end
       s
     end
 
-  fun _random_bytes(rnd: Randomness): Array[U8] val =>
-    let size = rnd.usize(1, 50)
+  fun _random_bytes(rnd: Randomness): Array[U8] val ? =>
+    let size = rnd.usize(1, 50)?
     recover val
       let arr = Array[U8](size)
       for _ in Range(0, size) do
-        arr.push(rnd.u8())
+        arr.push(rnd.u8()?)
       end
       arr
     end
 
-  fun _random_rfq_status(rnd: Randomness): U8 =>
-    match rnd.usize(0, 2)
+  fun _random_rfq_status(rnd: Randomness): U8 ? =>
+    match rnd.usize(0, 2)?
     | 0 => 'I'
     | 1 => 'T'
     else
       'E'
     end
 
-  fun _random_command_tag(rnd: Randomness): String =>
-    match rnd.usize(0, 6)
-    | 0 => "SELECT " + rnd.usize(0, 100).string()
-    | 1 => "INSERT 0 " + rnd.usize(0, 100).string()
-    | 2 => "DELETE " + rnd.usize(0, 100).string()
-    | 3 => "UPDATE " + rnd.usize(0, 100).string()
+  fun _random_command_tag(rnd: Randomness): String ? =>
+    match rnd.usize(0, 6)?
+    | 0 => "SELECT " + rnd.usize(0, 100)?.string()
+    | 1 => "INSERT 0 " + rnd.usize(0, 100)?.string()
+    | 2 => "DELETE " + rnd.usize(0, 100)?.string()
+    | 3 => "UPDATE " + rnd.usize(0, 100)?.string()
     | 4 => "CREATE TABLE"
     | 5 => "DROP TABLE"
     else
-      "COPY " + rnd.usize(0, 100).string()
+      "COPY " + rnd.usize(0, 100)?.string()
     end
 
-  fun _random_unsupported_auth_type(rnd: Randomness): I32 =>
-    match rnd.usize(0, 3)
+  fun _random_unsupported_auth_type(rnd: Randomness): I32 ? =>
+    match rnd.usize(0, 3)?
     | 0 => 2
     | 1 => 4
     | 2 => 6
@@ -1837,43 +1837,45 @@ primitive \nodoc\ _RandomMessageBytesGen
       7
     end
 
-  fun _random_oids(rnd: Randomness): Array[U32] val =>
-    let size = rnd.usize(0, 5)
+  fun _random_oids(rnd: Randomness): Array[U32] val ? =>
+    let size = rnd.usize(0, 5)?
     recover val
       let arr = Array[U32](size)
       for _ in Range(0, size) do
-        arr.push(rnd.u32())
+        arr.push(rnd.u32()?)
       end
       arr
     end
 
-  fun _random_copy_format(rnd: Randomness): U8 =>
-    if rnd.bool() then 1 else 0 end
+  fun _random_copy_format(rnd: Randomness): U8 ? =>
+    if rnd.bool()? then 1 else 0 end
 
-  fun _random_column_formats(rnd: Randomness): Array[U8] val =>
-    let size = rnd.usize(0, 5)
+  fun _random_column_formats(rnd: Randomness): Array[U8] val ? =>
+    let size = rnd.usize(0, 5)?
     recover val
       let arr = Array[U8](size)
       for _ in Range(0, size) do
-        arr.push(if rnd.bool() then 1 else 0 end)
+        arr.push(if rnd.bool()? then 1 else 0 end)
       end
       arr
     end
 
-  fun _random_data_row_columns(rnd: Randomness): Array[(String | None)] val =>
-    let size = rnd.usize(0, 4)
+  fun _random_data_row_columns(rnd: Randomness)
+    : Array[(String | None)] val ?
+  =>
+    let size = rnd.usize(0, 4)?
     let arr = recover iso Array[(String | None)](size) end
     for _ in Range(0, size) do
-      if rnd.bool() then
+      if rnd.bool()? then
         arr.push(None)
       else
-        arr.push(_safe_string(rnd))
+        arr.push(_safe_string(rnd)?)
       end
     end
     consume arr
 
   fun _random_row_desc_columns(rnd: Randomness):
-    Array[(String, U32, U16)] val
+    Array[(String, U32, U16)] val ?
   =>
     let known_oids: Array[U32] val =
       recover val
@@ -1881,12 +1883,12 @@ primitive \nodoc\ _RandomMessageBytesGen
           25; 23; 20; 16; 21; 700; 701; 17
           1082; 1083; 1114; 1184; 1186]
       end
-    let size = rnd.usize(1, 5)
+    let size = rnd.usize(1, 5)?
     let arr = recover iso Array[(String, U32, U16)](size) end
     for i in Range(0, size) do
       try
-        let type_idx = rnd.usize(0, known_oids.size() - 1)
-        let fmt = rnd.usize(0, 1).u16()
+        let type_idx = rnd.usize(0, known_oids.size() - 1)?
+        let fmt = rnd.usize(0, 1)?.u16()
         arr.push(("col" + i.string(), known_oids(type_idx)?, fmt))
       end
     end
@@ -1900,8 +1902,8 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainProperty
   fun gen(): Generator[Array[Array[U8] val] val] =>
     Generator[Array[Array[U8] val] val](
       object is GenObj[Array[Array[U8] val] val]
-        fun generate(rnd: Randomness): Array[Array[U8] val] val =>
-          _RandomMessageBytesGen(rnd)
+        fun generate(rnd: Randomness): Array[Array[U8] val] val ? =>
+          _RandomMessageBytesGen(rnd)?
       end)
 
   fun ref property(arg1: Array[Array[U8] val] val, h: PropertyHelper) ? =>

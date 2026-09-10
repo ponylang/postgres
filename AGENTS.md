@@ -50,7 +50,7 @@ Integration tests need two PostgreSQL 14.5 containers, started by `make start-pg
 
 ## Architecture
 
-The `Session` actor is the entry point. It implements `lori.TCPConnectionActor` and `lori.ClientLifecycleEventReceiver` and tracks its lifecycle with explicit `_SessionState` classes. Session state is composed from a trait hierarchy that supplies each state's default responses, so a concrete state writes only the transitions that differ from those defaults; the rest fall through to a trait default — a panic (`_IllegalState()`), a protocol-violation handler, or a deliberate no-op, depending on the state.
+The `Session` actor is the entry point. It implements `net.TCPConnectionActor` and `net.ClientLifecycleEventReceiver` and tracks its lifecycle with explicit `_SessionState` classes. Session state is composed from a trait hierarchy that supplies each state's default responses, so a concrete state writes only the transitions that differ from those defaults; the rest fall through to a trait default — a panic (`_IllegalState()`), a protocol-violation handler, or a deliberate no-op, depending on the state.
 
 ```
 _SessionUnopened  --connect (no SSL)-->              _SessionConnected

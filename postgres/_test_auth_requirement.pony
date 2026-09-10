@@ -1,4 +1,4 @@
-use lori = "lori"
+use net = "net"
 use "pony_test"
 
 // AuthRequirement policy tests
@@ -47,7 +47,7 @@ class \nodoc\ iso _TestAuthRequireSCRAMRejectsAuthenticationOk is UnitTest
 
     let listener =
       _AuthMethodRejectedTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h,
@@ -74,7 +74,7 @@ class \nodoc\ iso _TestAuthRequireSCRAMRejectsCleartextPassword is UnitTest
 
     let listener =
       _AuthMethodRejectedTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h,
@@ -101,7 +101,7 @@ class \nodoc\ iso _TestAuthRequireSCRAMRejectsMD5Password is UnitTest
 
     let listener =
       _AuthMethodRejectedTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h,
@@ -116,22 +116,22 @@ primitive _AuthReplyMD5
 
 type _AuthReplyKind is (_AuthReplyOk | _AuthReplyCleartext | _AuthReplyMD5)
 
-actor \nodoc\ _AuthMethodRejectedTestListener is lori.TCPListenerActor
+actor \nodoc\ _AuthMethodRejectedTestListener is net.TCPListenerActor
   """
   Listener that stands up a mock server responding with a single non-SCRAM
   authentication message selected by `_AuthReplyKind`. The client session
   uses the default `AuthRequirement` (`AuthRequireSCRAM`), so any of these
   replies must be rejected.
   """
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
   let _kind: _AuthReplyKind
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
@@ -141,10 +141,10 @@ actor \nodoc\ _AuthMethodRejectedTestListener is lori.TCPListenerActor
     _port = port
     _h = h
     _kind = kind
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _AuthMethodRejectedTestServer =>
@@ -156,7 +156,7 @@ actor \nodoc\ _AuthMethodRejectedTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port),
         DatabaseConnectInfo("postgres", "postgres", "postgres"),
@@ -168,7 +168,7 @@ actor \nodoc\ _AuthMethodRejectedTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _AuthMethodRejectedTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that replies to the client's startup message with a single
   non-SCRAM authentication message and otherwise does nothing.
@@ -179,32 +179,32 @@ actor \nodoc\ _AuthMethodRejectedTestServer
   `Terminate` ('X') completes the "no-password-leak" action — the client
   finished cleanly without leaking credentials.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _h: TestHelper
   let _kind: _AuthReplyKind
   var _state: U8 = 0
   let _reader: _MockMessageReader = _MockMessageReader
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: net.TCPServerAuth,
     fd: U32,
     h: TestHelper,
     kind: _AuthReplyKind)
   =>
     _h = h
     _kind = kind
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if _state == 0 then

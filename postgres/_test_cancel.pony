@@ -1,5 +1,5 @@
 use "files"
-use lori = "lori"
+use net = "net"
 use "pony_test"
 
 class \nodoc\ iso _TestCancelQueryInFlight is UnitTest
@@ -17,7 +17,7 @@ class \nodoc\ iso _TestCancelQueryInFlight is UnitTest
 
     let listener =
       _CancelTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -51,16 +51,16 @@ actor \nodoc\ _CancelTestClient is (SessionStatusNotify & ResultReceiver)
   =>
     None
 
-actor \nodoc\ _CancelTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _CancelTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
   var _connection_count: USize = 0
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -68,10 +68,10 @@ actor \nodoc\ _CancelTestListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _CancelTestServer =>
@@ -86,7 +86,7 @@ actor \nodoc\ _CancelTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -100,38 +100,38 @@ actor \nodoc\ _CancelTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _CancelTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that handles two connections: the first is the main session
   (authenticates and becomes ready), the second is the cancel sender
   (verifies CancelRequest format and content).
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _h: TestHelper
   let _is_cancel_connection: Bool
   var _authed: Bool = false
   let _reader: _MockMessageReader = _MockMessageReader
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: net.TCPServerAuth,
     fd: U32,
     h: TestHelper,
     is_cancel: Bool)
   =>
     _h = h
     _is_cancel_connection = is_cancel
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if _is_cancel_connection then
@@ -230,14 +230,14 @@ class \nodoc\ iso _TestSSLCancelQueryInFlight is UnitTest
 
     let client_sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
 
     let server_sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_cert(cert_path, key_path)?
           .> set_client_verify(false)
           .> set_server_verify(false)
@@ -245,7 +245,7 @@ class \nodoc\ iso _TestSSLCancelQueryInFlight is UnitTest
 
     let listener =
       _SSLCancelTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h,
@@ -255,33 +255,33 @@ class \nodoc\ iso _TestSSLCancelQueryInFlight is UnitTest
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
-actor \nodoc\ _SSLCancelTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _SSLCancelTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _client_sslctx: lori.SSLContext val
-  let _server_sslctx: lori.SSLContext val
+  let _client_sslctx: net.SSLContext val
+  let _server_sslctx: net.SSLContext val
   var _connection_count: USize = 0
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    client_sslctx: lori.SSLContext val,
-    server_sslctx: lori.SSLContext val)
+    client_sslctx: net.SSLContext val,
+    server_sslctx: net.SSLContext val)
   =>
     _host = host
     _port = port
     _h = h
     _client_sslctx = client_sslctx
     _server_sslctx = server_sslctx
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SSLCancelTestServer =>
@@ -300,7 +300,7 @@ actor \nodoc\ _SSLCancelTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port,
           SSLRequired(_client_sslctx)
@@ -315,14 +315,14 @@ actor \nodoc\ _SSLCancelTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _SSLCancelTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock SSL server that handles two connections: the first is the main session
   (SSL negotiation + authenticate + ready), the second is the cancel sender
   (SSL negotiation + verify CancelRequest format and content).
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
-  let _sslctx: lori.SSLContext val
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
+  let _sslctx: net.SSLContext val
   let _h: TestHelper
   let _is_cancel_connection: Bool
   var _ssl_started: Bool = false
@@ -330,8 +330,8 @@ actor \nodoc\ _SSLCancelTestServer
   let _reader: _MockMessageReader = _MockMessageReader
 
   new create(
-    auth: lori.TCPServerAuth,
-    sslctx: lori.SSLContext val,
+    auth: net.TCPServerAuth,
+    sslctx: net.SSLContext val,
     fd: U32,
     h: TestHelper,
     is_cancel: Bool)
@@ -339,18 +339,18 @@ actor \nodoc\ _SSLCancelTestServer
     _sslctx = sslctx
     _h = h
     _is_cancel_connection = is_cancel
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if not _ssl_started then
@@ -361,7 +361,7 @@ actor \nodoc\ _SSLCancelTestServer
         _tcp_connection.send(response)
         match \exhaustive\ _tcp_connection.start_tls(_sslctx)
         | None => _ssl_started = true
-        | let _: lori.StartTLSError =>
+        | let _: net.StartTLSError =>
           _tcp_connection.close()
         end
       end
@@ -455,7 +455,7 @@ class \nodoc\ iso _TestCancelPgSleep is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.host,
           info.port),
         DatabaseConnectInfo(
@@ -528,7 +528,7 @@ class \nodoc\ iso _TestCancelSSLPgSleep is UnitTest
 
     let sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
@@ -538,7 +538,7 @@ class \nodoc\ iso _TestCancelSSLPgSleep is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.ssl_host,
           info.ssl_port,
           SSLRequired(sslctx)),

@@ -1,6 +1,6 @@
 use "buffered"
 use "encode/base64"
-use lori = "lori"
+use net = "net"
 use "ssl/crypto"
 
 
@@ -43,7 +43,7 @@ interface _SessionState
     Called if the server requests we authenticate using a cleartext password.
     """
 
-  fun ref on_timer(s: Session ref, token: lori.TimerToken)
+  fun ref on_timer(s: Session ref, token: net.TimerToken)
     """
     A statement timeout timer fired. Like `cancel`, this should never be an
     illegal state — it should be silently ignored when not applicable.
@@ -89,10 +89,10 @@ interface _SessionState
 
   fun ref on_closed(s: Session ref)
     """
-    Called when lori reports that the TCP connection is closed. State
+    Called whennet reports that the TCP connection is closed. State
     implementations deliver the failure to the user through the callback
     appropriate for the current state and transition to `_SessionClosed`.
-    Implementations must be idempotent with user-initiated close — lori
+    Implementations must be idempotent with user-initiated close — net
     fires `_on_closed` after any `hard_close()`, including closes this
     session itself initiated.
     """
@@ -106,7 +106,7 @@ interface _SessionState
     s: Session ref,
     query: Query,
     receiver: ResultReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
     """
     Called when a client requests a query execution.
     """
@@ -116,7 +116,7 @@ interface _SessionState
     name: String,
     sql: String,
     receiver: PrepareReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
     """
     Called when a client requests a named statement preparation.
     """
@@ -130,7 +130,7 @@ interface _SessionState
     s: Session ref,
     sql: String,
     receiver: CopyInReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
     """
     Called when a client requests a COPY ... FROM STDIN operation.
     """
@@ -160,7 +160,7 @@ interface _SessionState
     s: Session ref,
     sql: String,
     receiver: CopyOutReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
     """
     Called when a client requests a COPY ... TO STDOUT operation.
     """
@@ -194,7 +194,7 @@ interface _SessionState
     query: (PreparedQuery | NamedPreparedQuery),
     window_size: U32,
     receiver: StreamingResultReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
     """
     Called when a client requests a streaming query execution.
     """
@@ -213,7 +213,7 @@ interface _SessionState
     s: Session ref,
     queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
     receiver: PipelineReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
     """
     Called when a client requests a pipelined query execution.
     """
@@ -330,15 +330,15 @@ trait _ConnectableState is _UnconnectedState
 
   fun _start_ssl_negotiation(
     s: Session ref,
-    ctx: lori.SSLContext val,
+    ctx: net.SSLContext val,
     fallback_on_refusal: Bool)
   =>
-    // Set buffer_until(1) BEFORE sending SSLRequest so lori delivers exactly
+    // Set buffer_until(1) BEFORE sending SSLRequest sonet delivers exactly
     // one byte per _on_received call. Any MITM-injected bytes stay in
-    // lori's internal buffer, causing start_tls() to return
+    // net's internal buffer, causing start_tls() to return
     // StartTLSNotReady (CVE-2021-23222 mitigation).
-    match \exhaustive\ lori.MakeBufferSize(1)
-    | let e: lori.BufferSize => s._connection().buffer_until(e)
+    match \exhaustive\ net.MakeBufferSize(1)
+    | let e: net.BufferSize => s._connection().buffer_until(e)
     else
       _Unreachable()
     end
@@ -404,7 +404,7 @@ trait _ConnectedState is _NotConnectableState
   fun ref process_responses(s: Session ref) =>
     _ResponseMessageParser(s, readbuf())
 
-  fun ref on_timer(s: Session ref, token: lori.TimerToken) =>
+  fun ref on_timer(s: Session ref, token: net.TimerToken) =>
     None
 
   fun ref on_timer_failure(s: Session ref) =>
@@ -475,7 +475,7 @@ trait _UnconnectedState is (_NotAuthenticableState & _NotAuthenticated)
   fun ref process_responses(s: Session ref) =>
     None
 
-  fun ref on_timer(s: Session ref, token: lori.TimerToken) =>
+  fun ref on_timer(s: Session ref, token: net.TimerToken) =>
     None
 
   fun ref on_timer_failure(s: Session ref) =>

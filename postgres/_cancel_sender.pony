@@ -1,8 +1,8 @@
-use lori = "lori"
+use net = "net"
 
 
 actor _CancelSender is
-  (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
+  (net.TCPConnectionActor & net.ClientLifecycleEventReceiver)
   """
   Fire-and-forget actor that sends a CancelRequest on a separate TCP
   connection. PostgreSQL requires cancel requests on a different connection
@@ -17,7 +17,7 @@ actor _CancelSender is
   the server refuses SSL ('N'), the cancel proceeds over plaintext; TLS
   handshake failure still silently abandons.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _process_id: I32
   let _secret_key: I32
   let _info: ServerConnectInfo
@@ -27,10 +27,10 @@ actor _CancelSender is
     _secret_key = secret_key
     _info = info
     _tcp_connection =
-      lori.TCPConnection.client(
+      net.TCPConnection.client(
         info.auth, info.host, info.service, "", this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
   fun ref _on_connected() =>
@@ -39,20 +39,20 @@ actor _CancelSender is
       _send_cancel_and_close()
     | let _: (SSLRequired | SSLPreferred) =>
       // CVE-2021-23222 mitigation: buffer exactly 1 byte for SSL response.
-      match \exhaustive\ lori.MakeBufferSize(1)
-      | let e: lori.BufferSize => _tcp_connection.buffer_until(e)
+      match \exhaustive\ net.MakeBufferSize(1)
+      | let e: net.BufferSize => _tcp_connection.buffer_until(e)
       else
         _Unreachable()
       end
       _tcp_connection.send(_FrontendMessage.ssl_request())
     end
 
-  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
+  fun ref _on_connection_failure(reason: net.ConnectionFailureReason) =>
     // Fire-and-forget: the cancel connection never established, silently give
     // up. There is nothing to clean up; the connection never connected.
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     // Only called during SSL negotiation — server responds 'S' or 'N'.
     try
       if data(0)? == 'S' then
@@ -62,18 +62,18 @@ actor _CancelSender is
           | let pref: SSLPreferred => pref.ctx
           else
             _tcp_connection.close()
-            return lori.KeepReading
+            return net.KeepReading
           end
         match \exhaustive\ _tcp_connection.start_tls(ctx, _info.host)
         | None => None  // Handshake started, wait for _on_tls_ready
-        | let _: lori.StartTLSError =>
+        | let _: net.StartTLSError =>
           _tcp_connection.close()
         end
       elseif data(0)? == 'N' then
         match _info.ssl_mode
         | let _: SSLPreferred =>
           // SSLPreferred: fall back to plaintext cancel
-          _tcp_connection.buffer_until(lori.Streaming)
+          _tcp_connection.buffer_until(net.Streaming)
           _send_cancel_and_close()
         else
           // SSLRequired or unexpected: silently give up
@@ -85,15 +85,15 @@ actor _CancelSender is
     else
       _tcp_connection.close()
     end
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _on_tls_ready() =>
     // Reset buffer_until from 1 to streaming (same pattern as
     // _SessionSSLNegotiating)
-    _tcp_connection.buffer_until(lori.Streaming)
+    _tcp_connection.buffer_until(net.Streaming)
     _send_cancel_and_close()
 
-  fun ref _on_tls_failure(reason: lori.TLSFailureReason) =>
+  fun ref _on_tls_failure(reason: net.TLSFailureReason) =>
     // Fire-and-forget: TLS handshake failed, silently give up.
     // Lori follows this with _on_closed() (default no-op), so no
     // additional cleanup needed.

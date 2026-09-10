@@ -12,7 +12,7 @@ their OIDs aren't known at compile time.
 """
 use "cli"
 use "collections"
-use lori = "lori"
+use net = "net"
 // in your code this `use` statement would be:
 // use "postgres"
 use "../../postgres"
@@ -20,7 +20,7 @@ use "../../postgres"
 actor Main
   new create(env: Env) =>
     let server_info = ServerInfo(env.vars)
-    let auth = lori.TCPConnectAuth(env.root)
+    let auth = net.TCPConnectAuth(env.root)
     Client(auth, server_info, env.out)
 
 // Two-phase example: first session discovers the enum OID, second session
@@ -32,13 +32,13 @@ actor Client is (SessionStatusNotify & ResultReceiver)
   Discovers a PostgreSQL enum OID in one session, then queries with
   an enum-aware codec registry in a second session.
   """
-  let _auth: lori.TCPConnectAuth
+  let _auth: net.TCPConnectAuth
   let _info: ServerInfo
   let _out: OutStream
   var _session: Session
   var _phase: USize = 0
 
-  new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
+  new create(auth: net.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _auth = auth
     _info = info
     _out = out

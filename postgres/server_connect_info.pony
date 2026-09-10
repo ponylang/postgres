@@ -1,4 +1,4 @@
-use lori = "lori"
+use net = "net"
 
 class val ServerConnectInfo
   """
@@ -14,22 +14,22 @@ class val ServerConnectInfo
   timeout fires before a TCP connection is established,
   `pg_session_connection_failed`
   is called with `ConnectionFailedTimeout`. Construct the timeout with
-  `lori.MakeConnectionTimeout(milliseconds)`.
+  `net.MakeConnectionTimeout(milliseconds)`.
   """
-  let auth: lori.TCPConnectAuth
+  let auth: net.TCPConnectAuth
   let host: String
   let service: String
   let ssl_mode: SSLMode
   let auth_requirement: AuthRequirement
-  let connection_timeout: (lori.ConnectionTimeout | None)
+  let connection_timeout: (net.ConnectionTimeout | None)
 
   new val create(
-    auth': lori.TCPConnectAuth,
+    auth': net.TCPConnectAuth,
     host': String,
     service': String,
     ssl_mode': SSLMode = SSLDisabled,
     auth_requirement': AuthRequirement = AuthRequireSCRAM,
-    connection_timeout': (lori.ConnectionTimeout | None) = None)
+    connection_timeout': (net.ConnectionTimeout | None) = None)
   =>
     auth = auth'
     host = host'

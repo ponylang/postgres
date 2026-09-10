@@ -1,4 +1,4 @@
-use lori = "lori"
+use net = "net"
 use "pony_test"
 
 class \nodoc\ iso _TestParameterStatusDelivery is UnitTest
@@ -16,7 +16,7 @@ class \nodoc\ iso _TestParameterStatusDelivery is UnitTest
 
     let listener =
       _ParameterStatusTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         _ParameterStatusDeliveryClient(h),
@@ -106,7 +106,7 @@ class \nodoc\ iso _TestParameterStatusDuringDataRows is UnitTest
 
     let listener =
       _ParameterStatusMidQueryTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         _ParameterStatusDuringDataRowsClient(h),
@@ -187,20 +187,20 @@ actor \nodoc\ _ParameterStatusDuringDataRowsClient
     _h.complete(false)
 
 // Shared mock server infrastructure for parameter status tests
-actor \nodoc\ _ParameterStatusTestListener is lori.TCPListenerActor
+actor \nodoc\ _ParameterStatusTestListener is net.TCPListenerActor
   """
   Mock server that authenticates, waits for a query, then responds
   with CommandComplete + ParameterStatus + ReadyForQuery.
   """
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
   let _notify: (SessionStatusNotify & ResultReceiver)
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     notify: (SessionStatusNotify & ResultReceiver),
@@ -210,10 +210,10 @@ actor \nodoc\ _ParameterStatusTestListener is lori.TCPListenerActor
     _port = port
     _h = h
     _notify = notify
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _ParameterStatusTestServer =>
@@ -226,7 +226,7 @@ actor \nodoc\ _ParameterStatusTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -240,28 +240,28 @@ actor \nodoc\ _ParameterStatusTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _ParameterStatusTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that authenticates, then on first query responds with
   CommandComplete + ParameterStatus + ReadyForQuery.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   var _authed: Bool = false
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if not _authed then
@@ -294,19 +294,19 @@ actor \nodoc\ _ParameterStatusTestServer
     end
 
 actor \nodoc\ _ParameterStatusMidQueryTestListener
-  is lori.TCPListenerActor
+  is net.TCPListenerActor
   """
   Mock server listener for the mid-query parameter status test.
   """
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
   let _notify: (SessionStatusNotify & ResultReceiver)
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     notify: (SessionStatusNotify & ResultReceiver),
@@ -316,10 +316,10 @@ actor \nodoc\ _ParameterStatusMidQueryTestListener
     _port = port
     _h = h
     _notify = notify
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _ParameterStatusMidQueryTestServer =>
@@ -332,7 +332,7 @@ actor \nodoc\ _ParameterStatusMidQueryTestListener
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -346,29 +346,29 @@ actor \nodoc\ _ParameterStatusMidQueryTestListener
     _h.complete(false)
 
 actor \nodoc\ _ParameterStatusMidQueryTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that authenticates, then on first query responds with
   RowDescription + DataRow + ParameterStatus + DataRow +
   CommandComplete + ReadyForQuery.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   var _authed: Bool = false
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if not _authed then
@@ -452,7 +452,7 @@ actor \nodoc\ _ParameterStatusStartupClient is SessionStatusNotify
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.host,
           info.port),
         DatabaseConnectInfo(
@@ -527,7 +527,7 @@ actor \nodoc\ _ParameterStatusSetClient
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.host,
           info.port),
         DatabaseConnectInfo(

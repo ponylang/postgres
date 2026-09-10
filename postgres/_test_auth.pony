@@ -1,5 +1,5 @@
 use "encode/base64"
-use lori = "lori"
+use net = "net"
 use "pony_test"
 
 // SCRAM-SHA-256 authentication unit tests
@@ -19,7 +19,7 @@ class \nodoc\ iso _TestSCRAMAuthenticationSuccess is UnitTest
 
     let listener =
       _SCRAMTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h,
@@ -43,7 +43,7 @@ class \nodoc\ iso _TestSCRAMUnsupportedMechanism is UnitTest
 
     let listener =
       _SCRAMUnsupportedTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -66,7 +66,7 @@ class \nodoc\ iso _TestSCRAMServerVerificationFailed is UnitTest
 
     let listener =
       _SCRAMTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h,
@@ -91,7 +91,7 @@ class \nodoc\ iso _TestSCRAMErrorDuringAuth is UnitTest
 
     let listener =
       _SCRAMErrorTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -115,7 +115,7 @@ class \nodoc\ iso _TestSCRAMServerSkipsSASLFinal is UnitTest
 
     let listener =
       _SCRAMSkipSASLFinalTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -140,7 +140,7 @@ class \nodoc\ iso _TestSCRAMDuplicateSASLContinue is UnitTest
 
     let listener =
       _SCRAMDuplicateSASLContinueTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -164,7 +164,7 @@ class \nodoc\ iso _TestSCRAMSASLFinalBeforeSASLContinue is UnitTest
 
     let listener =
       _SCRAMSASLFinalBeforeContinueTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -189,7 +189,7 @@ class \nodoc\ iso _TestSCRAMMalformedSASLFinal is UnitTest
 
     let listener =
       _SCRAMMalformedSASLFinalTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -214,7 +214,7 @@ class \nodoc\ iso _TestSCRAMNonceMismatch is UnitTest
 
     let listener =
       _SCRAMNonceMismatchTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -238,7 +238,7 @@ class \nodoc\ iso _TestSCRAMMalformedSASLContinue is UnitTest
 
     let listener =
       _SCRAMMalformedSASLContinueTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -261,7 +261,7 @@ class \nodoc\ iso _TestUnsupportedAuthentication is UnitTest
 
     let listener =
       _UnsupportedAuthenticationTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -269,14 +269,14 @@ class \nodoc\ iso _TestUnsupportedAuthentication is UnitTest
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
-actor \nodoc\ _UnsupportedAuthenticationTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _UnsupportedAuthenticationTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -284,10 +284,10 @@ actor \nodoc\ _UnsupportedAuthenticationTestListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _UnsupportedAuthenticationTestServer =>
@@ -300,7 +300,7 @@ actor \nodoc\ _UnsupportedAuthenticationTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root), _host, _port),
+          net.TCPConnectAuth(_h.env.root), _host, _port),
         DatabaseConnectInfo("postgres", "postgres", "postgres"),
         _SCRAMFailureTestNotify(
           _h, UnsupportedAuthenticationMethod))
@@ -311,24 +311,24 @@ actor \nodoc\ _UnsupportedAuthenticationTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _UnsupportedAuthenticationTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that sends a KerberosV5 authentication request (type 2),
   which the driver does not support.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   var _received: Bool = false
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     if not _received then
       _received = true
       let msg =
@@ -336,7 +336,7 @@ actor \nodoc\ _UnsupportedAuthenticationTestServer
           2).bytes()
       _tcp_connection.send(msg)
     end
-    lori.KeepReading
+    net.KeepReading
 
 // Cleartext password authentication tests
 class \nodoc\ iso _TestCleartextAuthenticationSuccess is UnitTest
@@ -354,7 +354,7 @@ class \nodoc\ iso _TestCleartextAuthenticationSuccess is UnitTest
 
     let listener =
       _CleartextTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h,
@@ -378,7 +378,7 @@ class \nodoc\ iso _TestCleartextAuthenticationFailure is UnitTest
 
     let listener =
       _CleartextTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h,
@@ -387,19 +387,19 @@ class \nodoc\ iso _TestCleartextAuthenticationFailure is UnitTest
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
-actor \nodoc\ _CleartextTestListener is lori.TCPListenerActor
+actor \nodoc\ _CleartextTestListener is net.TCPListenerActor
   """
   Listener for cleartext password authentication tests. Creates a mock
   cleartext server and connects a client session.
   """
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
   let _send_error: Bool
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
@@ -409,10 +409,10 @@ actor \nodoc\ _CleartextTestListener is lori.TCPListenerActor
     _port = port
     _h = h
     _send_error = send_error
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _CleartextTestServer =>
@@ -432,7 +432,7 @@ actor \nodoc\ _CleartextTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -445,32 +445,32 @@ actor \nodoc\ _CleartextTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _CleartextTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that performs a cleartext password authentication handshake.
   Receives a startup message, sends AuthenticationCleartextPassword, receives
   the password, then sends AuthenticationOk + ReadyForQuery (or ErrorResponse
   28P01 if _send_error is true).
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _send_error: Bool
   var _state: U8 = 0
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32, send_error: Bool) =>
+  new create(auth: net.TCPServerAuth, fd: U32, send_error: Bool) =>
     _send_error = send_error
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -587,20 +587,20 @@ actor \nodoc\ _SCRAMFailureTestNotify is SessionStatusNotify
       _h.complete(false)
     end
 
-actor \nodoc\ _SCRAMTestListener is lori.TCPListenerActor
+actor \nodoc\ _SCRAMTestListener is net.TCPListenerActor
   """
   Listener for SCRAM-SHA-256 authentication tests. Creates a mock SCRAM
   server and connects a client session. Used by both the success test and
   the server verification failure test.
   """
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
   let _send_wrong_signature: Bool
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
@@ -610,10 +610,10 @@ actor \nodoc\ _SCRAMTestListener is lori.TCPListenerActor
     _port = port
     _h = h
     _send_wrong_signature = send_wrong_signature
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMTestServer =>
@@ -634,7 +634,7 @@ actor \nodoc\ _SCRAMTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port),
         DatabaseConnectInfo("postgres", "postgres", "postgres"),
@@ -646,7 +646,7 @@ actor \nodoc\ _SCRAMTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _SCRAMTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that performs a SCRAM-SHA-256 authentication handshake.
   Optionally sends a wrong server signature to test verification failure.
@@ -655,7 +655,7 @@ actor \nodoc\ _SCRAMTestServer
   count. The expected client proof and server signature are computed using
   _ScramSha256 with the test password "postgres".
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _h: TestHelper
   let _send_wrong_signature: Bool
   var _state: U8 = 0
@@ -663,25 +663,25 @@ actor \nodoc\ _SCRAMTestServer
   let _reader: _MockMessageReader = _MockMessageReader
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: net.TCPServerAuth,
     fd: U32,
     h: TestHelper,
     send_wrong_signature: Bool)
   =>
     _h = h
     _send_wrong_signature = send_wrong_signature
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -745,14 +745,14 @@ actor \nodoc\ _SCRAMTestServer
       end
     end
 
-actor \nodoc\ _SCRAMUnsupportedTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _SCRAMUnsupportedTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -760,10 +760,10 @@ actor \nodoc\ _SCRAMUnsupportedTestListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMUnsupportedTestServer =>
@@ -776,7 +776,7 @@ actor \nodoc\ _SCRAMUnsupportedTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port),
         DatabaseConnectInfo("postgres", "postgres", "postgres"),
@@ -789,23 +789,23 @@ actor \nodoc\ _SCRAMUnsupportedTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _SCRAMUnsupportedTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that sends AuthSASL with only unsupported mechanisms.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   var _authed: Bool = false
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     if not _authed then
       _authed = true
       let mechanisms: Array[String] val =
@@ -815,16 +815,16 @@ actor \nodoc\ _SCRAMUnsupportedTestServer
           mechanisms).bytes()
       _tcp_connection.send(sasl)
     end
-    lori.KeepReading
+    net.KeepReading
 
-actor \nodoc\ _SCRAMErrorTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _SCRAMErrorTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -832,10 +832,10 @@ actor \nodoc\ _SCRAMErrorTestListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMErrorTestServer =>
@@ -847,7 +847,7 @@ actor \nodoc\ _SCRAMErrorTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port),
         DatabaseConnectInfo("postgres", "postgres", "postgres"),
@@ -860,28 +860,28 @@ actor \nodoc\ _SCRAMErrorTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _SCRAMErrorTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that starts a SCRAM exchange then sends an ErrorResponse
   with code 28P01 (invalid password) after receiving SASLInitialResponse.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   var _authed: Bool = false
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if not _authed then
@@ -908,18 +908,18 @@ actor \nodoc\ _SCRAMErrorTestServer
       end
     end
 
-actor \nodoc\ _SCRAMSkipSASLFinalTestListener is lori.TCPListenerActor
+actor \nodoc\ _SCRAMSkipSASLFinalTestListener is net.TCPListenerActor
   """
   Listener for `_TestSCRAMServerSkipsSASLFinal`. Spawns a mock server that
   skips SASLFinal in the SCRAM exchange and connects a client session.
   """
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -927,10 +927,10 @@ actor \nodoc\ _SCRAMSkipSASLFinalTestListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMSkipSASLFinalTestServer =>
@@ -943,7 +943,7 @@ actor \nodoc\ _SCRAMSkipSASLFinalTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port),
         DatabaseConnectInfo("postgres", "postgres", "postgres"),
@@ -956,32 +956,32 @@ actor \nodoc\ _SCRAMSkipSASLFinalTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _SCRAMSkipSASLFinalTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that runs a SCRAM-SHA-256 exchange through
   AuthenticationSASLContinue, receives the client's SASLResponse, then
   skips SASLFinal entirely and sends AuthenticationOk + ReadyForQuery.
   The client must reject this as a protocol violation.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _h: TestHelper
   var _state: U8 = 0
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32, h: TestHelper) =>
+  new create(auth: net.TCPServerAuth, fd: U32, h: TestHelper) =>
     _h = h
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -1028,18 +1028,18 @@ actor \nodoc\ _SCRAMSkipSASLFinalTestServer
       end
     end
 
-actor \nodoc\ _SCRAMDuplicateSASLContinueTestListener is lori.TCPListenerActor
+actor \nodoc\ _SCRAMDuplicateSASLContinueTestListener is net.TCPListenerActor
   """
   Listener for `_TestSCRAMDuplicateSASLContinue`. Spawns a mock server
   that sends two SASLContinue messages back-to-back.
   """
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1047,10 +1047,10 @@ actor \nodoc\ _SCRAMDuplicateSASLContinueTestListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMDuplicateSASLContinueTestServer =>
@@ -1064,7 +1064,7 @@ actor \nodoc\ _SCRAMDuplicateSASLContinueTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port),
         DatabaseConnectInfo("postgres", "postgres", "postgres"),
@@ -1077,7 +1077,7 @@ actor \nodoc\ _SCRAMDuplicateSASLContinueTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _SCRAMDuplicateSASLContinueTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that answers the client's SASLInitialResponse with two
   AuthenticationSASLContinue messages sent in a single TCP write. The
@@ -1085,25 +1085,25 @@ actor \nodoc\ _SCRAMDuplicateSASLContinueTestServer
   state; the second must be rejected by the duplicate-SASLContinue
   guard.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _h: TestHelper
   var _state: U8 = 0
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32, h: TestHelper) =>
+  new create(auth: net.TCPServerAuth, fd: U32, h: TestHelper) =>
     _h = h
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -1139,18 +1139,18 @@ actor \nodoc\ _SCRAMDuplicateSASLContinueTestServer
     end
 
 actor \nodoc\ _SCRAMSASLFinalBeforeContinueTestListener
-  is lori.TCPListenerActor
+  is net.TCPListenerActor
   """
   Listener for `_TestSCRAMSASLFinalBeforeSASLContinue`. Spawns a mock
   server that sends SASLFinal without ever sending SASLContinue.
   """
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1158,10 +1158,10 @@ actor \nodoc\ _SCRAMSASLFinalBeforeContinueTestListener
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMSASLFinalBeforeContinueTestServer =>
@@ -1175,7 +1175,7 @@ actor \nodoc\ _SCRAMSASLFinalBeforeContinueTestListener
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port),
         DatabaseConnectInfo("postgres", "postgres", "postgres"),
@@ -1188,30 +1188,30 @@ actor \nodoc\ _SCRAMSASLFinalBeforeContinueTestListener
     _h.complete(false)
 
 actor \nodoc\ _SCRAMSASLFinalBeforeContinueTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that answers the client's SASLInitialResponse with a
   SASLFinal directly, without a preceding SASLContinue. The SASLFinal
   body starts with "v=" but the client has no expected signature to
   compare against.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   var _state: U8 = 0
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -1238,19 +1238,19 @@ actor \nodoc\ _SCRAMSASLFinalBeforeContinueTestServer
       end
     end
 
-actor \nodoc\ _SCRAMMalformedSASLFinalTestListener is lori.TCPListenerActor
+actor \nodoc\ _SCRAMMalformedSASLFinalTestListener is net.TCPListenerActor
   """
   Listener for `_TestSCRAMMalformedSASLFinal`. Spawns a mock server that
   completes SCRAM up to SASLFinal, then sends a SASLFinal payload that
   does not begin with "v=".
   """
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1258,10 +1258,10 @@ actor \nodoc\ _SCRAMMalformedSASLFinalTestListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMMalformedSASLFinalTestServer =>
@@ -1275,7 +1275,7 @@ actor \nodoc\ _SCRAMMalformedSASLFinalTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port),
         DatabaseConnectInfo("postgres", "postgres", "postgres"),
@@ -1288,32 +1288,32 @@ actor \nodoc\ _SCRAMMalformedSASLFinalTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _SCRAMMalformedSASLFinalTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that runs a SCRAM-SHA-256 exchange through
   AuthenticationSASLContinue, receives the client's SASLResponse, then
   sends an AuthenticationSASLFinal whose payload does not begin with
   "v=". The client must treat this as a protocol violation.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _h: TestHelper
   var _state: U8 = 0
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32, h: TestHelper) =>
+  new create(auth: net.TCPServerAuth, fd: U32, h: TestHelper) =>
     _h = h
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -1353,19 +1353,19 @@ actor \nodoc\ _SCRAMMalformedSASLFinalTestServer
       end
     end
 
-actor \nodoc\ _SCRAMNonceMismatchTestListener is lori.TCPListenerActor
+actor \nodoc\ _SCRAMNonceMismatchTestListener is net.TCPListenerActor
   """
   Listener for `_TestSCRAMNonceMismatch`. Spawns a mock server that sends
   a SASLContinue whose combined nonce does not include the client's
   nonce.
   """
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1373,10 +1373,10 @@ actor \nodoc\ _SCRAMNonceMismatchTestListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMNonceMismatchTestServer =>
@@ -1389,7 +1389,7 @@ actor \nodoc\ _SCRAMNonceMismatchTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port),
         DatabaseConnectInfo("postgres", "postgres", "postgres"),
@@ -1402,29 +1402,29 @@ actor \nodoc\ _SCRAMNonceMismatchTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _SCRAMNonceMismatchTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server whose SASLContinue carries a combined nonce that does not
   begin with the client's nonce. The client's nonce-prefix check must
   reject as a protocol violation.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   var _state: U8 = 0
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -1457,18 +1457,18 @@ actor \nodoc\ _SCRAMNonceMismatchTestServer
     end
 
 actor \nodoc\ _SCRAMMalformedSASLContinueTestListener
-  is lori.TCPListenerActor
+  is net.TCPListenerActor
   """
   Listener for `_TestSCRAMMalformedSASLContinue`. Spawns a mock server
   that sends a SASLContinue whose iteration count is not a number.
   """
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1476,10 +1476,10 @@ actor \nodoc\ _SCRAMMalformedSASLContinueTestListener
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SCRAMMalformedSASLContinueTestServer =>
@@ -1493,7 +1493,7 @@ actor \nodoc\ _SCRAMMalformedSASLContinueTestListener
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port),
         DatabaseConnectInfo("postgres", "postgres", "postgres"),
@@ -1506,32 +1506,32 @@ actor \nodoc\ _SCRAMMalformedSASLContinueTestListener
     _h.complete(false)
 
 actor \nodoc\ _SCRAMMalformedSASLContinueTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server whose SASLContinue uses the client's nonce (so the nonce
   prefix check passes) but has a non-numeric `i=` field. The client's
   outer `try`/`else` parse-failure path must fire
   `pg_session_connection_failed` with `ServerVerificationFailed`.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _h: TestHelper
   var _state: U8 = 0
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32, h: TestHelper) =>
+  new create(auth: net.TCPServerAuth, fd: U32, h: TestHelper) =>
     _h = h
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -1810,7 +1810,7 @@ class \nodoc\ iso _TestConnectionFailedOnServerRejection is UnitTest
 
     let listener =
       _TooManyConnectionsTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -1818,14 +1818,14 @@ class \nodoc\ iso _TestConnectionFailedOnServerRejection is UnitTest
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
-actor \nodoc\ _TooManyConnectionsTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _TooManyConnectionsTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1833,10 +1833,10 @@ actor \nodoc\ _TooManyConnectionsTestListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _TooManyConnectionsTestServer =>
@@ -1849,7 +1849,7 @@ actor \nodoc\ _TooManyConnectionsTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port),
         DatabaseConnectInfo("postgres", "postgres", "postgres"),
@@ -1861,26 +1861,26 @@ actor \nodoc\ _TooManyConnectionsTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _TooManyConnectionsTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that immediately rejects the startup message with SQLSTATE
   53300 (too_many_connections), closing the connection without requesting
   authentication.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   var _sent: Bool = false
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     if not _sent then
       match _reader.read_startup_message()
@@ -1895,7 +1895,7 @@ actor \nodoc\ _TooManyConnectionsTestServer
         _tcp_connection.close()
       end
     end
-    lori.KeepReading
+    net.KeepReading
 
 actor \nodoc\ _TooManyConnectionsTestNotify is SessionStatusNotify
   let _h: TestHelper

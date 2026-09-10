@@ -1,10 +1,10 @@
 use "buffered"
 use "encode/base64"
-use lori = "lori"
+use net = "net"
 use "ssl/crypto"
 
 
-actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
+actor Session is (net.TCPConnectionActor & net.ClientLifecycleEventReceiver)
   """
   The main entry point for interacting with a PostgreSQL server. Manages the
   connection lifecycle — connecting, authenticating, executing queries, and
@@ -27,10 +27,10 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   Most operations accept an optional `statement_timeout` parameter. When
   provided, the driver automatically sends a CancelRequest if the operation
   does not complete within the given duration. Construct the timeout with
-  `lori.MakeTimerDuration(milliseconds)`.
+  `net.MakeTimerDuration(milliseconds)`.
   """
   var state: _SessionState
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _server_connect_info: ServerConnectInfo
 
   new create(
@@ -49,7 +49,7 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
         registry)
 
     _tcp_connection =
-      lori.TCPConnection.client(
+      net.TCPConnection.client(
         server_connect_info'.auth,
         server_connect_info'.host,
         server_connect_info'.service,
@@ -63,7 +63,7 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   be execute(
     query: Query,
     receiver: ResultReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     """
     Execute a query. If `statement_timeout` is provided, the query will be
@@ -76,7 +76,7 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     name: String,
     sql: String,
     receiver: PrepareReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     """
     Prepare a named server-side statement. The SQL string must contain a single
@@ -110,7 +110,7 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   be copy_in(
     sql: String,
     receiver: CopyInReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     """
     Start a COPY ... FROM STDIN operation. The SQL string should be a COPY
@@ -148,7 +148,7 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   be copy_out(
     sql: String,
     receiver: CopyOutReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     """
     Start a COPY ... TO STDOUT operation. The SQL string should be a COPY
@@ -164,7 +164,7 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     query: (PreparedQuery | NamedPreparedQuery),
     window_size: U32,
     receiver: StreamingResultReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     """
     Start a streaming query that delivers rows in windowed batches via
@@ -202,7 +202,7 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
 
   be pipeline(queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
     receiver: PipelineReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     """
     Execute multiple queries in a single pipeline. All queries are sent to the
@@ -231,7 +231,7 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   be _process_again() =>
     state.process_responses(this)
 
-  fun ref _on_timer(token: lori.TimerToken) =>
+  fun ref _on_timer(token: net.TimerToken) =>
     state.on_timer(this, token)
 
   fun ref _on_timer_failure() =>
@@ -257,7 +257,7 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     _on_timer_failure()
 
   fun ref _on_idle_timer_failure() =>
-    // postgres never arms lori's idle timer, so this callback firing is a
+    // postgres never arms net's idle timer, so this callback firing is a
     // contract violation.
     _IllegalState()
 
@@ -265,32 +265,32 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     state.on_connected(this)
 
   fun ref _on_connection_failure(
-    reason: lori.ConnectionFailureReason)
+    reason: net.ConnectionFailureReason)
   =>
     let r: ConnectionFailureReason =
       match \exhaustive\ reason
-      | let _: lori.ConnectionFailedDNS =>
+      | let _: net.ConnectionFailedDNS =>
         ConnectionFailedDNS
-      | let _: lori.ConnectionFailedTCP =>
+      | let _: net.ConnectionFailedTCP =>
         ConnectionFailedTCP
-      | let _: lori.ConnectionFailedSSL =>
+      | let _: net.ConnectionFailedSSL =>
         TLSHandshakeFailed
-      | let _: lori.ConnectionFailedTimeout =>
+      | let _: net.ConnectionFailedTimeout =>
         ConnectionFailedTimeout
-      | let _: lori.ConnectionFailedTimerError =>
+      | let _: net.ConnectionFailedTimerError =>
         ConnectionFailedTimerError
       end
     state.on_connection_failed(this, r)
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     state.on_received(this, consume data)
-    lori.KeepReading
+    net.KeepReading
 
   // Routed through the state machine. Each state handles peer close
   // through its own `on_closed` — pre-ready states deliver
   // `pg_session_connection_failed(ConnectionClosedByServer)`;
   // `_SessionLoggedIn` notifies any in-flight query; `_SessionClosed`
-  // is a no-op so lori's follow-up after user-initiated close or TLS
+  // is a no-op so net's follow-up after user-initiated close or TLS
   // failure does not double-notify.
   fun ref _on_closed() =>
     state.on_closed(this)
@@ -299,16 +299,16 @@ actor Session is (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
     state.on_tls_ready(this)
 
   fun ref _on_tls_failure(
-    reason: lori.TLSFailureReason)
+    reason: net.TLSFailureReason)
   =>
     let r: ConnectionFailureReason =
       match \exhaustive\ reason
-      | let _: lori.TLSAuthFailed => TLSAuthFailed
-      | let _: lori.TLSGeneralError => TLSHandshakeFailed
+      | let _: net.TLSAuthFailed => TLSAuthFailed
+      | let _: net.TLSGeneralError => TLSHandshakeFailed
       end
     state.on_connection_failed(this, r)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
   fun server_connect_info(): ServerConnectInfo =>
@@ -339,7 +339,7 @@ class ref _SessionUnopened is _ConnectableState
     s: Session ref,
     q: Query,
     r: ResultReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     r.pg_query_failed(s, q, SessionNeverOpened)
 
@@ -348,7 +348,7 @@ class ref _SessionUnopened is _ConnectableState
     name: String,
     sql: String,
     receiver: PrepareReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_prepare_failed(s, name, SessionNeverOpened)
 
@@ -356,7 +356,7 @@ class ref _SessionUnopened is _ConnectableState
     s: Session ref,
     sql: String,
     receiver: CopyInReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionNeverOpened)
 
@@ -364,7 +364,7 @@ class ref _SessionUnopened is _ConnectableState
     s: Session ref,
     sql: String,
     receiver: CopyOutReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionNeverOpened)
 
@@ -373,7 +373,7 @@ class ref _SessionUnopened is _ConnectableState
     query: (PreparedQuery | NamedPreparedQuery),
     window_size: U32,
     receiver: StreamingResultReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_stream_failed(s, query, SessionNeverOpened)
 
@@ -381,7 +381,7 @@ class ref _SessionUnopened is _ConnectableState
     s: Session ref,
     queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
     receiver: PipelineReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     for (i, q) in queries.pairs() do
       receiver.pg_pipeline_failed(s, i, q, SessionNeverOpened)
@@ -410,7 +410,7 @@ class ref _SessionUnopened is _ConnectableState
     _IllegalState()
 
   fun ref on_closed(s: Session ref) =>
-    // No TCP connection has ever existed in this state — lori cannot fire
+    // No TCP connection has ever existed in this state —net cannot fire
     // `_on_closed` before `_on_connected` or `_on_connection_failure`.
     _IllegalState()
 
@@ -419,7 +419,7 @@ class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
     s: Session ref,
     q: Query,
     r: ResultReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     r.pg_query_failed(s, q, SessionClosed)
 
@@ -428,7 +428,7 @@ class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
     name: String,
     sql: String,
     receiver: PrepareReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_prepare_failed(s, name, SessionClosed)
 
@@ -436,7 +436,7 @@ class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
     s: Session ref,
     sql: String,
     receiver: CopyInReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionClosed)
 
@@ -444,7 +444,7 @@ class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
     s: Session ref,
     sql: String,
     receiver: CopyOutReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionClosed)
 
@@ -453,7 +453,7 @@ class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
     query: (PreparedQuery | NamedPreparedQuery),
     window_size: U32,
     receiver: StreamingResultReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_stream_failed(s, query, SessionClosed)
 
@@ -461,7 +461,7 @@ class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
     s: Session ref,
     queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
     receiver: PipelineReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     for (i, q) in queries.pairs() do
       receiver.pg_pipeline_failed(s, i, q, SessionClosed)
@@ -481,9 +481,9 @@ class ref _SessionClosed is (_NotConnectableState & _UnconnectedState)
 
   fun ref on_closed(s: Session ref) =>
     // Reachable after the session has already shut down and transitioned
-    // here: either user-initiated close (lori fires `_on_closed` after
+    // here: either user-initiated close (net fires `_on_closed` after
     // the resulting `hard_close()`), or a TLS-handshake failure where
-    // lori fires `_on_tls_failure` followed by `_on_closed`. Firing
+    // net fires `_on_tls_failure` followed by `_on_closed`. Firing
     // callbacks again would double-notify the application.
     None
 
@@ -504,7 +504,7 @@ class ref _SessionSSLNegotiating
   """
   let _notify: SessionStatusNotify
   let _database_connect_info: DatabaseConnectInfo
-  let _ssl_ctx: lori.SSLContext val
+  let _ssl_ctx: net.SSLContext val
   let _host: String
   let _fallback_on_refusal: Bool
   let _codec_registry: CodecRegistry
@@ -513,7 +513,7 @@ class ref _SessionSSLNegotiating
   new ref create(
     notify': SessionStatusNotify,
     database_connect_info': DatabaseConnectInfo,
-    ssl_ctx': lori.SSLContext val,
+    ssl_ctx': net.SSLContext val,
     host': String,
     fallback_on_refusal': Bool,
     codec_registry': CodecRegistry = CodecRegistry)
@@ -531,9 +531,9 @@ class ref _SessionSSLNegotiating
 
   fun ref on_received(s: Session ref, data: Array[U8] iso) =>
     if _handshake_started then
-      // Invariant: lori handles socket I/O during the TLS handshake and does
+      // Invariant:net handles socket I/O during the TLS handshake and does
       // not deliver application data until on_tls_ready fires. Reaching this
-      // branch means lori's contract has been violated — a crash is the
+      // branch means net's contract has been violated — a crash is the
       // correct response.
       _IllegalState()
     end
@@ -544,7 +544,7 @@ class ref _SessionSSLNegotiating
         match \exhaustive\ s._connection().start_tls(_ssl_ctx, _host)
         | None =>
           _handshake_started = true
-        | let _: lori.StartTLSError =>
+        | let _: net.StartTLSError =>
           _connection_failed(s, TLSHandshakeFailed)
         end
       elseif response == 'N' then
@@ -565,10 +565,10 @@ class ref _SessionSSLNegotiating
 
   fun ref _proceed_to_connected(s: Session ref) =>
     // Reset buffer_until from 1 (set during SSLRequest) to streaming (deliver
-    // all available bytes). Critical: lori preserves the buffer_until value
+    // all available bytes). Critical:net preserves the buffer_until value
     // across start_tls(). Without this reset, decrypted data would be delivered
     // 1 byte at a time, breaking _ResponseParser.
-    s._connection().buffer_until(lori.Streaming)
+    s._connection().buffer_until(net.Streaming)
     s.state =
       _SessionConnected(
         _notify, _database_connect_info, _codec_registry)
@@ -583,7 +583,7 @@ class ref _SessionSSLNegotiating
     reason: ConnectionFailureReason)
   =>
     """
-    Entry point for failures reported by lori — the TLS handshake failure
+    Entry point for failures reported bynet — the TLS handshake failure
     path (Session._on_tls_failure) and the peer-close path
     (Session._on_closed, routed via `on_closed` below). Lori has already
     closed the TCP connection on its side by the time this fires, so we
@@ -604,7 +604,7 @@ class ref _SessionSSLNegotiating
     s: Session ref,
     q: Query,
     r: ResultReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     r.pg_query_failed(s, q, SessionNotAuthenticated)
 
@@ -613,7 +613,7 @@ class ref _SessionSSLNegotiating
     name: String,
     sql: String,
     receiver: PrepareReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_prepare_failed(s, name, SessionNotAuthenticated)
 
@@ -621,7 +621,7 @@ class ref _SessionSSLNegotiating
     s: Session ref,
     sql: String,
     receiver: CopyInReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionNotAuthenticated)
 
@@ -629,7 +629,7 @@ class ref _SessionSSLNegotiating
     s: Session ref,
     sql: String,
     receiver: CopyOutReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionNotAuthenticated)
 
@@ -638,7 +638,7 @@ class ref _SessionSSLNegotiating
     query: (PreparedQuery | NamedPreparedQuery),
     window_size: U32,
     receiver: StreamingResultReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_stream_failed(s, query, SessionNotAuthenticated)
 
@@ -646,7 +646,7 @@ class ref _SessionSSLNegotiating
     s: Session ref,
     queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
     receiver: PipelineReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     for (i, q) in queries.pairs() do
       receiver.pg_pipeline_failed(s, i, q, SessionNotAuthenticated)
@@ -685,7 +685,7 @@ class ref _SessionSSLNegotiating
   fun ref cancel(s: Session ref) =>
     None
 
-  fun ref on_timer(s: Session ref, token: lori.TimerToken) =>
+  fun ref on_timer(s: Session ref, token: net.TimerToken) =>
     None
 
   fun ref on_timer_failure(s: Session ref) =>
@@ -712,7 +712,7 @@ class ref _SessionSSLNegotiating
     is still live, so this helper closes it before firing the failure and
     shutdown callbacks.
 
-    For failures reported by lori (where lori has already closed the TCP
+    For failures reported bynet (wherenet has already closed the TCP
     connection), use `on_connection_failed` instead.
     """
     s._connection().close()
@@ -748,7 +748,7 @@ class ref _SessionConnected is _AuthenticableState
     s: Session ref,
     q: Query,
     r: ResultReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     r.pg_query_failed(s, q, SessionNotAuthenticated)
 
@@ -757,7 +757,7 @@ class ref _SessionConnected is _AuthenticableState
     name: String,
     sql: String,
     receiver: PrepareReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_prepare_failed(s, name, SessionNotAuthenticated)
 
@@ -765,7 +765,7 @@ class ref _SessionConnected is _AuthenticableState
     s: Session ref,
     sql: String,
     receiver: CopyInReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionNotAuthenticated)
 
@@ -773,7 +773,7 @@ class ref _SessionConnected is _AuthenticableState
     s: Session ref,
     sql: String,
     receiver: CopyOutReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionNotAuthenticated)
 
@@ -782,7 +782,7 @@ class ref _SessionConnected is _AuthenticableState
     query: (PreparedQuery | NamedPreparedQuery),
     window_size: U32,
     receiver: StreamingResultReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_stream_failed(s, query, SessionNotAuthenticated)
 
@@ -790,7 +790,7 @@ class ref _SessionConnected is _AuthenticableState
     s: Session ref,
     queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
     receiver: PipelineReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     for (i, q) in queries.pairs() do
       receiver.pg_pipeline_failed(s, i, q, SessionNotAuthenticated)
@@ -992,7 +992,7 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
     s: Session ref,
     q: Query,
     r: ResultReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     r.pg_query_failed(s, q, SessionNotAuthenticated)
 
@@ -1001,7 +1001,7 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
     name: String,
     sql: String,
     receiver: PrepareReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_prepare_failed(s, name, SessionNotAuthenticated)
 
@@ -1009,7 +1009,7 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
     s: Session ref,
     sql: String,
     receiver: CopyInReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionNotAuthenticated)
 
@@ -1017,7 +1017,7 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
     s: Session ref,
     sql: String,
     receiver: CopyOutReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_copy_failed(s, SessionNotAuthenticated)
 
@@ -1026,7 +1026,7 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
     query: (PreparedQuery | NamedPreparedQuery),
     window_size: U32,
     receiver: StreamingResultReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     receiver.pg_stream_failed(s, query, SessionNotAuthenticated)
 
@@ -1034,7 +1034,7 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
     s: Session ref,
     queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
     receiver: PipelineReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     for (i, q) in queries.pairs() do
       receiver.pg_pipeline_failed(s, i, q, SessionNotAuthenticated)
@@ -1065,12 +1065,12 @@ class ref _SessionSCRAMAuthenticating is (_ConnectedState & _NotAuthenticated)
 class val _QueuedQuery
   let query: Query
   let receiver: ResultReceiver
-  let statement_timeout: (lori.TimerDuration | None)
+  let statement_timeout: (net.TimerDuration | None)
 
   new val create(
     query': Query,
     receiver': ResultReceiver,
-    statement_timeout': (lori.TimerDuration | None) = None)
+    statement_timeout': (net.TimerDuration | None) = None)
   =>
     query = query'
     receiver = receiver'
@@ -1080,13 +1080,13 @@ class val _QueuedPrepare
   let name: String
   let sql: String
   let receiver: PrepareReceiver
-  let statement_timeout: (lori.TimerDuration | None)
+  let statement_timeout: (net.TimerDuration | None)
 
   new val create(
     name': String,
     sql': String,
     receiver': PrepareReceiver,
-    statement_timeout': (lori.TimerDuration | None) = None)
+    statement_timeout': (net.TimerDuration | None) = None)
   =>
     name = name'
     sql = sql'
@@ -1102,12 +1102,12 @@ class val _QueuedCloseStatement
 class val _QueuedCopyIn
   let sql: String
   let receiver: CopyInReceiver
-  let statement_timeout: (lori.TimerDuration | None)
+  let statement_timeout: (net.TimerDuration | None)
 
   new val create(
     sql': String,
     receiver': CopyInReceiver,
-    statement_timeout': (lori.TimerDuration | None) = None)
+    statement_timeout': (net.TimerDuration | None) = None)
   =>
     sql = sql'
     receiver = receiver'
@@ -1116,12 +1116,12 @@ class val _QueuedCopyIn
 class val _QueuedCopyOut
   let sql: String
   let receiver: CopyOutReceiver
-  let statement_timeout: (lori.TimerDuration | None)
+  let statement_timeout: (net.TimerDuration | None)
 
   new val create(
     sql': String,
     receiver': CopyOutReceiver,
-    statement_timeout': (lori.TimerDuration | None) = None)
+    statement_timeout': (net.TimerDuration | None) = None)
   =>
     sql = sql'
     receiver = receiver'
@@ -1134,13 +1134,13 @@ class val _QueuedStreamingQuery
   let query: (PreparedQuery | NamedPreparedQuery)
   let window_size: U32
   let receiver: StreamingResultReceiver
-  let statement_timeout: (lori.TimerDuration | None)
+  let statement_timeout: (net.TimerDuration | None)
 
   new val create(
     query': (PreparedQuery | NamedPreparedQuery),
     window_size': U32,
     receiver': StreamingResultReceiver,
-    statement_timeout': (lori.TimerDuration | None) = None)
+    statement_timeout': (net.TimerDuration | None) = None)
   =>
     query = query'
     window_size = window_size'
@@ -1153,12 +1153,12 @@ class val _QueuedPipeline
   """
   let queries: Array[(PreparedQuery | NamedPreparedQuery)] val
   let receiver: PipelineReceiver
-  let statement_timeout: (lori.TimerDuration | None)
+  let statement_timeout: (net.TimerDuration | None)
 
   new val create(
     queries': Array[(PreparedQuery | NamedPreparedQuery)] val,
     receiver': PipelineReceiver,
-    statement_timeout': (lori.TimerDuration | None) = None)
+    statement_timeout': (net.TimerDuration | None) = None)
   =>
     queries = queries'
     receiver = receiver'
@@ -1188,7 +1188,7 @@ class _SessionLoggedIn is _AuthenticatedState
   var backend_pid: I32 = 0
   var backend_secret_key: I32 = 0
   let codec_registry: CodecRegistry
-  var statement_timer: (lori.TimerToken | None) = None
+  var statement_timer: (net.TimerToken | None) = None
   let _notify: SessionStatusNotify
   let _readbuf: Reader
 
@@ -1256,9 +1256,9 @@ class _SessionLoggedIn is _AuthenticatedState
     _notify.pg_session_shutdown(s)
     s.state = _SessionClosed
 
-  fun ref on_timer(s: Session ref, token: lori.TimerToken) =>
+  fun ref on_timer(s: Session ref, token: net.TimerToken) =>
     match statement_timer
-    | let t: lori.TimerToken if t == token =>
+    | let t: net.TimerToken if t == token =>
       statement_timer = None
       _CancelSender(s.server_connect_info(), backend_pid, backend_secret_key)
     end
@@ -1283,21 +1283,21 @@ class _SessionLoggedIn is _AuthenticatedState
         | let pl: _QueuedPipeline => pl.statement_timeout
         end
       match timeout
-      | let d: lori.TimerDuration =>
+      | let d: net.TimerDuration =>
         match \exhaustive\ s._connection().set_timer(d)
-        | let t: lori.TimerToken => statement_timer = t
-        | let _: lori.SetTimerError => None
+        | let t: net.TimerToken => statement_timer = t
+        | let _: net.SetTimerError => None
         end
       end
     end
-    // Empty queue is an invariant violation for a real lori dispatch (the
+    // Empty queue is an invariant violation for a realnet dispatch (the
     // timer is only armed while a queue item is at the head), but the
     // interface's "never illegal, silently ignore" contract still applies.
     // Silently no-op rather than panic.
 
   fun ref cancel_statement_timer(s: Session ref) =>
     match statement_timer
-    | let t: lori.TimerToken =>
+    | let t: net.TimerToken =>
       s._connection().cancel_timer(t)
       statement_timer = None
     end
@@ -1316,7 +1316,7 @@ class _SessionLoggedIn is _AuthenticatedState
   fun ref execute(s: Session ref,
     query: Query,
     receiver: ResultReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     query_queue.push(_QueuedQuery(query, receiver, statement_timeout))
     query_state.try_run_query(s, this)
@@ -1326,7 +1326,7 @@ class _SessionLoggedIn is _AuthenticatedState
     name: String,
     sql: String,
     receiver: PrepareReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     query_queue.push(_QueuedPrepare(name, sql, receiver, statement_timeout))
     query_state.try_run_query(s, this)
@@ -1339,7 +1339,7 @@ class _SessionLoggedIn is _AuthenticatedState
     s: Session ref,
     sql: String,
     receiver: CopyInReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     query_queue.push(_QueuedCopyIn(sql, receiver, statement_timeout))
     query_state.try_run_query(s, this)
@@ -1348,7 +1348,7 @@ class _SessionLoggedIn is _AuthenticatedState
     s: Session ref,
     sql: String,
     receiver: CopyOutReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     query_queue.push(_QueuedCopyOut(sql, receiver, statement_timeout))
     query_state.try_run_query(s, this)
@@ -1358,7 +1358,7 @@ class _SessionLoggedIn is _AuthenticatedState
     query: (PreparedQuery | NamedPreparedQuery),
     window_size: U32,
     receiver: StreamingResultReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     query_queue.push(
       _QueuedStreamingQuery(query, window_size, receiver, statement_timeout))
@@ -1368,7 +1368,7 @@ class _SessionLoggedIn is _AuthenticatedState
     s: Session ref,
     queries: Array[(PreparedQuery | NamedPreparedQuery)] val,
     receiver: PipelineReceiver,
-    statement_timeout: (lori.TimerDuration | None) = None)
+    statement_timeout: (net.TimerDuration | None) = None)
   =>
     query_queue.push(_QueuedPipeline(queries, receiver, statement_timeout))
     query_state.try_run_query(s, this)

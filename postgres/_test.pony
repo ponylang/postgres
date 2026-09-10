@@ -1,5 +1,5 @@
 use "cli"
-use lori = "lori"
+use net = "net"
 use "pony_check"
 use "pony_test"
 
@@ -636,7 +636,7 @@ class \nodoc\ iso _TestAuthenticate is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         _AuthenticateTestNotify(h, true))
@@ -659,7 +659,7 @@ class \nodoc\ iso _TestAuthenticateFailure is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username,
           info.password + " " + info.password,
@@ -713,7 +713,7 @@ class \nodoc\ iso _TestConnect is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         _ConnectTestNotify(h, true))
@@ -738,7 +738,7 @@ class \nodoc\ iso _TestConnectFailure is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           host,
           info.port.reverse()),
         DatabaseConnectInfo(

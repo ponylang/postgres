@@ -1,4 +1,4 @@
-use lori = "lori"
+use net = "net"
 
 primitive SSLDisabled
   """
@@ -18,18 +18,18 @@ class val SSLPreferred
   matching PostgreSQL's `sslmode=prefer` behavior.
 
   The `SSLContext` controls certificate and cipher configuration. Users must
-  `use lori = "lori"` in their own code to create an `SSLContext val`:
+  `use "net"` in their own code to create an `SSLContext val`:
 
       let sslctx = recover val
-        lori.SSLContext
+        SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
       SSLPreferred(sslctx)
   """
-  let ctx: lori.SSLContext val
+  let ctx: net.SSLContext val
 
-  new val create(ctx': lori.SSLContext val) =>
+  new val create(ctx': net.SSLContext val) =>
     ctx = ctx'
 
 class val SSLRequired
@@ -39,18 +39,18 @@ class val SSLRequired
   authentication begins.
 
   The `SSLContext` controls certificate and cipher configuration. Users must
-  `use lori = "lori"` in their own code to create an `SSLContext val`:
+  `use "net"` in their own code to create an `SSLContext val`:
 
       let sslctx = recover val
-        lori.SSLContext
+        SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
       SSLRequired(sslctx)
   """
-  let ctx: lori.SSLContext val
+  let ctx: net.SSLContext val
 
-  new val create(ctx': lori.SSLContext val) =>
+  new val create(ctx': net.SSLContext val) =>
     ctx = ctx'
 
 type SSLMode is (SSLDisabled | SSLPreferred | SSLRequired)

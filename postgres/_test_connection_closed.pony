@@ -1,5 +1,5 @@
 use "files"
-use lori = "lori"
+use net = "net"
 use "pony_test"
 
 // Tests for peer-initiated TCP close. Each test puts the session in a
@@ -22,14 +22,14 @@ class \nodoc\ iso _TestRemoteCloseSSLNegotiating is UnitTest
 
     let sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
 
     let listener =
       _RemoteCloseSSLNegotiatingListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h,
@@ -66,29 +66,29 @@ actor \nodoc\ _RemoteCloseSSLNegotiatingNotify is SessionStatusNotify
     end
     _h.complete(true)
 
-actor \nodoc\ _RemoteCloseSSLNegotiatingListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _RemoteCloseSSLNegotiatingListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _sslctx: lori.SSLContext val
+  let _sslctx: net.SSLContext val
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    sslctx: lori.SSLContext val)
+    sslctx: net.SSLContext val)
   =>
     _host = host
     _port = port
     _h = h
     _sslctx = sslctx
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _RemoteCloseAfterSSLRequestServer =>
@@ -100,7 +100,7 @@ actor \nodoc\ _RemoteCloseSSLNegotiatingListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port,
           SSLRequired(_sslctx)),
@@ -113,32 +113,32 @@ actor \nodoc\ _RemoteCloseSSLNegotiatingListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _RemoteCloseAfterSSLRequestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Reads the client's SSLRequest, then closes without responding.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _reader: _MockMessageReader = _MockMessageReader
   var _closed: Bool = false
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
-    if _closed then return lori.KeepReading end
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
+    if _closed then return net.KeepReading end
     _reader.append(consume data)
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
       _closed = true
       _tcp_connection.close()
     end
-    lori.KeepReading
+    net.KeepReading
 
 class \nodoc\ iso _TestRemoteClosePreAuth is UnitTest
   """
@@ -155,7 +155,7 @@ class \nodoc\ iso _TestRemoteClosePreAuth is UnitTest
 
     let listener =
       _RemoteClosePreAuthListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -188,15 +188,15 @@ actor \nodoc\ _RemoteClosePreAuthNotify is SessionStatusNotify
     end
     _h.complete(true)
 
-actor \nodoc\ _RemoteClosePreAuthListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _RemoteClosePreAuthListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -204,10 +204,10 @@ actor \nodoc\ _RemoteClosePreAuthListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _RemoteCloseAfterStartupServer =>
@@ -219,7 +219,7 @@ actor \nodoc\ _RemoteClosePreAuthListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root), _host, _port),
+          net.TCPConnectAuth(_h.env.root), _host, _port),
         DatabaseConnectInfo("postgres", "postgres", "postgres"),
         _RemoteClosePreAuthNotify(_h))
     _h.dispose_when_done(session)
@@ -229,32 +229,32 @@ actor \nodoc\ _RemoteClosePreAuthListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _RemoteCloseAfterStartupServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Reads the client's StartupMessage, then closes without responding.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _reader: _MockMessageReader = _MockMessageReader
   var _closed: Bool = false
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
-    if _closed then return lori.KeepReading end
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
+    if _closed then return net.KeepReading end
     _reader.append(consume data)
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
       _closed = true
       _tcp_connection.close()
     end
-    lori.KeepReading
+    net.KeepReading
 
 class \nodoc\ iso _TestRemoteCloseSCRAM is UnitTest
   """
@@ -272,7 +272,7 @@ class \nodoc\ iso _TestRemoteCloseSCRAM is UnitTest
 
     let listener =
       _RemoteCloseSCRAMListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -305,15 +305,15 @@ actor \nodoc\ _RemoteCloseSCRAMNotify is SessionStatusNotify
     end
     _h.complete(true)
 
-actor \nodoc\ _RemoteCloseSCRAMListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _RemoteCloseSCRAMListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -321,10 +321,10 @@ actor \nodoc\ _RemoteCloseSCRAMListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _RemoteCloseSCRAMServer =>
@@ -336,7 +336,7 @@ actor \nodoc\ _RemoteCloseSCRAMListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root), _host, _port),
+          net.TCPConnectAuth(_h.env.root), _host, _port),
         DatabaseConnectInfo("postgres", "postgres", "postgres"),
         _RemoteCloseSCRAMNotify(_h))
     _h.dispose_when_done(session)
@@ -346,25 +346,25 @@ actor \nodoc\ _RemoteCloseSCRAMListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _RemoteCloseSCRAMServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Starts a SASL SCRAM-SHA-256 exchange, then closes after the client's
   SASLInitialResponse arrives (session state: _SessionSCRAMAuthenticating).
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _reader: _MockMessageReader = _MockMessageReader
   var _phase: USize = 0
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     if _phase == 0 then
       match _reader.read_startup_message()
@@ -382,7 +382,7 @@ actor \nodoc\ _RemoteCloseSCRAMServer
         _tcp_connection.close()
       end
     end
-    lori.KeepReading
+    net.KeepReading
 
 class \nodoc\ iso _TestRemoteCloseLoggedInIdle is UnitTest
   """
@@ -398,7 +398,7 @@ class \nodoc\ iso _TestRemoteCloseLoggedInIdle is UnitTest
 
     let listener =
       _RemoteCloseLoggedInIdleListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -427,15 +427,15 @@ actor \nodoc\ _RemoteCloseLoggedInIdleNotify is SessionStatusNotify
     end
     _h.complete(true)
 
-actor \nodoc\ _RemoteCloseLoggedInIdleListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _RemoteCloseLoggedInIdleListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -443,10 +443,10 @@ actor \nodoc\ _RemoteCloseLoggedInIdleListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _RemoteCloseLoggedInIdleServer =>
@@ -458,7 +458,7 @@ actor \nodoc\ _RemoteCloseLoggedInIdleListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -471,25 +471,25 @@ actor \nodoc\ _RemoteCloseLoggedInIdleListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _RemoteCloseLoggedInIdleServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Authenticates the client, signals ReadyForQuery, then closes.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _reader: _MockMessageReader = _MockMessageReader
   var _closed: Bool = false
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
-    if _closed then return lori.KeepReading end
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
+    if _closed then return net.KeepReading end
     _reader.append(consume data)
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
@@ -500,7 +500,7 @@ actor \nodoc\ _RemoteCloseLoggedInIdleServer
         _IncomingReadyForQueryTestMessage('I').bytes())
       _tcp_connection.close()
     end
-    lori.KeepReading
+    net.KeepReading
 
 class \nodoc\ iso _TestRemoteCloseLoggedInInFlight is UnitTest
   """
@@ -516,7 +516,7 @@ class \nodoc\ iso _TestRemoteCloseLoggedInInFlight is UnitTest
 
     let listener =
       _RemoteCloseLoggedInInFlightListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -576,15 +576,15 @@ actor \nodoc\ _RemoteCloseLoggedInInFlightClient is
     _h.complete(true)
 
 actor \nodoc\ _RemoteCloseLoggedInInFlightListener
-  is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -592,10 +592,10 @@ actor \nodoc\ _RemoteCloseLoggedInInFlightListener
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _RemoteCloseAfterQueryServer =>
@@ -607,7 +607,7 @@ actor \nodoc\ _RemoteCloseLoggedInInFlightListener
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -620,26 +620,26 @@ actor \nodoc\ _RemoteCloseLoggedInInFlightListener
     _h.complete(false)
 
 actor \nodoc\ _RemoteCloseAfterQueryServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Authenticates the client, waits for a message after ReadyForQuery,
   then closes — putting the client in `_SessionLoggedIn` with a query in
   flight.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _reader: _MockMessageReader = _MockMessageReader
   var _authed: Bool = false
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     if not _authed then
       match _reader.read_startup_message()
@@ -656,7 +656,7 @@ actor \nodoc\ _RemoteCloseAfterQueryServer
         _tcp_connection.close()
       end
     end
-    lori.KeepReading
+    net.KeepReading
 
 class \nodoc\ iso _TestRemoteCloseLoggedInPipeline is UnitTest
   """
@@ -673,7 +673,7 @@ class \nodoc\ iso _TestRemoteCloseLoggedInPipeline is UnitTest
 
     let listener =
       _RemoteCloseLoggedInPipelineListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -744,15 +744,15 @@ actor \nodoc\ _RemoteCloseLoggedInPipelineClient is
     _h.complete(true)
 
 actor \nodoc\ _RemoteCloseLoggedInPipelineListener
-  is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -760,10 +760,10 @@ actor \nodoc\ _RemoteCloseLoggedInPipelineListener
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _RemoteCloseAfterQueryServer =>
@@ -778,7 +778,7 @@ actor \nodoc\ _RemoteCloseLoggedInPipelineListener
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -805,7 +805,7 @@ class \nodoc\ iso _TestRemoteCloseExtendedQueryInFlight is UnitTest
 
     let listener =
       _RemoteCloseExtendedQueryListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -853,15 +853,15 @@ actor \nodoc\ _RemoteCloseExtendedQueryClient is
     _h.complete(true)
 
 actor \nodoc\ _RemoteCloseExtendedQueryListener
-  is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -869,10 +869,10 @@ actor \nodoc\ _RemoteCloseExtendedQueryListener
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _RemoteCloseAfterQueryServer =>
@@ -884,7 +884,7 @@ actor \nodoc\ _RemoteCloseExtendedQueryListener
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -910,7 +910,7 @@ class \nodoc\ iso _TestRemoteClosePrepareInFlight is UnitTest
 
     let listener =
       _RemoteClosePrepareListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -955,15 +955,15 @@ actor \nodoc\ _RemoteClosePrepareClient is
     end
     _h.complete(true)
 
-actor \nodoc\ _RemoteClosePrepareListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _RemoteClosePrepareListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -971,10 +971,10 @@ actor \nodoc\ _RemoteClosePrepareListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _RemoteCloseAfterQueryServer =>
@@ -986,7 +986,7 @@ actor \nodoc\ _RemoteClosePrepareListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -1013,7 +1013,7 @@ class \nodoc\ iso _TestRemoteCloseCopyInInFlight is UnitTest
 
     let listener =
       _RemoteCloseCopyInListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1060,15 +1060,15 @@ actor \nodoc\ _RemoteCloseCopyInClient is
     end
     _h.complete(true)
 
-actor \nodoc\ _RemoteCloseCopyInListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _RemoteCloseCopyInListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1076,10 +1076,10 @@ actor \nodoc\ _RemoteCloseCopyInListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _RemoteCloseAfterQueryServer =>
@@ -1091,7 +1091,7 @@ actor \nodoc\ _RemoteCloseCopyInListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -1118,7 +1118,7 @@ class \nodoc\ iso _TestRemoteCloseCopyOutInFlight is UnitTest
 
     let listener =
       _RemoteCloseCopyOutListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1165,15 +1165,15 @@ actor \nodoc\ _RemoteCloseCopyOutClient is
     end
     _h.complete(true)
 
-actor \nodoc\ _RemoteCloseCopyOutListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _RemoteCloseCopyOutListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1181,10 +1181,10 @@ actor \nodoc\ _RemoteCloseCopyOutListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _RemoteCloseAfterQueryServer =>
@@ -1196,7 +1196,7 @@ actor \nodoc\ _RemoteCloseCopyOutListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -1223,7 +1223,7 @@ class \nodoc\ iso _TestRemoteCloseStreamInFlight is UnitTest
 
     let listener =
       _RemoteCloseStreamListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1273,15 +1273,15 @@ actor \nodoc\ _RemoteCloseStreamClient is
     end
     _h.complete(true)
 
-actor \nodoc\ _RemoteCloseStreamListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _RemoteCloseStreamListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1289,10 +1289,10 @@ actor \nodoc\ _RemoteCloseStreamListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _RemoteCloseAfterQueryServer =>
@@ -1304,7 +1304,7 @@ actor \nodoc\ _RemoteCloseStreamListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -1334,7 +1334,7 @@ class \nodoc\ iso _TestRemoteClosePostAuthPreReady is UnitTest
 
     let listener =
       _RemoteClosePostAuthPreReadyListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1364,15 +1364,15 @@ actor \nodoc\ _RemoteClosePostAuthPreReadyNotify is SessionStatusNotify
     _h.complete(true)
 
 actor \nodoc\ _RemoteClosePostAuthPreReadyListener
-  is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1380,10 +1380,10 @@ actor \nodoc\ _RemoteClosePostAuthPreReadyListener
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _RemoteClosePostAuthPreReadyServer =>
@@ -1396,7 +1396,7 @@ actor \nodoc\ _RemoteClosePostAuthPreReadyListener
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -1409,27 +1409,27 @@ actor \nodoc\ _RemoteClosePostAuthPreReadyListener
     _h.complete(false)
 
 actor \nodoc\ _RemoteClosePostAuthPreReadyServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Reads the client's StartupMessage, sends `AuthenticationOk` (no
   `ReadyForQuery`), then closes. Leaves the client in `_SessionLoggedIn`
   with `query_state = _QueryNotReady`.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _reader: _MockMessageReader = _MockMessageReader
   var _closed: Bool = false
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
-    if _closed then return lori.KeepReading end
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
+    if _closed then return net.KeepReading end
     _reader.append(consume data)
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
@@ -1438,7 +1438,7 @@ actor \nodoc\ _RemoteClosePostAuthPreReadyServer
         _IncomingAuthenticationOkTestMessage.bytes())
       _tcp_connection.close()
     end
-    lori.KeepReading
+    net.KeepReading
 
 class \nodoc\ iso _TestRemoteCloseCloseStatementInFlight is UnitTest
   """
@@ -1456,7 +1456,7 @@ class \nodoc\ iso _TestRemoteCloseCloseStatementInFlight is UnitTest
 
     let listener =
       _RemoteCloseCloseStatementListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1487,15 +1487,15 @@ actor \nodoc\ _RemoteCloseCloseStatementClient is SessionStatusNotify
     _h.complete(true)
 
 actor \nodoc\ _RemoteCloseCloseStatementListener
-  is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1503,10 +1503,10 @@ actor \nodoc\ _RemoteCloseCloseStatementListener
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _RemoteCloseAfterQueryServer =>
@@ -1518,7 +1518,7 @@ actor \nodoc\ _RemoteCloseCloseStatementListener
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -1549,7 +1549,7 @@ class \nodoc\ iso _TestRemoteCloseAfterErrorResponse is UnitTest
 
     let listener =
       _RemoteCloseAfterErrorResponseListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1614,15 +1614,15 @@ actor \nodoc\ _RemoteCloseAfterErrorResponseClient is
     _h.complete(true)
 
 actor \nodoc\ _RemoteCloseAfterErrorResponseListener
-  is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1630,10 +1630,10 @@ actor \nodoc\ _RemoteCloseAfterErrorResponseListener
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _RemoteCloseAfterErrorResponseServer =>
@@ -1646,7 +1646,7 @@ actor \nodoc\ _RemoteCloseAfterErrorResponseListener
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -1659,28 +1659,28 @@ actor \nodoc\ _RemoteCloseAfterErrorResponseListener
     _h.complete(false)
 
 actor \nodoc\ _RemoteCloseAfterErrorResponseServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Authenticates the client, waits for a query, then responds with
   `ErrorResponse` and closes WITHOUT sending `ReadyForQuery`. Forces the
   `on_closed`/`drain_in_flight` double-delivery risk.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _reader: _MockMessageReader = _MockMessageReader
   var _authed: Bool = false
   var _closed: Bool = false
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
-    if _closed then return lori.KeepReading end
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
+    if _closed then return net.KeepReading end
     _reader.append(consume data)
     if not _authed then
       match _reader.read_startup_message()
@@ -1701,7 +1701,7 @@ actor \nodoc\ _RemoteCloseAfterErrorResponseServer
         _tcp_connection.close()
       end
     end
-    lori.KeepReading
+    net.KeepReading
 
 class \nodoc\ iso _TestRemoteCloseSSLNegotiatingPreferred is UnitTest
   """
@@ -1720,14 +1720,14 @@ class \nodoc\ iso _TestRemoteCloseSSLNegotiatingPreferred is UnitTest
 
     let sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
 
     let listener =
       _RemoteCloseSSLNegotiatingPreferredListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h,
@@ -1736,29 +1736,29 @@ class \nodoc\ iso _TestRemoteCloseSSLNegotiatingPreferred is UnitTest
     h.long_test(5_000_000_000)
 
 actor \nodoc\ _RemoteCloseSSLNegotiatingPreferredListener
-  is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _sslctx: lori.SSLContext val
+  let _sslctx: net.SSLContext val
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    sslctx: lori.SSLContext val)
+    sslctx: net.SSLContext val)
   =>
     _host = host
     _port = port
     _h = h
     _sslctx = sslctx
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _RemoteCloseAfterSSLRequestServer =>
@@ -1771,7 +1771,7 @@ actor \nodoc\ _RemoteCloseSSLNegotiatingPreferredListener
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port,
           SSLPreferred(_sslctx)),

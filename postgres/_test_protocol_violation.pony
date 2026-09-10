@@ -1,4 +1,4 @@
-use lori = "lori"
+use net = "net"
 use "pony_test"
 
 // Tests for server-driven protocol violations that are detected by the
@@ -37,7 +37,7 @@ class \nodoc\ iso _TestProtocolViolationParseInSCRAM is UnitTest
 
     let listener =
       _PVParseSCRAMListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -67,15 +67,15 @@ actor \nodoc\ _PVParseSCRAMNotify is SessionStatusNotify
     end
     _h.complete(true)
 
-actor \nodoc\ _PVParseSCRAMListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PVParseSCRAMListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -83,10 +83,10 @@ actor \nodoc\ _PVParseSCRAMListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PVParseSCRAMServer =>
@@ -98,7 +98,7 @@ actor \nodoc\ _PVParseSCRAMListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port),
         DatabaseConnectInfo(
@@ -111,26 +111,26 @@ actor \nodoc\ _PVParseSCRAMListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _PVParseSCRAMServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Starts a SASL SCRAM-SHA-256 exchange, then sends unparseable bytes
   after the client's initial response to force a parse failure while
   the session is in `_SessionSCRAMAuthenticating`.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _reader: _MockMessageReader = _MockMessageReader
   var _phase: USize = 0
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     if _phase == 0 then
       match _reader.read_startup_message()
@@ -148,7 +148,7 @@ actor \nodoc\ _PVParseSCRAMServer
         _tcp_connection.send(_IncomingJunkTestMessage.bytes())
       end
     end
-    lori.KeepReading
+    net.KeepReading
 
 class \nodoc\ iso _TestProtocolViolationParseInFlight is UnitTest
   """
@@ -165,7 +165,7 @@ class \nodoc\ iso _TestProtocolViolationParseInFlight is UnitTest
 
     let listener =
       _PVParseInFlightListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -214,15 +214,15 @@ actor \nodoc\ _PVParseInFlightClient is
     end
     _h.complete(true)
 
-actor \nodoc\ _PVParseInFlightListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PVParseInFlightListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -230,10 +230,10 @@ actor \nodoc\ _PVParseInFlightListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PVParseInFlightServer =>
@@ -245,7 +245,7 @@ actor \nodoc\ _PVParseInFlightListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -259,25 +259,25 @@ actor \nodoc\ _PVParseInFlightListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _PVParseInFlightServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Authenticates the client, waits for a SimpleQuery, then replies with
   unparseable bytes to force a parse failure while a query is in flight.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _reader: _MockMessageReader = _MockMessageReader
   var _authed: Bool = false
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     if not _authed then
       match _reader.read_startup_message()
@@ -292,7 +292,7 @@ actor \nodoc\ _PVParseInFlightServer
         _tcp_connection.send(_IncomingJunkTestMessage.bytes())
       end
     end
-    lori.KeepReading
+    net.KeepReading
 
 class \nodoc\ iso _TestProtocolViolationParseIdle is UnitTest
   """
@@ -308,7 +308,7 @@ class \nodoc\ iso _TestProtocolViolationParseIdle is UnitTest
 
     let listener =
       _PVParseIdleListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -338,15 +338,15 @@ actor \nodoc\ _PVParseIdleClient is SessionStatusNotify
     end
     _h.complete(true)
 
-actor \nodoc\ _PVParseIdleListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PVParseIdleListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -354,10 +354,10 @@ actor \nodoc\ _PVParseIdleListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PVParseIdleServer =>
@@ -369,7 +369,7 @@ actor \nodoc\ _PVParseIdleListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -383,24 +383,24 @@ actor \nodoc\ _PVParseIdleListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _PVParseIdleServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Authenticates the client, signals ReadyForQuery, then pushes junk
   while the session is idle (no query in flight).
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
@@ -408,7 +408,7 @@ actor \nodoc\ _PVParseIdleServer
       _tcp_connection.send(_IncomingReadyForQueryTestMessage('I').bytes())
       _tcp_connection.send(_IncomingJunkTestMessage.bytes())
     end
-    lori.KeepReading
+    net.KeepReading
 
 class \nodoc\ iso _TestProtocolViolationWrongStatePreAuth is UnitTest
   """
@@ -426,19 +426,19 @@ class \nodoc\ iso _TestProtocolViolationWrongStatePreAuth is UnitTest
 
     let listener =
       _PVWrongStatePreAuthListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
-actor \nodoc\ _PVWrongStatePreAuthListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PVWrongStatePreAuthListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -446,10 +446,10 @@ actor \nodoc\ _PVWrongStatePreAuthListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PVWrongStatePreAuthServer =>
@@ -461,7 +461,7 @@ actor \nodoc\ _PVWrongStatePreAuthListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port),
         DatabaseConnectInfo(
@@ -474,27 +474,27 @@ actor \nodoc\ _PVWrongStatePreAuthListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _PVWrongStatePreAuthServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Replies to the StartupMessage with a `DataRow`, which is invalid
   pre-auth.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _reader: _MockMessageReader = _MockMessageReader
   var _sent: Bool = false
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
-    if _sent then return lori.KeepReading end
+    if _sent then return net.KeepReading end
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
       _sent = true
@@ -502,7 +502,7 @@ actor \nodoc\ _PVWrongStatePreAuthServer
         recover val [as (String | None): "1"] end
       _tcp_connection.send(_IncomingDataRowTestMessage(cols).bytes())
     end
-    lori.KeepReading
+    net.KeepReading
 
 class \nodoc\ iso _TestProtocolViolationWrongStateSCRAM is UnitTest
   """
@@ -521,19 +521,19 @@ class \nodoc\ iso _TestProtocolViolationWrongStateSCRAM is UnitTest
 
     let listener =
       _PVWrongStateSCRAMListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
-actor \nodoc\ _PVWrongStateSCRAMListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PVWrongStateSCRAMListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -541,10 +541,10 @@ actor \nodoc\ _PVWrongStateSCRAMListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PVWrongStateSCRAMServer =>
@@ -556,7 +556,7 @@ actor \nodoc\ _PVWrongStateSCRAMListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port),
         DatabaseConnectInfo(
@@ -569,25 +569,25 @@ actor \nodoc\ _PVWrongStateSCRAMListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _PVWrongStateSCRAMServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Begins SCRAM-SHA-256, then sends `AuthenticationCleartextPassword`
   mid-exchange.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _reader: _MockMessageReader = _MockMessageReader
   var _phase: USize = 0
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     if _phase == 0 then
       match _reader.read_startup_message()
@@ -606,7 +606,7 @@ actor \nodoc\ _PVWrongStateSCRAMServer
           _IncomingAuthenticationCleartextPasswordTestMessage.bytes())
       end
     end
-    lori.KeepReading
+    net.KeepReading
 
 class \nodoc\ iso _TestProtocolViolationWrongStateIdle is UnitTest
   """
@@ -623,19 +623,19 @@ class \nodoc\ iso _TestProtocolViolationWrongStateIdle is UnitTest
 
     let listener =
       _PVWrongStateIdleListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
-actor \nodoc\ _PVWrongStateIdleListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PVWrongStateIdleListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -643,10 +643,10 @@ actor \nodoc\ _PVWrongStateIdleListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PVWrongStateIdleServer =>
@@ -658,7 +658,7 @@ actor \nodoc\ _PVWrongStateIdleListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -672,24 +672,24 @@ actor \nodoc\ _PVWrongStateIdleListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _PVWrongStateIdleServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Authenticates the client, signals ReadyForQuery, then pushes a second
   `AuthenticationOk` while the session is idle.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
@@ -697,7 +697,7 @@ actor \nodoc\ _PVWrongStateIdleServer
       _tcp_connection.send(_IncomingReadyForQueryTestMessage('I').bytes())
       _tcp_connection.send(_IncomingAuthenticationOkTestMessage.bytes())
     end
-    lori.KeepReading
+    net.KeepReading
 
 class \nodoc\ iso _TestProtocolViolationWrongStateInFlight is UnitTest
   """
@@ -715,19 +715,19 @@ class \nodoc\ iso _TestProtocolViolationWrongStateInFlight is UnitTest
 
     let listener =
       _PVWrongStateInFlightListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
-actor \nodoc\ _PVWrongStateInFlightListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PVWrongStateInFlightListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -735,10 +735,10 @@ actor \nodoc\ _PVWrongStateInFlightListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PVWrongStateInFlightServer =>
@@ -750,7 +750,7 @@ actor \nodoc\ _PVWrongStateInFlightListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -764,26 +764,26 @@ actor \nodoc\ _PVWrongStateInFlightListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _PVWrongStateInFlightServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Authenticates the client, waits for a SimpleQuery, then replies with
   `AuthenticationOk` — a wire-legal message that is invalid in
   `_SessionLoggedIn`.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _reader: _MockMessageReader = _MockMessageReader
   var _authed: Bool = false
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     if not _authed then
       match _reader.read_startup_message()
@@ -798,7 +798,7 @@ actor \nodoc\ _PVWrongStateInFlightServer
         _tcp_connection.send(_IncomingAuthenticationOkTestMessage.bytes())
       end
     end
-    lori.KeepReading
+    net.KeepReading
 
 class \nodoc\ iso _TestProtocolViolationCopyInInFlight is UnitTest
   """
@@ -815,7 +815,7 @@ class \nodoc\ iso _TestProtocolViolationCopyInInFlight is UnitTest
 
     let listener =
       _PVCopyInInFlightListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -864,15 +864,15 @@ actor \nodoc\ _PVCopyInInFlightClient is
     end
     _h.complete(true)
 
-actor \nodoc\ _PVCopyInInFlightListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PVCopyInInFlightListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -880,10 +880,10 @@ actor \nodoc\ _PVCopyInInFlightListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PVParseInFlightServer =>
@@ -895,7 +895,7 @@ actor \nodoc\ _PVCopyInInFlightListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -923,7 +923,7 @@ class \nodoc\ iso _TestProtocolViolationCopyOutInFlight is UnitTest
 
     let listener =
       _PVCopyOutInFlightListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -972,15 +972,15 @@ actor \nodoc\ _PVCopyOutInFlightClient is
     end
     _h.complete(true)
 
-actor \nodoc\ _PVCopyOutInFlightListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PVCopyOutInFlightListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -988,10 +988,10 @@ actor \nodoc\ _PVCopyOutInFlightListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PVParseInFlightServer =>
@@ -1003,7 +1003,7 @@ actor \nodoc\ _PVCopyOutInFlightListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -1031,7 +1031,7 @@ class \nodoc\ iso _TestProtocolViolationPrepareInFlight is UnitTest
 
     let listener =
       _PVPrepareInFlightListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1077,15 +1077,15 @@ actor \nodoc\ _PVPrepareInFlightClient is
     end
     _h.complete(true)
 
-actor \nodoc\ _PVPrepareInFlightListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PVPrepareInFlightListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1093,10 +1093,10 @@ actor \nodoc\ _PVPrepareInFlightListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PVParseInFlightServer =>
@@ -1108,7 +1108,7 @@ actor \nodoc\ _PVPrepareInFlightListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -1136,7 +1136,7 @@ class \nodoc\ iso _TestProtocolViolationStreamInFlight is UnitTest
 
     let listener =
       _PVStreamInFlightListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1194,15 +1194,15 @@ actor \nodoc\ _PVStreamInFlightClient is
     end
     _h.complete(true)
 
-actor \nodoc\ _PVStreamInFlightListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PVStreamInFlightListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1210,10 +1210,10 @@ actor \nodoc\ _PVStreamInFlightListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PVParseInFlightServer =>
@@ -1225,7 +1225,7 @@ actor \nodoc\ _PVStreamInFlightListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -1256,7 +1256,7 @@ class \nodoc\ iso _TestProtocolViolationPipelineInFlight is UnitTest
 
     let listener =
       _PVPipelineInFlightListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1320,15 +1320,15 @@ actor \nodoc\ _PVPipelineInFlightClient is
     end
     _h.complete(true)
 
-actor \nodoc\ _PVPipelineInFlightListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PVPipelineInFlightListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1336,10 +1336,10 @@ actor \nodoc\ _PVPipelineInFlightListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PVParseInFlightServer =>
@@ -1351,7 +1351,7 @@ actor \nodoc\ _PVPipelineInFlightListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -1380,7 +1380,7 @@ class \nodoc\ iso _TestProtocolViolationExtendedQueryInFlight is UnitTest
 
     let listener =
       _PVExtendedQueryInFlightListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1427,15 +1427,15 @@ actor \nodoc\ _PVExtendedQueryInFlightClient is
     end
     _h.complete(true)
 
-actor \nodoc\ _PVExtendedQueryInFlightListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PVExtendedQueryInFlightListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1443,10 +1443,10 @@ actor \nodoc\ _PVExtendedQueryInFlightListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PVParseInFlightServer =>
@@ -1458,7 +1458,7 @@ actor \nodoc\ _PVExtendedQueryInFlightListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -1488,7 +1488,7 @@ class \nodoc\ iso _TestProtocolViolationCloseStatementInFlight is UnitTest
 
     let listener =
       _PVCloseStatementInFlightListener(
-        lori.TCPListenAuth(h.env.root), host, port, h)
+        net.TCPListenAuth(h.env.root), host, port, h)
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
@@ -1519,15 +1519,15 @@ actor \nodoc\ _PVCloseStatementInFlightClient is SessionStatusNotify
     end
     _h.complete(true)
 
-actor \nodoc\ _PVCloseStatementInFlightListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PVCloseStatementInFlightListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1535,10 +1535,10 @@ actor \nodoc\ _PVCloseStatementInFlightListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PVParseInFlightServer =>
@@ -1550,7 +1550,7 @@ actor \nodoc\ _PVCloseStatementInFlightListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),

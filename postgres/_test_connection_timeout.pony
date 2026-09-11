@@ -1,5 +1,5 @@
 use "constrained_types"
-use lori = "lori"
+use net = "net"
 use "pony_test"
 
 class \nodoc\ iso _TestConnectionTimeoutFires is UnitTest
@@ -12,12 +12,12 @@ class \nodoc\ iso _TestConnectionTimeoutFires is UnitTest
     "ConnectionTimeout/Fires"
 
   fun apply(h: TestHelper) =>
-    match \exhaustive\ lori.MakeConnectionTimeout(100)
-    | let ct: lori.ConnectionTimeout =>
+    match \exhaustive\ net.MakeConnectionTimeout(100)
+    | let ct: net.ConnectionTimeout =>
       let session =
         Session(
           ServerConnectInfo(
-            lori.TCPConnectAuth(h.env.root),
+            net.TCPConnectAuth(h.env.root),
             "192.0.2.1",
             "9999"
             where connection_timeout' = ct),

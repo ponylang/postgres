@@ -1,7 +1,7 @@
 use "cli"
 use "collections"
 use "constrained_types"
-use lori = "lori"
+use net = "net"
 use "pony_check"
 use "pony_test"
 
@@ -1115,7 +1115,7 @@ class \nodoc\ iso _TestIntegrationArraySelectBinary is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.host,
           info.port),
         DatabaseConnectInfo(
@@ -1143,7 +1143,7 @@ class \nodoc\ iso _TestIntegrationArraySelectText is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.host,
           info.port),
         DatabaseConnectInfo(
@@ -1167,7 +1167,7 @@ class \nodoc\ iso _TestIntegrationArrayRoundtrip is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.host,
           info.port),
         DatabaseConnectInfo(
@@ -1191,7 +1191,7 @@ class \nodoc\ iso _TestIntegrationArrayEmpty is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.host,
           info.port),
         DatabaseConnectInfo(
@@ -1215,7 +1215,7 @@ class \nodoc\ iso _TestIntegrationArrayNulls is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.host,
           info.port),
         DatabaseConnectInfo(
@@ -1239,7 +1239,7 @@ class \nodoc\ iso _TestIntegrationArrayMultipleTypes is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.host,
           info.port),
         DatabaseConnectInfo(

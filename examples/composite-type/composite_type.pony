@@ -11,7 +11,7 @@ sending a `PgComposite` as a query parameter.
 """
 use "cli"
 use "collections"
-use lori = "lori"
+use net = "net"
 // in your code this `use` statement would be:
 // use "postgres"
 use "../../postgres"
@@ -19,7 +19,7 @@ use "../../postgres"
 actor Main
   new create(env: Env) =>
     let server_info = ServerInfo(env.vars)
-    let auth = lori.TCPConnectAuth(env.root)
+    let auth = net.TCPConnectAuth(env.root)
     Client(auth, server_info, env.out)
 
 actor Client is (SessionStatusNotify & ResultReceiver)
@@ -28,14 +28,14 @@ actor Client is (SessionStatusNotify & ResultReceiver)
   then reconnects with a composite-aware registry to query and send
   PgComposite values.
   """
-  let _auth: lori.TCPConnectAuth
+  let _auth: net.TCPConnectAuth
   let _info: ServerInfo
   let _out: OutStream
   var _session: Session
   var _phase: USize = 0
   var _composite_oid: U32 = 0
 
-  new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
+  new create(auth: net.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _auth = auth
     _info = info
     _out = out

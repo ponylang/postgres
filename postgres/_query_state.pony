@@ -1,4 +1,4 @@
-use lori = "lori"
+use net = "net"
 
 interface _QueryState
   """

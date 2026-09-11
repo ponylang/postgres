@@ -1,6 +1,6 @@
 use "cli"
 use "collections"
-use lori = "lori"
+use net = "net"
 use "pony_test"
 
 // ============================================================
@@ -2174,7 +2174,7 @@ class \nodoc\ iso
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.host,
           info.port),
         DatabaseConnectInfo(
@@ -2202,7 +2202,7 @@ class \nodoc\ iso
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.host,
           info.port),
         DatabaseConnectInfo(
@@ -2372,7 +2372,7 @@ actor \nodoc\ _CompositeRoundtripClient is
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           _info.host,
           _info.port),
         DatabaseConnectInfo(
@@ -2493,7 +2493,7 @@ actor \nodoc\ _CompositeRoundtripClient is
       _session =
         Session(
           ServerConnectInfo(
-            lori.TCPConnectAuth(_h.env.root),
+            net.TCPConnectAuth(_h.env.root),
             _info.host,
             _info.port),
           DatabaseConnectInfo(

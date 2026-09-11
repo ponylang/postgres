@@ -1,5 +1,5 @@
 use "files"
-use lori = "lori"
+use net = "net"
 use "pony_test"
 
 // SSL negotiation unit tests
@@ -18,14 +18,14 @@ class \nodoc\ iso _TestSSLNegotiationRefused is UnitTest
 
     let sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
 
     let listener =
       _SSLRefusedTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h,
@@ -64,28 +64,28 @@ actor \nodoc\ _SSLRefusedTestNotify is SessionStatusNotify
       _h.complete(true)
     end
 
-actor \nodoc\ _SSLRefusedTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _SSLRefusedTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _sslctx: lori.SSLContext val
+  let _sslctx: net.SSLContext val
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    sslctx: lori.SSLContext val)
+    sslctx: net.SSLContext val)
   =>
     _host = host
     _port = port
     _h = h
     _sslctx = sslctx
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SSLRefusedTestServer =>
@@ -97,7 +97,7 @@ actor \nodoc\ _SSLRefusedTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port,
           SSLRequired(_sslctx)),
@@ -111,25 +111,25 @@ actor \nodoc\ _SSLRefusedTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _SSLRefusedTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that responds 'N' to an SSLRequest, refusing SSL.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     let response: Array[U8] val = ['N']
     _tcp_connection.send(response)
-    lori.KeepReading
+    net.KeepReading
 
 class \nodoc\ iso _TestSSLNegotiationJunkResponse is UnitTest
   """
@@ -147,14 +147,14 @@ class \nodoc\ iso _TestSSLNegotiationJunkResponse is UnitTest
 
     let sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
 
     let listener =
       _SSLJunkTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h,
@@ -194,28 +194,28 @@ actor \nodoc\ _SSLJunkTestNotify is SessionStatusNotify
     end
     _h.complete(true)
 
-actor \nodoc\ _SSLJunkTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _SSLJunkTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _sslctx: lori.SSLContext val
+  let _sslctx: net.SSLContext val
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    sslctx: lori.SSLContext val)
+    sslctx: net.SSLContext val)
   =>
     _host = host
     _port = port
     _h = h
     _sslctx = sslctx
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SSLJunkTestServer =>
@@ -227,7 +227,7 @@ actor \nodoc\ _SSLJunkTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port,
           SSLRequired(_sslctx)),
@@ -241,25 +241,25 @@ actor \nodoc\ _SSLJunkTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _SSLJunkTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that responds with a junk byte to an SSLRequest.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     let response: Array[U8] val = ['X']
     _tcp_connection.send(response)
-    lori.KeepReading
+    net.KeepReading
 
 class \nodoc\ iso _TestSSLNegotiationSuccess is UnitTest
   """
@@ -281,14 +281,14 @@ class \nodoc\ iso _TestSSLNegotiationSuccess is UnitTest
 
     let client_sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
 
     let server_sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_cert(cert_path, key_path)?
           .> set_client_verify(false)
           .> set_server_verify(false)
@@ -296,7 +296,7 @@ class \nodoc\ iso _TestSSLNegotiationSuccess is UnitTest
 
     let listener =
       _SSLSuccessTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h,
@@ -334,31 +334,31 @@ actor \nodoc\ _SSLSuccessTestNotify is SessionStatusNotify
       _h.complete(false)
     end
 
-actor \nodoc\ _SSLSuccessTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _SSLSuccessTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _client_sslctx: lori.SSLContext val
-  let _server_sslctx: lori.SSLContext val
+  let _client_sslctx: net.SSLContext val
+  let _server_sslctx: net.SSLContext val
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    client_sslctx: lori.SSLContext val,
-    server_sslctx: lori.SSLContext val)
+    client_sslctx: net.SSLContext val,
+    server_sslctx: net.SSLContext val)
   =>
     _host = host
     _port = port
     _h = h
     _client_sslctx = client_sslctx
     _server_sslctx = server_sslctx
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SSLSuccessTestServer =>
@@ -370,7 +370,7 @@ actor \nodoc\ _SSLSuccessTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port,
           SSLRequired(_client_sslctx)
@@ -385,31 +385,31 @@ actor \nodoc\ _SSLSuccessTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _SSLSuccessTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that responds 'S' to an SSLRequest, upgrades to TLS on its
   side, then sends AuthenticationOk + ReadyForQuery over the encrypted
   connection once it receives the StartupMessage.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
-  let _sslctx: lori.SSLContext val
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
+  let _sslctx: net.SSLContext val
   var _ssl_started: Bool = false
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, sslctx: lori.SSLContext val, fd: U32) =>
+  new create(auth: net.TCPServerAuth, sslctx: net.SSLContext val, fd: U32) =>
     _sslctx = sslctx
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if not _ssl_started then
@@ -420,7 +420,7 @@ actor \nodoc\ _SSLSuccessTestServer
         _tcp_connection.send(response)
         match \exhaustive\ _tcp_connection.start_tls(_sslctx)
         | None => _ssl_started = true
-        | let _: lori.StartTLSError =>
+        | let _: net.StartTLSError =>
           _tcp_connection.close()
         end
       end
@@ -449,7 +449,7 @@ class \nodoc\ iso _TestSSLConnect is UnitTest
 
     let sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
@@ -457,7 +457,7 @@ class \nodoc\ iso _TestSSLConnect is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.ssl_host,
           info.ssl_port,
           SSLRequired(sslctx)),
@@ -481,7 +481,7 @@ class \nodoc\ iso _TestSSLAuthenticate is UnitTest
 
     let sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
@@ -489,7 +489,7 @@ class \nodoc\ iso _TestSSLAuthenticate is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.ssl_host,
           info.ssl_port,
           SSLRequired(sslctx)),
@@ -513,7 +513,7 @@ class \nodoc\ iso _TestSSLQueryResults is UnitTest
 
     let sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
@@ -523,7 +523,7 @@ class \nodoc\ iso _TestSSLQueryResults is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.ssl_host,
           info.ssl_port,
           SSLRequired(sslctx)),
@@ -549,7 +549,7 @@ class \nodoc\ iso _TestSSLRefused is UnitTest
 
     let sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
@@ -557,7 +557,7 @@ class \nodoc\ iso _TestSSLRefused is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.host,
           info.port,
           SSLRequired(sslctx)),
@@ -584,14 +584,14 @@ class \nodoc\ iso _TestSSLPreferredFallback is UnitTest
 
     let sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
 
     let listener =
       _SSLPreferredFallbackTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h,
@@ -633,28 +633,28 @@ actor \nodoc\ _SSLPreferredFallbackTestNotify is SessionStatusNotify
       _h.complete(false)
     end
 
-actor \nodoc\ _SSLPreferredFallbackTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _SSLPreferredFallbackTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _sslctx: lori.SSLContext val
+  let _sslctx: net.SSLContext val
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    sslctx: lori.SSLContext val)
+    sslctx: net.SSLContext val)
   =>
     _host = host
     _port = port
     _h = h
     _sslctx = sslctx
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SSLPreferredFallbackTestServer =>
@@ -666,7 +666,7 @@ actor \nodoc\ _SSLPreferredFallbackTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port,
           SSLPreferred(_sslctx)
@@ -681,28 +681,28 @@ actor \nodoc\ _SSLPreferredFallbackTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _SSLPreferredFallbackTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that responds 'N' to an SSLRequest (refusing SSL), then reads
   the plaintext StartupMessage and sends AuthOk + ReadyForQuery.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   var _ssl_refused: Bool = false
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if not _ssl_refused then
@@ -745,14 +745,14 @@ class \nodoc\ iso _TestSSLPreferredSuccess is UnitTest
 
     let client_sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
 
     let server_sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_cert(cert_path, key_path)?
           .> set_client_verify(false)
           .> set_server_verify(false)
@@ -760,7 +760,7 @@ class \nodoc\ iso _TestSSLPreferredSuccess is UnitTest
 
     let listener =
       _SSLPreferredSuccessTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h,
@@ -797,31 +797,31 @@ actor \nodoc\ _SSLPreferredSuccessTestNotify is SessionStatusNotify
       _h.complete(false)
     end
 
-actor \nodoc\ _SSLPreferredSuccessTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _SSLPreferredSuccessTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _client_sslctx: lori.SSLContext val
-  let _server_sslctx: lori.SSLContext val
+  let _client_sslctx: net.SSLContext val
+  let _server_sslctx: net.SSLContext val
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    client_sslctx: lori.SSLContext val,
-    server_sslctx: lori.SSLContext val)
+    client_sslctx: net.SSLContext val,
+    server_sslctx: net.SSLContext val)
   =>
     _host = host
     _port = port
     _h = h
     _client_sslctx = client_sslctx
     _server_sslctx = server_sslctx
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SSLSuccessTestServer =>
@@ -833,7 +833,7 @@ actor \nodoc\ _SSLPreferredSuccessTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port,
           SSLPreferred(_client_sslctx)
@@ -866,10 +866,10 @@ class \nodoc\ iso _TestSSLPreferredTLSFailure is UnitTest
     // handshake to fail.
     let client_sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
-          .> set_min_proto_version(lori.TLS1u3Version())?
+          .> set_min_proto_version(net.TLS1u3Version())?
       end
 
     let cert_path =
@@ -879,16 +879,16 @@ class \nodoc\ iso _TestSSLPreferredTLSFailure is UnitTest
 
     let server_sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_cert(cert_path, key_path)?
           .> set_client_verify(false)
           .> set_server_verify(false)
-          .> set_max_proto_version(lori.TLS1u2Version())?
+          .> set_max_proto_version(net.TLS1u2Version())?
       end
 
     let listener =
       _SSLPreferredTLSFailureTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h,
@@ -917,31 +917,31 @@ actor \nodoc\ _SSLPreferredTLSFailureTestNotify is SessionStatusNotify
     _h.fail("Should not have authenticated after TLS failure")
     _h.complete(false)
 
-actor \nodoc\ _SSLPreferredTLSFailureTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _SSLPreferredTLSFailureTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _client_sslctx: lori.SSLContext val
-  let _server_sslctx: lori.SSLContext val
+  let _client_sslctx: net.SSLContext val
+  let _server_sslctx: net.SSLContext val
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    client_sslctx: lori.SSLContext val,
-    server_sslctx: lori.SSLContext val)
+    client_sslctx: net.SSLContext val,
+    server_sslctx: net.SSLContext val)
   =>
     _host = host
     _port = port
     _h = h
     _client_sslctx = client_sslctx
     _server_sslctx = server_sslctx
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SSLSuccessTestServer =>
@@ -955,7 +955,7 @@ actor \nodoc\ _SSLPreferredTLSFailureTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port,
           SSLPreferred(_client_sslctx)),
@@ -989,14 +989,14 @@ class \nodoc\ iso _TestSSLPreferredCancelFallback is UnitTest
 
     let client_sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
 
     let server_sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_cert(cert_path, key_path)?
           .> set_client_verify(false)
           .> set_server_verify(false)
@@ -1004,7 +1004,7 @@ class \nodoc\ iso _TestSSLPreferredCancelFallback is UnitTest
 
     let listener =
       _SSLPreferredCancelTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h,
@@ -1014,32 +1014,32 @@ class \nodoc\ iso _TestSSLPreferredCancelFallback is UnitTest
     h.dispose_when_done(listener)
     h.long_test(5_000_000_000)
 
-actor \nodoc\ _SSLPreferredCancelTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _SSLPreferredCancelTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
-  let _client_sslctx: lori.SSLContext val
-  let _server_sslctx: lori.SSLContext val
+  let _client_sslctx: net.SSLContext val
+  let _server_sslctx: net.SSLContext val
   var _connection_count: USize = 0
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper,
-    client_sslctx: lori.SSLContext val,
-    server_sslctx: lori.SSLContext val)
+    client_sslctx: net.SSLContext val,
+    server_sslctx: net.SSLContext val)
   =>
     _host = host
     _port = port
     _h = h
     _client_sslctx = client_sslctx
     _server_sslctx = server_sslctx
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _SSLPreferredCancelTestServer =>
@@ -1058,7 +1058,7 @@ actor \nodoc\ _SSLPreferredCancelTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port,
           SSLPreferred(_client_sslctx)
@@ -1073,14 +1073,14 @@ actor \nodoc\ _SSLPreferredCancelTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _SSLPreferredCancelTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that handles two connections: the first (main session) accepts
   SSL and authenticates; the second (cancel sender) refuses SSL ('N') so the
   cancel falls back to plaintext, then verifies the CancelRequest.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
-  let _sslctx: lori.SSLContext val
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
+  let _sslctx: net.SSLContext val
   let _h: TestHelper
   let _is_cancel_connection: Bool
   var _ssl_started: Bool = false
@@ -1089,8 +1089,8 @@ actor \nodoc\ _SSLPreferredCancelTestServer
   let _reader: _MockMessageReader = _MockMessageReader
 
   new create(
-    auth: lori.TCPServerAuth,
-    sslctx: lori.SSLContext val,
+    auth: net.TCPServerAuth,
+    sslctx: net.SSLContext val,
     fd: U32,
     h: TestHelper,
     is_cancel: Bool)
@@ -1098,18 +1098,18 @@ actor \nodoc\ _SSLPreferredCancelTestServer
     _sslctx = sslctx
     _h = h
     _is_cancel_connection = is_cancel
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if _is_cancel_connection then
@@ -1180,7 +1180,7 @@ actor \nodoc\ _SSLPreferredCancelTestServer
           _tcp_connection.send(response)
           match \exhaustive\ _tcp_connection.start_tls(_sslctx)
           | None => _ssl_started = true
-          | let _: lori.StartTLSError =>
+          | let _: net.StartTLSError =>
             _tcp_connection.close()
           end
         end
@@ -1218,7 +1218,7 @@ class \nodoc\ iso _TestSSLPreferredWithSSLServer is UnitTest
 
     let sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
@@ -1226,7 +1226,7 @@ class \nodoc\ iso _TestSSLPreferredWithSSLServer is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.ssl_host,
           info.ssl_port,
           SSLPreferred(sslctx)),
@@ -1251,7 +1251,7 @@ class \nodoc\ iso _TestSSLPreferredWithPlainServer is UnitTest
 
     let sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
@@ -1259,7 +1259,7 @@ class \nodoc\ iso _TestSSLPreferredWithPlainServer is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.host,
           info.port,
           SSLPreferred(sslctx)),

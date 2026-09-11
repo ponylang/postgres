@@ -1,4 +1,4 @@
-use lori = "lori"
+use net = "net"
 use "pony_test"
 
 class \nodoc\ iso _TestMD5Authenticate is UnitTest
@@ -17,7 +17,7 @@ class \nodoc\ iso _TestMD5Authenticate is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.ssl_host,
           info.ssl_port
           where auth_requirement' = AllowAnyAuth),
@@ -44,7 +44,7 @@ class \nodoc\ iso _TestMD5AuthenticateFailure is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.ssl_host,
           info.ssl_port
           where auth_requirement' = AllowAnyAuth),
@@ -73,7 +73,7 @@ class \nodoc\ iso _TestMD5QueryResults is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.ssl_host,
           info.ssl_port
           where auth_requirement' = AllowAnyAuth),

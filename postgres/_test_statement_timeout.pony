@@ -1,5 +1,5 @@
 use "constrained_types"
-use lori = "lori"
+use net = "net"
 use "pony_test"
 
 class \nodoc\ iso _TestStatementTimeoutFires is UnitTest
@@ -18,7 +18,7 @@ class \nodoc\ iso _TestStatementTimeoutFires is UnitTest
 
     let listener =
       _TimeoutTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -41,8 +41,8 @@ actor \nodoc\ _TimeoutTestClient is (SessionStatusNotify & ResultReceiver)
   be pg_session_authenticated(session: Session) =>
     // Execute a query with a 100ms timeout. The mock server will hold
     // (not respond), so the timer will fire and send a CancelRequest.
-    match \exhaustive\ lori.MakeTimerDuration(100)
-    | let d: lori.TimerDuration =>
+    match \exhaustive\ net.MakeTimerDuration(100)
+    | let d: net.TimerDuration =>
       session.execute(
         SimpleQuery("SELECT pg_sleep(100)"),
         this
@@ -62,15 +62,15 @@ actor \nodoc\ _TimeoutTestClient is (SessionStatusNotify & ResultReceiver)
   =>
     None
 
-actor \nodoc\ _TimeoutTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _TimeoutTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
   var _connection_count: USize = 0
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -78,10 +78,10 @@ actor \nodoc\ _TimeoutTestListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _TimeoutTestServer =>
@@ -96,7 +96,7 @@ actor \nodoc\ _TimeoutTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -110,38 +110,38 @@ actor \nodoc\ _TimeoutTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _TimeoutTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that handles two connections: the first is the main session
   (authenticates, receives query, and holds without responding), the second
   is the cancel sender (verifies CancelRequest format and content).
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _h: TestHelper
   let _is_cancel_connection: Bool
   var _authed: Bool = false
   let _reader: _MockMessageReader = _MockMessageReader
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: net.TCPServerAuth,
     fd: U32,
     h: TestHelper,
     is_cancel: Bool)
   =>
     _h = h
     _is_cancel_connection = is_cancel
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if _is_cancel_connection then
@@ -231,7 +231,7 @@ class \nodoc\ iso _TestStatementTimeoutRearmOnTimerFailure is UnitTest
 
     let listener =
       _TimeoutRearmTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -257,8 +257,8 @@ actor \nodoc\ _TimeoutRearmTestClient is (SessionStatusNotify & ResultReceiver)
     // processes `execute` first (arms the original timer), then the
     // simulation (cancels the original token and rearms with 200ms). The
     // rearmed timer fires and sends a CancelRequest on a second connection.
-    match \exhaustive\ lori.MakeTimerDuration(200)
-    | let d: lori.TimerDuration =>
+    match \exhaustive\ net.MakeTimerDuration(200)
+    | let d: net.TimerDuration =>
       session.execute(
         SimpleQuery("SELECT pg_sleep(100)"),
         this
@@ -279,15 +279,15 @@ actor \nodoc\ _TimeoutRearmTestClient is (SessionStatusNotify & ResultReceiver)
   =>
     None
 
-actor \nodoc\ _TimeoutRearmTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _TimeoutRearmTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
   var _connection_count: USize = 0
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -295,10 +295,10 @@ actor \nodoc\ _TimeoutRearmTestListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _TimeoutTestServer =>
@@ -313,7 +313,7 @@ actor \nodoc\ _TimeoutRearmTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -341,7 +341,7 @@ class \nodoc\ iso _TestStatementTimeoutCancelledOnCompletion is UnitTest
 
     let listener =
       _TimeoutCancelledTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -365,8 +365,8 @@ actor \nodoc\ _TimeoutCancelledTestClient
   be pg_session_authenticated(session: Session) =>
     // Execute with a long timeout (5s). The mock server responds immediately,
     // so the timer should be cancelled and pg_query_result should fire.
-    match \exhaustive\ lori.MakeTimerDuration(5000)
-    | let d: lori.TimerDuration =>
+    match \exhaustive\ net.MakeTimerDuration(5000)
+    | let d: net.TimerDuration =>
       session.execute(
         SimpleQuery("SELECT 1"),
         this
@@ -387,14 +387,14 @@ actor \nodoc\ _TimeoutCancelledTestClient
     _h.fail("Query should have completed successfully.")
     _h.complete(false)
 
-actor \nodoc\ _TimeoutCancelledTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _TimeoutCancelledTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
-  new create(listen_auth: lori.TCPListenAuth,
+  new create(listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -402,10 +402,10 @@ actor \nodoc\ _TimeoutCancelledTestListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _TimeoutCancelledTestServer =>
@@ -417,7 +417,7 @@ actor \nodoc\ _TimeoutCancelledTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -431,30 +431,30 @@ actor \nodoc\ _TimeoutCancelledTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _TimeoutCancelledTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that authenticates the session and immediately responds to the
   query with a successful result, before the statement timeout can fire.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _h: TestHelper
   var _authed: Bool = false
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32, h: TestHelper) =>
+  new create(auth: net.TCPServerAuth, fd: U32, h: TestHelper) =>
     _h = h
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if not _authed then
@@ -508,7 +508,7 @@ class \nodoc\ iso _TestStatementTimeoutPgSleep is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.host,
           info.port),
         DatabaseConnectInfo(
@@ -529,8 +529,8 @@ actor \nodoc\ _TimeoutPgSleepClient is
     _query = SimpleQuery("SELECT pg_sleep(30)")
 
   be pg_session_authenticated(session: Session) =>
-    match \exhaustive\ lori.MakeTimerDuration(1000)
-    | let d: lori.TimerDuration =>
+    match \exhaustive\ net.MakeTimerDuration(1000)
+    | let d: net.TimerDuration =>
       session.execute(_query, this where statement_timeout = d)
     | let _: ValidationFailure =>
       _h.fail("Failed to create TimerDuration.")

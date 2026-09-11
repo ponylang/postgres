@@ -9,7 +9,7 @@ environment variables to match your server configuration.
 use "cli"
 use "collections"
 use "files"
-use lori = "lori"
+use net = "net"
 // in your code this `use` statement would be:
 // use "postgres"
 use "../../postgres"
@@ -20,12 +20,12 @@ actor Main
 
     let sslctx =
       recover val
-        lori.SSLContext
+        net.SSLContext
           .> set_client_verify(false)
           .> set_server_verify(false)
       end
 
-    let auth = lori.TCPConnectAuth(env.root)
+    let auth = net.TCPConnectAuth(env.root)
     Client(auth, server_info, sslctx, env.out)
 
 actor Client is (SessionStatusNotify & ResultReceiver)
@@ -36,9 +36,9 @@ actor Client is (SessionStatusNotify & ResultReceiver)
   let _out: OutStream
 
   new create(
-    auth: lori.TCPConnectAuth,
+    auth: net.TCPConnectAuth,
     info: ServerInfo,
-    sslctx: lori.SSLContext val,
+    sslctx: net.SSLContext val,
     out: OutStream)
   =>
     _out = out

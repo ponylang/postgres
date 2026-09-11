@@ -11,12 +11,12 @@ Create a `Session` with server and database connection info plus a
 
 ```pony
 use "postgres"
-use lori = "lori"
+use "net"
 
 actor Main
   new create(env: Env) =>
     let session = Session(
-      ServerConnectInfo(lori.TCPConnectAuth(env.root), "localhost", "5432"),
+      ServerConnectInfo(TCPConnectAuth(env.root), "localhost", "5432"),
       DatabaseConnectInfo("myuser", "mypassword", "mydb"),
       MyNotify(env))
 
@@ -71,7 +71,7 @@ Two SSL modes are available:
 
 ```pony
 let sslctx = recover val
-  lori.SSLContext
+  SSLContext
     .> set_client_verify(true)
     .> set_authority(FilePath(FileAuth(env.root), "/path/to/ca.pem"))?
 end
@@ -79,7 +79,7 @@ end
 // Require SSL — fail if server refuses
 let session = Session(
   ServerConnectInfo(
-    lori.TCPConnectAuth(env.root), "localhost", "5432",
+    TCPConnectAuth(env.root), "localhost", "5432",
     SSLRequired(sslctx)),
   DatabaseConnectInfo("myuser", "mypassword", "mydb"),
   MyNotify(env))
@@ -87,7 +87,7 @@ let session = Session(
 // Prefer SSL — fall back to plaintext if server refuses
 let session2 = Session(
   ServerConnectInfo(
-    lori.TCPConnectAuth(env.root), "localhost", "5432",
+    TCPConnectAuth(env.root), "localhost", "5432",
     SSLPreferred(sslctx)),
   DatabaseConnectInfo("myuser", "mypassword", "mydb"),
   MyNotify(env))
@@ -116,7 +116,7 @@ non-SCRAM server, pass `AllowAnyAuth`:
 ```pony
 let session = Session(
   ServerConnectInfo(
-    lori.TCPConnectAuth(env.root), "localhost", "5432",
+    TCPConnectAuth(env.root), "localhost", "5432",
     SSLDisabled, AllowAnyAuth),
   DatabaseConnectInfo("myuser", "mypassword", "mydb"),
   MyNotify(env))

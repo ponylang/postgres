@@ -1,4 +1,4 @@
-use lori = "lori"
+use net = "net"
 use "pony_test"
 
 class \nodoc\ iso _TestTransactionStatusOnAuthentication is UnitTest
@@ -15,7 +15,7 @@ class \nodoc\ iso _TestTransactionStatusOnAuthentication is UnitTest
 
     let listener =
       _TxnStatusTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         _TxnStatusOnAuthClient(h),
@@ -61,7 +61,7 @@ class \nodoc\ iso _TestTransactionStatusDuringTransaction is UnitTest
 
     let listener =
       _TxnStatusTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         _TxnStatusDuringTxnClient(h),
@@ -147,7 +147,7 @@ class \nodoc\ iso _TestTransactionStatusOnFailedTransaction is UnitTest
 
     let listener =
       _TxnStatusTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         _TxnStatusFailedClient(h),
@@ -228,16 +228,16 @@ actor \nodoc\ _TxnStatusFailedClient
     _h.complete(false)
 
 // Shared infrastructure for transaction status tests
-actor \nodoc\ _TxnStatusTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _TxnStatusTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
   let _notify: SessionStatusNotify
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     notify: SessionStatusNotify,
@@ -247,10 +247,10 @@ actor \nodoc\ _TxnStatusTestListener is lori.TCPListenerActor
     _port = port
     _h = h
     _notify = notify
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _TxnStatusTestServer =>
@@ -262,7 +262,7 @@ actor \nodoc\ _TxnStatusTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -276,29 +276,29 @@ actor \nodoc\ _TxnStatusTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _TxnStatusTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that authenticates and responds to queries with
   appropriate transaction status bytes.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   var _authed: Bool = false
   var _txn_state: U8 = 'I'
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if not _authed then
@@ -416,7 +416,7 @@ actor \nodoc\ _TransactionCommitClient is
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.host,
           info.port),
         DatabaseConnectInfo(
@@ -529,7 +529,7 @@ actor \nodoc\ _TransactionRollbackClient is
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.host,
           info.port),
         DatabaseConnectInfo(

@@ -1,4 +1,4 @@
-use lori = "lori"
+use net = "net"
 use "pony_test"
 
 class \nodoc\ iso _TestQueryResults is UnitTest
@@ -13,7 +13,7 @@ class \nodoc\ iso _TestQueryResults is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         client)
@@ -103,7 +103,7 @@ class \nodoc\ iso _TestQueryAfterAuthenticationFailure is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username,
           info.password + " " + info.password,
@@ -166,7 +166,7 @@ class \nodoc\ iso _TestQueryAfterConnectionFailure is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           host,
           info.port.reverse()),
         DatabaseConnectInfo(
@@ -224,7 +224,7 @@ class \nodoc\ iso _TestQueryAfterSessionHasBeenClosed is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         _QueryAfterSessionHasBeenClosedNotify(h))
@@ -282,7 +282,7 @@ class \nodoc\ iso _TestQueryOfNonExistentTable is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         client)
@@ -417,7 +417,7 @@ actor \nodoc\ _AllSuccessQueryRunningClient is
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         this)
@@ -482,7 +482,7 @@ class \nodoc\ iso _TestEmptyQuery is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         client)
@@ -543,7 +543,7 @@ class \nodoc\ iso _TestZeroRowSelect is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         client)
@@ -630,7 +630,7 @@ actor \nodoc\ _MultiStatementMixedClient is
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         this)
@@ -737,7 +737,7 @@ class \nodoc\ iso _TestPreparedQueryResults is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         client)
@@ -833,7 +833,7 @@ class \nodoc\ iso _TestPreparedQueryNullParam is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         client)
@@ -924,7 +924,7 @@ class \nodoc\ iso _TestPreparedQueryNonExistentTable is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         client)
@@ -1001,7 +1001,7 @@ actor \nodoc\ _PreparedQueryInsertAndDeleteClient is
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         this)
@@ -1126,7 +1126,7 @@ actor \nodoc\ _PreparedQueryMixedClient is
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         this)
@@ -1251,7 +1251,7 @@ actor \nodoc\ _PrepareStatementClient is
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         this)
@@ -1312,7 +1312,7 @@ actor \nodoc\ _PrepareAndExecuteClient is
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         this)
@@ -1402,7 +1402,7 @@ actor \nodoc\ _PrepareAndExecuteMultipleClient is
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         this)
@@ -1515,7 +1515,7 @@ actor \nodoc\ _PrepareAndCloseClient is
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         this)
@@ -1592,7 +1592,7 @@ actor \nodoc\ _PrepareFailsClient is
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         this)
@@ -1659,7 +1659,7 @@ actor \nodoc\ _PrepareAfterCloseClient is
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         this)
@@ -1760,7 +1760,7 @@ actor \nodoc\ _CloseNonexistentClient is
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         this)
@@ -1818,7 +1818,7 @@ actor \nodoc\ _PrepareDuplicateNameClient is
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         this)
@@ -1892,7 +1892,7 @@ actor \nodoc\ _MixedAllThreeClient is
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         this)
@@ -2015,7 +2015,7 @@ actor \nodoc\ _CopyInInsertClient is
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         this)
@@ -2143,7 +2143,7 @@ actor \nodoc\ _CopyInAbortRollbackClient is
     _session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         this)
@@ -2248,7 +2248,7 @@ class \nodoc\ iso _TestQueryByteaResults is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         client)
@@ -2329,7 +2329,7 @@ class \nodoc\ iso _TestPreparedQueryTypedResults is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root), info.host, info.port),
+          net.TCPConnectAuth(h.env.root), info.host, info.port),
         DatabaseConnectInfo(
           info.username, info.password, info.database),
         client)

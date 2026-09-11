@@ -1,4 +1,4 @@
-use lori = "lori"
+use net = "net"
 
 trait _QueryNoQueryInFlight is _QueryState
   """
@@ -422,10 +422,10 @@ class _QueryReady is _QueryNoQueryInFlight
           | let pl: _QueuedPipeline => pl.statement_timeout
           end
         match timeout
-        | let d: lori.TimerDuration =>
+        | let d: net.TimerDuration =>
           match \exhaustive\ s._connection().set_timer(d)
-          | let t: lori.TimerToken => li.statement_timer = t
-          | let _: lori.SetTimerError => None
+          | let t: net.TimerToken => li.statement_timer = t
+          | let _: net.SetTimerError => None
           end
         end
       end

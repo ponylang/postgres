@@ -1,5 +1,5 @@
 use "collections"
-use lori = "lori"
+use net = "net"
 use "pony_test"
 
 class \nodoc\ iso _TestPipelineSuccess is UnitTest
@@ -16,7 +16,7 @@ class \nodoc\ iso _TestPipelineSuccess is UnitTest
 
     let listener =
       _PipelineSuccessTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -88,15 +88,15 @@ actor \nodoc\ _PipelineSuccessTestClient is
     end
     _h.complete(success)
 
-actor \nodoc\ _PipelineSuccessTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PipelineSuccessTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -104,10 +104,10 @@ actor \nodoc\ _PipelineSuccessTestListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PipelineSuccessTestServer =>
@@ -119,7 +119,7 @@ actor \nodoc\ _PipelineSuccessTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -133,30 +133,30 @@ actor \nodoc\ _PipelineSuccessTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _PipelineSuccessTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that authenticates, then responds to 3 pipelined query cycles.
   Each cycle: Parse+Bind+Describe+Execute+Sync from client; server sends
   RowDescription+DataRow+CommandComplete+ReadyForQuery.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   var _state: U8 = 0
   var _query_count: U8 = 0
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -216,7 +216,7 @@ class \nodoc\ iso _TestPipelineWithFailure is UnitTest
 
     let listener =
       _PipelineWithFailureTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -292,15 +292,15 @@ actor \nodoc\ _PipelineWithFailureTestClient is
     end
     _h.complete(success)
 
-actor \nodoc\ _PipelineWithFailureTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PipelineWithFailureTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -308,10 +308,10 @@ actor \nodoc\ _PipelineWithFailureTestListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PipelineWithFailureTestServer =>
@@ -323,7 +323,7 @@ actor \nodoc\ _PipelineWithFailureTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -337,29 +337,29 @@ actor \nodoc\ _PipelineWithFailureTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _PipelineWithFailureTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that authenticates, then processes 3 pipelined query cycles.
   Query 1 succeeds, query 2 returns ErrorResponse, query 3 succeeds.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   var _state: U8 = 0
   var _sync_count: U8 = 0
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -432,7 +432,7 @@ class \nodoc\ iso _TestPipelineEmpty is UnitTest
 
     let listener =
       _PipelineEmptyTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -496,15 +496,15 @@ actor \nodoc\ _PipelineEmptyTestClient is
     end
     _h.complete(success)
 
-actor \nodoc\ _PipelineEmptyTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PipelineEmptyTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -512,10 +512,10 @@ actor \nodoc\ _PipelineEmptyTestListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PipelineEmptyTestServer =>
@@ -527,7 +527,7 @@ actor \nodoc\ _PipelineEmptyTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -541,24 +541,24 @@ actor \nodoc\ _PipelineEmptyTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _PipelineEmptyTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that authenticates and sends ReadyForQuery. The empty pipeline
   dispatches without sending any messages.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     match _reader.read_startup_message()
     | let _: Array[U8] val =>
@@ -567,7 +567,7 @@ actor \nodoc\ _PipelineEmptyTestServer
       _tcp_connection.send(auth_ok)
       _tcp_connection.send(ready)
     end
-    lori.KeepReading
+    net.KeepReading
 
 class \nodoc\ iso _TestPipelineSingleQuery is UnitTest
   """
@@ -582,7 +582,7 @@ class \nodoc\ iso _TestPipelineSingleQuery is UnitTest
 
     let listener =
       _PipelineSingleQueryTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -651,15 +651,15 @@ actor \nodoc\ _PipelineSingleQueryTestClient is
     end
     _h.complete(success)
 
-actor \nodoc\ _PipelineSingleQueryTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PipelineSingleQueryTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -667,10 +667,10 @@ actor \nodoc\ _PipelineSingleQueryTestListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PipelineSuccessTestServer =>
@@ -682,7 +682,7 @@ actor \nodoc\ _PipelineSingleQueryTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -710,7 +710,7 @@ class \nodoc\ iso _TestPipelineShutdownDrainsQueue is UnitTest
 
     let listener =
       _PipelineShutdownDrainsQueueTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -780,15 +780,15 @@ actor \nodoc\ _PipelineShutdownDrainsQueueTestClient is
     end
 
 actor \nodoc\ _PipelineShutdownDrainsQueueTestListener
-  is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -796,10 +796,10 @@ actor \nodoc\ _PipelineShutdownDrainsQueueTestListener
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _DoesntAnswerTestServer =>
@@ -811,7 +811,7 @@ actor \nodoc\ _PipelineShutdownDrainsQueueTestListener
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -839,7 +839,7 @@ class \nodoc\ iso _TestPipelineShutdownInFlight is UnitTest
 
     let listener =
       _PipelineShutdownInFlightTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -915,15 +915,15 @@ actor \nodoc\ _PipelineShutdownInFlightTestClient is
     end
 
 actor \nodoc\ _PipelineShutdownInFlightTestListener
-  is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -931,10 +931,10 @@ actor \nodoc\ _PipelineShutdownInFlightTestListener
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PipelineShutdownInFlightTestServer =>
@@ -947,7 +947,7 @@ actor \nodoc\ _PipelineShutdownInFlightTestListener
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -961,30 +961,30 @@ actor \nodoc\ _PipelineShutdownInFlightTestListener
     _h.complete(false)
 
 actor \nodoc\ _PipelineShutdownInFlightTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that authenticates + sends ReadyForQuery so the pipeline enters
   _PipelineInFlight, then responds to only the first Sync (so close() fires
   while the pipeline is partially complete).
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   var _state: U8 = 0
   var _sync_sent: Bool = false
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -1045,7 +1045,7 @@ class \nodoc\ iso _TestPipelineRowModifying is UnitTest
 
     let listener =
       _PipelineRowModifyingTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -1120,15 +1120,15 @@ actor \nodoc\ _PipelineRowModifyingTestClient is
     end
     _h.complete(success)
 
-actor \nodoc\ _PipelineRowModifyingTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PipelineRowModifyingTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1136,10 +1136,10 @@ actor \nodoc\ _PipelineRowModifyingTestListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PipelineRowModifyingTestServer =>
@@ -1152,7 +1152,7 @@ actor \nodoc\ _PipelineRowModifyingTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -1166,28 +1166,28 @@ actor \nodoc\ _PipelineRowModifyingTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _PipelineRowModifyingTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that authenticates, then responds to 2 pipelined INSERT queries
   with CommandComplete("INSERT 0 1") and ReadyForQuery (no RowDescription).
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   var _state: U8 = 0
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -1231,7 +1231,7 @@ class \nodoc\ iso _TestPipelineMixedQueryTypes is UnitTest
 
     let listener =
       _PipelineMixedQueryTypesTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -1301,15 +1301,15 @@ actor \nodoc\ _PipelineMixedQueryTypesTestClient is
     _h.complete(success)
 
 actor \nodoc\ _PipelineMixedQueryTypesTestListener
-  is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1317,10 +1317,10 @@ actor \nodoc\ _PipelineMixedQueryTypesTestListener
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PipelineSuccessTestServer =>
@@ -1332,7 +1332,7 @@ actor \nodoc\ _PipelineMixedQueryTypesTestListener
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -1359,7 +1359,7 @@ class \nodoc\ iso _TestPipelineAllFail is UnitTest
 
     let listener =
       _PipelineAllFailTestListener(
-        lori.TCPListenAuth(h.env.root),
+        net.TCPListenAuth(h.env.root),
         host,
         port,
         h)
@@ -1428,15 +1428,15 @@ actor \nodoc\ _PipelineAllFailTestClient is
     end
     _h.complete(success)
 
-actor \nodoc\ _PipelineAllFailTestListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _PipelineAllFailTestListener is net.TCPListenerActor
+  var _tcp_listener: net.TCPListener = net.TCPListener.none()
+  let _server_auth: net.TCPServerAuth
   let _h: TestHelper
   let _host: String
   let _port: String
 
   new create(
-    listen_auth: lori.TCPListenAuth,
+    listen_auth: net.TCPListenAuth,
     host: String,
     port: String,
     h: TestHelper)
@@ -1444,10 +1444,10 @@ actor \nodoc\ _PipelineAllFailTestListener is lori.TCPListenerActor
     _host = host
     _port = port
     _h = h
-    _server_auth = lori.TCPServerAuth(listen_auth)
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _server_auth = net.TCPServerAuth(listen_auth)
+    _tcp_listener = net.TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): net.TCPListener =>
     _tcp_listener
 
   fun ref _on_accept(fd: U32): _PipelineAllFailTestServer =>
@@ -1459,7 +1459,7 @@ actor \nodoc\ _PipelineAllFailTestListener is lori.TCPListenerActor
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(_h.env.root),
+          net.TCPConnectAuth(_h.env.root),
           _host,
           _port
           where auth_requirement' = AllowAnyAuth),
@@ -1473,28 +1473,28 @@ actor \nodoc\ _PipelineAllFailTestListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _PipelineAllFailTestServer
-  is (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver)
+  is (net.TCPConnectionActor & net.ServerLifecycleEventReceiver)
   """
   Mock server that authenticates, then responds to all pipelined Syncs with
   ErrorResponse + ReadyForQuery.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: net.TCPConnection = net.TCPConnection.none()
   var _state: U8 = 0
   let _reader: _MockMessageReader = _MockMessageReader
 
-  new create(auth: lori.TCPServerAuth, fd: U32) =>
-    _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+  new create(auth: net.TCPServerAuth, fd: U32) =>
+    _tcp_connection = net.TCPConnection.server(auth, fd, this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): net.TCPConnection =>
     _tcp_connection
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: net.StartFailureReason) =>
     None
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): net.ReadAction =>
     _reader.append(consume data)
     _process()
-    lori.KeepReading
+    net.KeepReading
 
   fun ref _process() =>
     if _state == 0 then
@@ -1540,7 +1540,7 @@ class \nodoc\ iso _TestPipelineIntegration is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.host,
           info.port),
         DatabaseConnectInfo(
@@ -1670,7 +1670,7 @@ class \nodoc\ iso _TestPipelineIntegrationWithFailure is UnitTest
     let session =
       Session(
         ServerConnectInfo(
-          lori.TCPConnectAuth(h.env.root),
+          net.TCPConnectAuth(h.env.root),
           info.host,
           info.port),
         DatabaseConnectInfo(

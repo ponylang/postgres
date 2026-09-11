@@ -46,7 +46,7 @@ Query cancellation using `Session.cancel()`. Executes a long-running query (`SEL
 
 ## connection-timeout
 
-Connection timeout using the `connection_timeout` parameter on `ServerConnectInfo`. Connects to a configurable host and port with a 3-second timeout via `lori.MakeConnectionTimeout(3000)`, and handles `ConnectionFailedTimeout` in `pg_session_connection_failed`. Shows how the driver reports unreachable servers without hanging indefinitely.
+Connection timeout using the `connection_timeout` parameter on `ServerConnectInfo`. Connects to a configurable host and port with a 3-second timeout via `MakeConnectionTimeout(3000)`, and handles `ConnectionFailedTimeout` in `pg_session_connection_failed`. Shows how the driver reports unreachable servers without hanging indefinitely.
 
 ## composite-type
 
@@ -82,7 +82,7 @@ Server notice handling using `pg_notice`. Executes `DROP TABLE IF EXISTS` on a n
 
 ## statement-timeout
 
-Statement timeout using the `statement_timeout` parameter on `session.execute()`. Executes a long-running query (`SELECT pg_sleep(10)`) with a 2-second timeout via `lori.MakeTimerDuration(2000)`, and handles the resulting `ErrorResponseMessage` with SQLSTATE `57014` (query_canceled). Shows how the driver automatically cancels a query that exceeds the timeout, using the same CancelRequest mechanism as `session.cancel()`.
+Statement timeout using the `statement_timeout` parameter on `session.execute()`. Executes a long-running query (`SELECT pg_sleep(10)`) with a 2-second timeout via `MakeTimerDuration(2000)`, and handles the resulting `ErrorResponseMessage` with SQLSTATE `57014` (query_canceled). Shows how the driver automatically cancels a query that exceeds the timeout, using the same CancelRequest mechanism as `session.cancel()`.
 
 ## temporal
 

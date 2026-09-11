@@ -9,7 +9,7 @@ ports), so the session targeting the real server wins the race.
 """
 use "cli"
 use "collections"
-use lori = "lori"
+use net = "net"
 // in your code this `use` statement would be:
 // use "postgres"
 use "../../postgres"
@@ -17,7 +17,7 @@ use "../../postgres"
 actor Main
   new create(env: Env) =>
     let server_info = ServerInfo(env.vars)
-    let auth = lori.TCPConnectAuth(env.root)
+    let auth = net.TCPConnectAuth(env.root)
 
     Failover(auth, server_info, env.out)
 
@@ -31,7 +31,7 @@ actor Failover is (SessionStatusNotify & ResultReceiver)
   var _failures: USize = 0
   var _winner: (Session | None) = None
 
-  new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
+  new create(auth: net.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
     let db = DatabaseConnectInfo(info.username, info.password, info.database)
 

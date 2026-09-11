@@ -7,7 +7,7 @@ timeout. If the server is unreachable within the timeout, the session reports
 use "cli"
 use "collections"
 use "constrained_types"
-use lori = "lori"
+use net = "net"
 // in your code this `use` statement would be:
 // use "postgres"
 use "../../postgres"
@@ -15,7 +15,7 @@ use "../../postgres"
 actor Main
   new create(env: Env) =>
     let server_info = ServerInfo(env.vars)
-    let auth = lori.TCPConnectAuth(env.root)
+    let auth = net.TCPConnectAuth(env.root)
 
     let client = Client(auth, server_info, env.out)
 
@@ -26,10 +26,10 @@ actor Client is SessionStatusNotify
   let _session: Session
   let _out: OutStream
 
-  new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
+  new create(auth: net.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
-    match \exhaustive\ lori.MakeConnectionTimeout(3000)
-    | let ct: lori.ConnectionTimeout =>
+    match \exhaustive\ net.MakeConnectionTimeout(3000)
+    | let ct: net.ConnectionTimeout =>
       _out.print("Connecting with 3-second timeout...")
       _session =
         Session(

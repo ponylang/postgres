@@ -3,7 +3,7 @@ Runs a prepared query with typed parameters against a PostgreSQL server.
 """
 use "cli"
 use "collections"
-use lori = "lori"
+use net = "net"
 // in your code this `use` statement would be:
 // use "postgres"
 use "../../postgres"
@@ -11,7 +11,7 @@ use "../../postgres"
 actor Main
   new create(env: Env) =>
     let server_info = ServerInfo(env.vars)
-    let auth = lori.TCPConnectAuth(env.root)
+    let auth = net.TCPConnectAuth(env.root)
 
     let client = Client(auth, server_info, env.out)
 
@@ -22,7 +22,7 @@ actor Client is (SessionStatusNotify & ResultReceiver)
   let _session: Session
   let _out: OutStream
 
-  new create(auth: lori.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
+  new create(auth: net.TCPConnectAuth, info: ServerInfo, out: OutStream) =>
     _out = out
     _session =
       Session(

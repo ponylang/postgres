@@ -1,6 +1,6 @@
 use "encode/base64"
 use "pony_test"
-use "ssl/crypto"
+use "crypto"
 
 class \nodoc\ iso _TestScramSha256MessageBuilders is UnitTest
   fun name(): String =>

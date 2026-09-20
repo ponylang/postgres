@@ -1,7 +1,7 @@
 use "buffered"
 use "encode/base64"
 use net = "net"
-use "ssl/crypto"
+use "crypto"
 
 
 actor Session is (net.TCPConnectionActor & net.ClientLifecycleEventReceiver)

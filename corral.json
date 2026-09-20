@@ -2,12 +2,7 @@
   "packages": [
     "postgres"
   ],
-  "deps": [
-    {
-      "locator": "github.com/ponylang/ssl.git",
-      "version": "5.0.0"
-    }
-  ],
+  "deps": [],
   "info": {
     "description": "A pure Pony Postgres driver",
     "homepage": "https://github.com/ponylang/postgres/",

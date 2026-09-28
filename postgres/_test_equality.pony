@@ -1,6 +1,5 @@
 use "collections"
 use "constrained_types"
-use "pony_check"
 use "pony_test"
 
 class \nodoc\ iso _TestFieldEqualityReflexive is UnitTest
@@ -279,12 +278,12 @@ primitive \nodoc\ _FieldDataGen
     Generators.frequency[FieldData](
       [
         (1, Generator[FieldData](object is GenObj[FieldData]
-          fun generate(rnd: Randomness): FieldData ? =>
-            let size = rnd.usize(0, 10)?
+          fun generate(rnd: Randomness): FieldData =>
+            let size = rnd.usize(0, 10)
             Bytea(recover val
               let arr = Array[U8](size)
               for _ in Range(0, size) do
-                arr.push(rnd.u8()?)
+                arr.push(rnd.u8())
               end
               arr
             end)
@@ -310,12 +309,12 @@ primitive \nodoc\ _FieldDataGen
         (1, Generators.ascii_printable(0, 20)
           .map[FieldData]({(v) => v }))
         (1, Generator[FieldData](object is GenObj[FieldData]
-          fun generate(rnd: Randomness): FieldData ? =>
-            let size = rnd.usize(0, 10)?
+          fun generate(rnd: Randomness): FieldData =>
+            let size = rnd.usize(0, 10)
             RawBytes(recover val
               let arr = Array[U8](size)
               for _ in Range(0, size) do
-                arr.push(rnd.u8()?)
+                arr.push(rnd.u8())
               end
               arr
             end)
@@ -332,114 +331,114 @@ primitive \nodoc\ _FieldGen
 primitive \nodoc\ _RowGen
   fun apply(): Generator[Row] =>
     Generator[Row](object is GenObj[Row]
-      fun generate(rnd: Randomness): Row ? =>
-        let size = rnd.usize(0, 5)?
+      fun generate(rnd: Randomness): Row =>
+        let size = rnd.usize(0, 5)
         let fields = recover iso Array[Field](size) end
         for i in Range(0, size) do
           fields.push(
-            Field("f" + i.string(), _random_field_value(rnd)?))
+            Field("f" + i.string(), _random_field_value(rnd)))
         end
         Row(consume fields)
 
-      fun _random_field_value(rnd: Randomness): FieldData ? =>
-        match rnd.usize(0, 13)?
-        | 0 => rnd.bool()?
-        | 1 => F32.from[I32](rnd.i32()?)
-        | 2 => F64.from[I64](rnd.i64()?)
-        | 3 => rnd.i16()?
-        | 4 => rnd.i32()?
-        | 5 => rnd.i64()?
+      fun _random_field_value(rnd: Randomness): FieldData =>
+        match rnd.usize(0, 13)
+        | 0 => rnd.bool()
+        | 1 => F32.from[I32](rnd.i32())
+        | 2 => F64.from[I64](rnd.i64())
+        | 3 => rnd.i16()
+        | 4 => rnd.i32()
+        | 5 => rnd.i64()
         | 6 => None
         | 7 =>
           Bytea(recover val
-            let arr = Array[U8](rnd.usize(0, 10)?)
+            let arr = Array[U8](rnd.usize(0, 10))
             for _ in Range(0, arr.space()) do
-              arr.push(rnd.u8()?)
+              arr.push(rnd.u8())
             end
             arr
           end)
-        | 8 => PgDate(rnd.i32()?)
-        | 9 => PgInterval(rnd.i64()?, rnd.i32()?, rnd.i32()?)
+        | 8 => PgDate(rnd.i32())
+        | 9 => PgInterval(rnd.i64(), rnd.i32(), rnd.i32())
         | 10 =>
             try
               PgTime(MakePgTimeMicroseconds(
-                (rnd.i64()?.abs() % 86_400_000_000).i64())
+                (rnd.i64().abs() % 86_400_000_000).i64())
                 as PgTimeMicroseconds)
             else _Unreachable(); I64(0)
             end
-        | 11 => PgTimestamp(rnd.i64()?)
+        | 11 => PgTimestamp(rnd.i64())
         | 12 =>
           RawBytes(recover val
-            let arr = Array[U8](rnd.usize(0, 10)?)
+            let arr = Array[U8](rnd.usize(0, 10))
             for _ in Range(0, arr.space()) do
-              arr.push(rnd.u8()?)
+              arr.push(rnd.u8())
             end
             arr
           end)
         else
-          "str" + rnd.u32()?.string()
+          "str" + rnd.u32().string()
         end
     end)
 
 primitive \nodoc\ _RowsGen
   fun apply(): Generator[Rows] =>
     Generator[Rows](object is GenObj[Rows]
-      fun generate(rnd: Randomness): Rows ? =>
-        let size = rnd.usize(0, 3)?
+      fun generate(rnd: Randomness): Rows =>
+        let size = rnd.usize(0, 3)
         let rows = recover iso Array[Row](size) end
         for i in Range(0, size) do
-          let field_count = rnd.usize(0, 5)?
+          let field_count = rnd.usize(0, 5)
           let fields = recover iso Array[Field](field_count) end
           for j in Range(0, field_count) do
             fields.push(
-              Field("f" + j.string(), _random_field_value(rnd)?))
+              Field("f" + j.string(), _random_field_value(rnd)))
           end
           rows.push(Row(consume fields))
         end
         Rows(consume rows)
 
-      fun _random_field_value(rnd: Randomness): FieldData ? =>
-        match rnd.usize(0, 13)?
-        | 0 => rnd.bool()?
-        | 1 => F32.from[I32](rnd.i32()?)
-        | 2 => F64.from[I64](rnd.i64()?)
-        | 3 => rnd.i16()?
-        | 4 => rnd.i32()?
-        | 5 => rnd.i64()?
+      fun _random_field_value(rnd: Randomness): FieldData =>
+        match rnd.usize(0, 13)
+        | 0 => rnd.bool()
+        | 1 => F32.from[I32](rnd.i32())
+        | 2 => F64.from[I64](rnd.i64())
+        | 3 => rnd.i16()
+        | 4 => rnd.i32()
+        | 5 => rnd.i64()
         | 6 => None
         | 7 =>
           Bytea(recover val
-            let arr = Array[U8](rnd.usize(0, 10)?)
+            let arr = Array[U8](rnd.usize(0, 10))
             for _ in Range(0, arr.space()) do
-              arr.push(rnd.u8()?)
+              arr.push(rnd.u8())
             end
             arr
           end)
-        | 8 => PgDate(rnd.i32()?)
-        | 9 => PgInterval(rnd.i64()?, rnd.i32()?, rnd.i32()?)
+        | 8 => PgDate(rnd.i32())
+        | 9 => PgInterval(rnd.i64(), rnd.i32(), rnd.i32())
         | 10 =>
             try
               PgTime(MakePgTimeMicroseconds(
-                (rnd.i64()?.abs() % 86_400_000_000).i64())
+                (rnd.i64().abs() % 86_400_000_000).i64())
                 as PgTimeMicroseconds)
             else _Unreachable(); I64(0)
             end
-        | 11 => PgTimestamp(rnd.i64()?)
+        | 11 => PgTimestamp(rnd.i64())
         | 12 =>
           RawBytes(recover val
-            let arr = Array[U8](rnd.usize(0, 10)?)
+            let arr = Array[U8](rnd.usize(0, 10))
             for _ in Range(0, arr.space()) do
-              arr.push(rnd.u8()?)
+              arr.push(rnd.u8())
             end
             arr
           end)
         else
-          "str" + rnd.u32()?.string()
+          "str" + rnd.u32().string()
         end
     end)
 
 // -- Property Tests --
-class \nodoc\ iso _TestFieldReflexiveProperty is Property1[Field]
+class \nodoc\ iso _TestFieldReflexiveProperty is Property[Field]
   fun name(): String => "Field/Equality/Reflexive/Property"
 
   fun gen(): Generator[Field] =>
@@ -448,7 +447,7 @@ class \nodoc\ iso _TestFieldReflexiveProperty is Property1[Field]
   fun ref property(arg1: Field, h: PropertyHelper) =>
     h.assert_true(arg1 == arg1)
 
-class \nodoc\ iso _TestFieldStructuralProperty is Property1[FieldData]
+class \nodoc\ iso _TestFieldStructuralProperty is Property[FieldData]
   fun name(): String => "Field/Equality/Structural/Property"
 
   fun gen(): Generator[FieldData] =>
@@ -476,7 +475,7 @@ class \nodoc\ iso _TestFieldSymmetricProperty
     let f2 = Field("x", arg2)
     h.assert_true(f1.eq(f2) == f2.eq(f1))
 
-class \nodoc\ iso _TestRowReflexiveProperty is Property1[Row]
+class \nodoc\ iso _TestRowReflexiveProperty is Property[Row]
   fun name(): String => "Row/Equality/Reflexive/Property"
 
   fun gen(): Generator[Row] =>
@@ -485,7 +484,7 @@ class \nodoc\ iso _TestRowReflexiveProperty is Property1[Row]
   fun ref property(arg1: Row, h: PropertyHelper) =>
     h.assert_true(arg1 == arg1)
 
-class \nodoc\ iso _TestRowsReflexiveProperty is Property1[Rows]
+class \nodoc\ iso _TestRowsReflexiveProperty is Property[Rows]
   fun name(): String => "Rows/Equality/Reflexive/Property"
 
   fun gen(): Generator[Rows] =>
@@ -495,7 +494,7 @@ class \nodoc\ iso _TestRowsReflexiveProperty is Property1[Rows]
     h.assert_true(arg1 == arg1)
 
 class \nodoc\ iso _TestFieldCustomEqualityReflexiveProperty
-  is Property1[(I64, I64)]
+  is Property[(I64, I64)]
   """
   Fields containing custom FieldDataEquatable values are reflexively equal.
   Uses generated I64 pairs converted to F64 to construct _TestPoint values.

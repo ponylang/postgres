@@ -1,6 +1,5 @@
 use "cli"
 use net = "net"
-use "pony_check"
 use "pony_test"
 
 actor \nodoc\ Main is TestList
@@ -144,12 +143,11 @@ actor \nodoc\ Main is TestList
     test(_TestRowInequality)
     test(_TestRowsEquality)
     test(_TestRowsInequality)
-    test(Property1UnitTest[Field](_TestFieldReflexiveProperty))
-    test(Property1UnitTest[FieldData](_TestFieldStructuralProperty))
-    test(Property1UnitTest[(FieldData, FieldData)](
-      _TestFieldSymmetricProperty))
-    test(Property1UnitTest[Row](_TestRowReflexiveProperty))
-    test(Property1UnitTest[Rows](_TestRowsReflexiveProperty))
+    test.property(_TestFieldReflexiveProperty)
+    test.property(_TestFieldStructuralProperty)
+    test.property[(FieldData, FieldData)](_TestFieldSymmetricProperty)
+    test.property(_TestRowReflexiveProperty)
+    test.property(_TestRowsReflexiveProperty)
     test(_TestFrontendMessageCancelRequest)
     test(_TestCancelQueryInFlight)
     test(_TestSSLCancelQueryInFlight)
@@ -167,8 +165,7 @@ actor \nodoc\ Main is TestList
     test(_TestResponseParserUnsupportedAuthenticationMessage)
     test(_TestResponseParserMultipleMessagesCleartextFirst)
     test(_TestResponseParserMultipleMessagesSASLFirst)
-    test(Property1UnitTest[Array[Array[U8] val] val](
-      _TestResponseParserMultipleMessagesChainProperty))
+    test.property(_TestResponseParserMultipleMessagesChainProperty)
     test(_TestResponseParserMultipleMessagesChainSimpleQueryResult)
     test(_TestResponseParserMultipleMessagesChainCopyOutSequence)
     test(_TestResponseParserMultipleMessagesChainEmptyQuerySequence)
@@ -465,8 +462,7 @@ actor \nodoc\ Main is TestList
     test(_TestCodecRegistryDecodeErrorPropagatesText)
     test(_TestCodecRegistryDecodeErrorPropagatesBinary)
     test(_TestCodecRegistryDecodeErrorPropagatesBuiltin)
-    test(Property1UnitTest[(I64, I64)](
-      _TestFieldCustomEqualityReflexiveProperty))
+    test.property(_TestFieldCustomEqualityReflexiveProperty)
     test(_TestCodecRegistryWithEnumTypeBinary)
     test(_TestCodecRegistryWithEnumTypeText)
     test(_TestCodecRegistryWithEnumTypeRejectsBuiltin)
@@ -530,10 +526,8 @@ actor \nodoc\ Main is TestList
     test(_TestIntegrationArrayEmpty)
     test(_TestIntegrationArrayNulls)
     test(_TestIntegrationArrayMultipleTypes)
-    test(Property1UnitTest[(PgArray, U32)](
-      _TestArrayBinaryRoundtripProperty))
-    test(Property1UnitTest[(PgArray, U32)](
-      _TestPgArrayEqualityReflexiveProperty))
+    test.property(_TestArrayBinaryRoundtripProperty)
+    test.property(_TestPgArrayEqualityReflexiveProperty)
     test(_TestArrayEncoderI16Roundtrip)
     test(_TestArrayEncoderI64Roundtrip)
     test(_TestArrayEncoderF32Roundtrip)

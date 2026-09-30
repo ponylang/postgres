@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Changed
 
+- Update to work with pony 0.74.0 ([PR #264](https://github.com/ponylang/postgres/pull/264))
 
 ## [0.13.0] - 2026-09-27
 

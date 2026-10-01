@@ -545,9 +545,13 @@ trait _AuthenticableState is (_ConnectedState & _NotAuthenticated)
     | AuthRequireSCRAM =>
       on_connection_failed(s, AuthenticationMethodRejected)
     | AllowAnyAuth =>
-      let md5_password = _MD5Password(user(), password(), msg.salt)
-      let reply = _FrontendMessage.password(md5_password)
-      s._connection().send(reply)
+      try
+        let md5_password = _MD5Password(user(), password(), msg.salt)?
+        let reply = _FrontendMessage.password(md5_password)
+        s._connection().send(reply)
+      else
+        on_connection_failed(s, ServerVerificationFailed)
+      end
     end
 
   fun ref on_authentication_cleartext_password(s: Session ref) =>

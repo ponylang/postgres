@@ -66,7 +66,7 @@ primitive _ScramSha256
     """
     let salted_password = Pbkdf2Sha256(password, salt, iterations, 32)?
     let client_key = HmacSha256(salted_password, "Client Key")?
-    let stored_key = SHA256(client_key)
+    let stored_key = SHA256(client_key)?
     let auth_message: String val =
       recover val
         client_first_bare + "," + server_first + "," +

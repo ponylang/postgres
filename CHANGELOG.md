@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Fixed
 
+- Reduce per-query allocations for protocol messages ([PR #270](https://github.com/ponylang/postgres/pull/270))
 
 ### Added
 

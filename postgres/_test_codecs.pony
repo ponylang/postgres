@@ -409,21 +409,12 @@ class \nodoc\ iso _TestFrontendMessageBindWithBinaryI32 is UnitTest
     h.assert_eq[USize](25, result.size())
 
     // Check format code is binary (1)
-    ifdef bigendian then
-      // format code count
-      h.assert_eq[U8](0, result(7)?)
-      h.assert_eq[U8](1, result(8)?)
-      // format code value = 1 (binary)
-      h.assert_eq[U8](0, result(9)?)
-      h.assert_eq[U8](1, result(10)?)
-    else
-      // format code count = 1
-      h.assert_eq[U8](0, result(7)?)
-      h.assert_eq[U8](1, result(8)?)
-      // format code value = 1 (binary)
-      h.assert_eq[U8](0, result(9)?)
-      h.assert_eq[U8](1, result(10)?)
-    end
+    // format code count = 1
+    h.assert_eq[U8](0, result(7)?)
+    h.assert_eq[U8](1, result(8)?)
+    // format code value = 1 (binary)
+    h.assert_eq[U8](0, result(9)?)
+    h.assert_eq[U8](1, result(10)?)
 
 class \nodoc\ iso _TestFrontendMessageBindMixedParams is UnitTest
   fun name(): String =>

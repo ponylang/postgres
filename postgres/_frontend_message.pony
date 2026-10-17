@@ -466,6 +466,9 @@ primitive _FrontendMessage
 
     Format: Byte1('D') Int32(len) Byte1('P') String(portal)
     """
+    if portal.size() == 0 then
+      return recover val [as U8: 'D'; 0; 0; 0; 6; 'P'; 0] end
+    end
     try
       recover val
         // 1 type + 4 length + 1 indicator + portal + null
@@ -547,6 +550,9 @@ primitive _FrontendMessage
 
     Format: Byte1('E') Int32(len) String(portal) Int32(max_rows)
     """
+    if (portal.size() == 0) and (max_rows == 0) then
+      return recover val [as U8: 'E'; 0; 0; 0; 9; 0; 0; 0; 0; 0] end
+    end
     try
       recover val
         // 1 type + 4 length + portal + null + 4 max_rows
@@ -603,21 +609,7 @@ primitive _FrontendMessage
 
     Format: Byte1('S') Int32(4)
     """
-    try
-      recover val
-        let msg: Array[U8] = Array[U8].init(0, 5)
-        msg.update_u8(0, 'S')?
-        ifdef bigendian then
-          msg.update_u32(1, U32(4))?
-        else
-          msg.update_u32(1, U32(4).bswap())?
-        end
-        msg
-      end
-    else
-      _Unreachable()
-      []
-    end
+    recover val [as U8: 'S'; 0; 0; 0; 4] end
 
   fun cancel_request(process_id: I32, secret_key: I32): Array[U8] val =>
     """
@@ -795,21 +787,7 @@ primitive _FrontendMessage
 
     Format: Byte1('H') Int32(4)
     """
-    try
-      recover val
-        let msg: Array[U8] = Array[U8].init(0, 5)
-        msg.update_u8(0, 'H')?
-        ifdef bigendian then
-          msg.update_u32(1, U32(4))?
-        else
-          msg.update_u32(1, U32(4).bswap())?
-        end
-        msg
-      end
-    else
-      _Unreachable()
-      []
-    end
+    recover val [as U8: 'H'; 0; 0; 0; 4] end
 
   fun terminate(): Array[U8] val =>
     """

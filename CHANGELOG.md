@@ -2,17 +2,11 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a CHANGELOG](http://keepachangelog.com/).
 
-## [unreleased] - unreleased
+## [0.15.1] - 2026-10-22
 
 ### Fixed
 
 - Reduce per-query allocations for protocol messages ([PR #270](https://github.com/ponylang/postgres/pull/270))
-
-### Added
-
-
-### Changed
-
 
 ## [0.15.0] - 2026-10-11
 

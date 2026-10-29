@@ -10,7 +10,7 @@ interface val FieldData
   must map to known PostgreSQL OIDs for the wire protocol. The decode path is
   open because result values just need to be readable.
   """
-  fun string(): String iso^
+  fun string(): String
 
 interface val FieldDataEquatable
   """

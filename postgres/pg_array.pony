@@ -87,7 +87,7 @@ class val PgArray is (FieldData & FieldDataEquatable & Equatable[PgArray])
       false
     end
 
-  fun string(): String iso^ =>
+  fun string(): String =>
     """
     PostgreSQL array literal format: `{1,2,NULL,4}`. Elements containing
     commas, braces, quotes, backslashes, or whitespace are double-quoted
@@ -95,7 +95,7 @@ class val PgArray is (FieldData & FieldDataEquatable & Equatable[PgArray])
     (`""`) to distinguish from NULL. `None` elements render as unquoted
     `NULL`.
     """
-    recover iso
+    recover val
       let s = String
       s.push('{')
       var first = true

@@ -32,8 +32,8 @@ class val Point is (FieldData & Equatable[Point])
   fun eq(that: box->Point): Bool =>
     (x == that.x) and (y == that.y)
 
-  fun string(): String iso^ =>
-    recover iso
+  fun string(): String =>
+    recover val
       String
         .> append("(")
         .> append(x.string())

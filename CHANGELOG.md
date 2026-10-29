@@ -12,6 +12,8 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Changed
 
+- Update to work with ponyc 0.78.0 ([PR #274](https://github.com/ponylang/postgres/pull/274))
+- Change FieldData string() return type from String iso^ to String ([PR #274](https://github.com/ponylang/postgres/pull/274))
 
 ## [0.15.1] - 2026-10-22
 

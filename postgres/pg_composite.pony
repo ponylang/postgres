@@ -180,7 +180,7 @@ class val PgComposite is
       false
     end
 
-  fun string(): String iso^ =>
+  fun string(): String =>
     """
     PostgreSQL composite literal format: `(val1,val2,val3)`. Field values
     are double-quoted when they contain parentheses, commas, double-quotes,
@@ -189,7 +189,7 @@ class val PgComposite is
     Double-quotes and backslashes inside values are escaped by doubling
     (`""` and `\\` respectively).
     """
-    recover iso
+    recover val
       let s = String
       s.push('(')
       var first = true

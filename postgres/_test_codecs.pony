@@ -3238,8 +3238,8 @@ class \nodoc\ val _TestPoint is
     x = x'
     y = y'
 
-  fun string(): String iso^ =>
-    recover iso
+  fun string(): String =>
+    recover val
       String
         .> append("(")
         .> append(x.string())
@@ -3458,8 +3458,8 @@ class \nodoc\ val _TestOpaqueData is FieldData
   new val create(tag_value': String) =>
     tag_value = tag_value'
 
-  fun string(): String iso^ =>
-    tag_value.clone()
+  fun string(): String =>
+    tag_value
 
 class \nodoc\ iso _TestFieldEqualityCustomWithoutEquatable is UnitTest
   fun name(): String =>

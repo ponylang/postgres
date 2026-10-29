@@ -466,8 +466,8 @@ class val Point is FieldData
     x = x'
     y = y'
 
-  fun string(): String iso^ =>
-    recover iso String .> append("(" + x.string() + "," + y.string() + ")") end
+  fun string(): String =>
+    recover val String .> append("(" + x.string() + "," + y.string() + ")") end
 
 primitive PointBinaryCodec is Codec
   fun format(): U16 => 1  // binary

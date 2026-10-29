@@ -25,11 +25,11 @@ class val PgTimestamp is Equatable[PgTimestamp]
   fun ne(that: box->PgTimestamp): Bool =>
     not eq(that)
 
-  fun string(): String iso^ =>
+  fun string(): String =>
     if microseconds == I64.max_value() then
-      "infinity".clone()
+      "infinity"
     elseif microseconds == I64.min_value() then
-      "-infinity".clone()
+      "-infinity"
     else
       // Decompose microseconds since 2000-01-01 into date and time components
       var remaining = microseconds
@@ -56,7 +56,7 @@ class val PgTimestamp is Equatable[PgTimestamp]
       (let year, let month, let day) =
         _TemporalFormat.days_to_date(day_offset.i32())
 
-      recover iso
+      recover val
         let s = String
         _TemporalFormat.append_date(s, year, month, day)
         s.append(" ")
@@ -111,7 +111,7 @@ class val PgTime is Equatable[PgTime]
   fun ne(that: box->PgTime): Bool =>
     not eq(that)
 
-  fun string(): String iso^ =>
+  fun string(): String =>
     let us_per_second: I64 = 1_000_000
     let us_per_minute: I64 = us_per_second * 60
     let us_per_hour: I64 = us_per_minute * 60
@@ -124,7 +124,7 @@ class val PgTime is Equatable[PgTime]
     let second = remaining / us_per_second
     let frac = remaining % us_per_second
 
-    recover iso
+    recover val
       let s = String
       _TemporalFormat.append_two_digits(s, hour)
       s.append(":")
@@ -155,15 +155,15 @@ class val PgDate is Equatable[PgDate]
   fun ne(that: box->PgDate): Bool =>
     not eq(that)
 
-  fun string(): String iso^ =>
+  fun string(): String =>
     if days == I32.max_value() then
-      "infinity".clone()
+      "infinity"
     elseif days == I32.min_value() then
-      "-infinity".clone()
+      "-infinity"
     else
       (let year, let month, let day) =
         _TemporalFormat.days_to_date(days)
-      recover iso
+      recover val
         let s = String
         _TemporalFormat.append_date(s, year, month, day)
         s
@@ -191,8 +191,8 @@ class val PgInterval is Equatable[PgInterval]
   fun ne(that: box->PgInterval): Bool =>
     not eq(that)
 
-  fun string(): String iso^ =>
-    recover iso
+  fun string(): String =>
+    recover val
       let s = String
       var has_output = false
 

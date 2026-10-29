@@ -26,11 +26,11 @@ class val Bytea is (FieldData & Equatable[Bytea])
       false
     end
 
-  fun string(): String iso^ =>
+  fun string(): String =>
     """
     Returns a hex representation of the bytes (e.g., `\\xdeadbeef`).
     """
-    recover iso
+    recover val
       let s = String(2 + (data.size() * 2))
       s.append("\\x")
       for b in data.values() do

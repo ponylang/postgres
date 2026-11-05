@@ -1629,7 +1629,7 @@ primitive \nodoc\ _PgArrayGen
       =>
         let size = rnd.usize(0, 5)
         let elems = recover iso Array[(FieldData | None)](size) end
-        for _ in Range(0, size) do
+        for _ in Range[USize].till(0, size) do
           if rnd.usize(0, 4) == 0 then
             elems.push(None)
           else
@@ -1649,7 +1649,7 @@ primitive \nodoc\ _PgArrayGen
         | 17 =>
           Bytea(recover val
             let a = Array[U8](rnd.usize(0, 10))
-            for _ in Range(0, a.space()) do
+            for _ in Range[USize].till(0, a.space()) do
               a.push(rnd.u8())
             end
             a
@@ -1678,7 +1678,7 @@ primitive \nodoc\ _PgArrayGen
           let len = rnd.usize(1, 10)
           recover val
             let s = String(len)
-            for _ in Range(0, len) do
+            for _ in Range[USize].till(0, len) do
               s.push((rnd.usize(0, 25) + 97).u8())
             end
             s
@@ -1689,7 +1689,7 @@ primitive \nodoc\ _PgArrayGen
         let hex = "0123456789abcdef"
         recover val
           let s = String(36)
-          for i in Range(0, 36) do
+          for i in Range[USize].till(0, 36) do
             if (i == 8) or (i == 13) or (i == 18) or (i == 23) then
               s.push('-')
             else

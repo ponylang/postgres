@@ -28,7 +28,7 @@ class \nodoc\ iso _TestResponseParserIncompleteMessage is UnitTest
     let bytes = _IncomingAuthenticationOkTestMessage.bytes()
     let complete_message_index = bytes.size()
 
-    for i in Range(0, complete_message_index) do
+    for i in Range[USize].till(0, complete_message_index) do
       let r: Reader = Reader
       let s: Array[U8] val = bytes.trim(0, i)
       r.append(s)
@@ -267,7 +267,7 @@ class \nodoc\ iso _TestResponseParserRowDescriptionMessage is UnitTest
     match _ResponseParser(r)?
     | let m: _RowDescriptionMessage =>
       h.assert_eq[USize](columns.size(), m.columns.size())
-      for i in Range(0, columns.size()) do
+      for i in Range[USize].till(0, columns.size()) do
         h.assert_eq[String](columns(i)?._1, m.columns(i)?._1)
         h.assert_eq[U32](columns(i)?._2, m.columns(i)?._2)
         h.assert_eq[U16](columns(i)?._3, m.columns(i)?._3)
@@ -299,7 +299,7 @@ class \nodoc\ iso _TestResponseParserRowDescriptionBinaryFormat is UnitTest
     match _ResponseParser(r)?
     | let m: _RowDescriptionMessage =>
       h.assert_eq[USize](columns.size(), m.columns.size())
-      for i in Range(0, columns.size()) do
+      for i in Range[USize].till(0, columns.size()) do
         h.assert_eq[String](columns(i)?._1, m.columns(i)?._1)
         h.assert_eq[U32](columns(i)?._2, m.columns(i)?._2)
         h.assert_eq[U16](columns(i)?._3, m.columns(i)?._3)
@@ -1095,7 +1095,7 @@ class \nodoc\ val _IncomingJunkTestMessage
     let wb: Writer = Writer
     wb.u8(1)
     wb.u32_be(7669)
-    for i in Range(0, 100_000) do
+    for i in Range[USize].till(0, 100_000) do
       wb.u32_be(rand.u32())
     end
 
@@ -1705,7 +1705,7 @@ primitive \nodoc\ _RandomMessageBytesGen
   =>
     let count = rnd.usize(min_count, max_count)
     let messages = recover iso Array[Array[U8] val](count) end
-    for _ in Range(0, count) do
+    for _ in Range[USize].till(0, count) do
       messages.push(_random_message(rnd))
     end
     consume messages
@@ -1782,7 +1782,7 @@ primitive \nodoc\ _RandomMessageBytesGen
     let size = rnd.usize(1, 20)
     recover val
       let s = String(size)
-      for _ in Range(0, size) do
+      for _ in Range[USize].till(0, size) do
         s.push(rnd.u8(32, 126))
       end
       s
@@ -1791,7 +1791,7 @@ primitive \nodoc\ _RandomMessageBytesGen
   fun _random_salt(rnd: Randomness): String =>
     recover val
       let s = String(4)
-      for _ in Range(0, 4) do
+      for _ in Range[USize].till(0, 4) do
         s.push(rnd.u8(32, 126))
       end
       s
@@ -1801,7 +1801,7 @@ primitive \nodoc\ _RandomMessageBytesGen
     let size = rnd.usize(1, 50)
     recover val
       let arr = Array[U8](size)
-      for _ in Range(0, size) do
+      for _ in Range[USize].till(0, size) do
         arr.push(rnd.u8())
       end
       arr
@@ -1840,7 +1840,7 @@ primitive \nodoc\ _RandomMessageBytesGen
     let size = rnd.usize(0, 5)
     recover val
       let arr = Array[U32](size)
-      for _ in Range(0, size) do
+      for _ in Range[USize].till(0, size) do
         arr.push(rnd.u32())
       end
       arr
@@ -1853,7 +1853,7 @@ primitive \nodoc\ _RandomMessageBytesGen
     let size = rnd.usize(0, 5)
     recover val
       let arr = Array[U8](size)
-      for _ in Range(0, size) do
+      for _ in Range[USize].till(0, size) do
         arr.push(if rnd.bool() then 1 else 0 end)
       end
       arr
@@ -1864,7 +1864,7 @@ primitive \nodoc\ _RandomMessageBytesGen
   =>
     let size = rnd.usize(0, 4)
     let arr = recover iso Array[(String | None)](size) end
-    for _ in Range(0, size) do
+    for _ in Range[USize].till(0, size) do
       if rnd.bool() then
         arr.push(None)
       else
@@ -1884,7 +1884,7 @@ primitive \nodoc\ _RandomMessageBytesGen
       end
     let size = rnd.usize(1, 5)
     let arr = recover iso Array[(String, U32, U16)](size) end
-    for i in Range(0, size) do
+    for i in Range[USize].till(0, size) do
       try
         let type_idx = rnd.usize(0, known_oids.size() - 1)
         let fmt = rnd.usize(0, 1).u16()
@@ -1911,7 +1911,7 @@ class \nodoc\ iso _TestResponseParserMultipleMessagesChainProperty
       r.append(msg)
     end
 
-    for i in Range(0, arg1.size()) do
+    for i in Range[USize].till(0, arg1.size()) do
       if _ResponseParser(r)? is None then
         h.fail("Expected message at position " + i.string() +
           " but got None")

@@ -235,7 +235,7 @@ actor \nodoc\ _StreamingSuccessTestServer
     end
 
   fun ref _send_data_rows(count: USize, start: USize) =>
-    for i in Range(0, count) do
+    for i in Range[USize].till(0, count) do
       let data_row_cols: Array[(String | None)] val =
         recover val
           let v: String = (start + i + 1).string()

@@ -282,7 +282,7 @@ primitive \nodoc\ _FieldDataGen
             let size = rnd.usize(0, 10)
             Bytea(recover val
               let arr = Array[U8](size)
-              for _ in Range(0, size) do
+              for _ in Range[USize].till(0, size) do
                 arr.push(rnd.u8())
               end
               arr
@@ -313,7 +313,7 @@ primitive \nodoc\ _FieldDataGen
             let size = rnd.usize(0, 10)
             RawBytes(recover val
               let arr = Array[U8](size)
-              for _ in Range(0, size) do
+              for _ in Range[USize].till(0, size) do
                 arr.push(rnd.u8())
               end
               arr
@@ -334,7 +334,7 @@ primitive \nodoc\ _RowGen
       fun generate(rnd: Randomness): Row =>
         let size = rnd.usize(0, 5)
         let fields = recover iso Array[Field](size) end
-        for i in Range(0, size) do
+        for i in Range[USize].till(0, size) do
           fields.push(
             Field("f" + i.string(), _random_field_value(rnd)))
         end
@@ -352,7 +352,7 @@ primitive \nodoc\ _RowGen
         | 7 =>
           Bytea(recover val
             let arr = Array[U8](rnd.usize(0, 10))
-            for _ in Range(0, arr.space()) do
+            for _ in Range[USize].till(0, arr.space()) do
               arr.push(rnd.u8())
             end
             arr
@@ -370,7 +370,7 @@ primitive \nodoc\ _RowGen
         | 12 =>
           RawBytes(recover val
             let arr = Array[U8](rnd.usize(0, 10))
-            for _ in Range(0, arr.space()) do
+            for _ in Range[USize].till(0, arr.space()) do
               arr.push(rnd.u8())
             end
             arr
@@ -386,10 +386,10 @@ primitive \nodoc\ _RowsGen
       fun generate(rnd: Randomness): Rows =>
         let size = rnd.usize(0, 3)
         let rows = recover iso Array[Row](size) end
-        for i in Range(0, size) do
+        for i in Range[USize].till(0, size) do
           let field_count = rnd.usize(0, 5)
           let fields = recover iso Array[Field](field_count) end
-          for j in Range(0, field_count) do
+          for j in Range[USize].till(0, field_count) do
             fields.push(
               Field("f" + j.string(), _random_field_value(rnd)))
           end
@@ -409,7 +409,7 @@ primitive \nodoc\ _RowsGen
         | 7 =>
           Bytea(recover val
             let arr = Array[U8](rnd.usize(0, 10))
-            for _ in Range(0, arr.space()) do
+            for _ in Range[USize].till(0, arr.space()) do
               arr.push(rnd.u8())
             end
             arr
@@ -427,7 +427,7 @@ primitive \nodoc\ _RowsGen
         | 12 =>
           RawBytes(recover val
             let arr = Array[U8](rnd.usize(0, 10))
-            for _ in Range(0, arr.space()) do
+            for _ in Range[USize].till(0, arr.space()) do
               arr.push(rnd.u8())
             end
             arr

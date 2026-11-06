@@ -322,7 +322,7 @@ primitive _ResponseParser
         columns.create(number_of_columns)
       end
 
-    for column_index in Range(0, number_of_columns) do
+    for column_index in Range[USize].till(0, number_of_columns) do
       let column_length = reader.u32_be()?
       match column_length
       | -1 =>
@@ -356,7 +356,7 @@ primitive _ResponseParser
         columns.create(number_of_columns)
       end
 
-    for column_index in Range(0, number_of_columns) do
+    for column_index in Range[USize].till(0, number_of_columns) do
       // column name is a null terminated string
       let cn = reader.read_until(0)?
       let column_name = String.from_array(consume cn)
@@ -463,7 +463,7 @@ primitive _ResponseParser
     let num_cols = reader.u16_be()?.usize()
     let col_fmts: Array[U8] iso = recover iso Array[U8](num_cols) end
 
-    for i in Range(0, num_cols) do
+    for i in Range[USize].till(0, num_cols) do
       col_fmts.push(reader.u16_be()?.u8())
     end
 
@@ -480,7 +480,7 @@ primitive _ResponseParser
     let num_cols = reader.u16_be()?.usize()
     let col_fmts: Array[U8] iso = recover iso Array[U8](num_cols) end
 
-    for i in Range(0, num_cols) do
+    for i in Range[USize].till(0, num_cols) do
       col_fmts.push(reader.u16_be()?.u8())
     end
 
@@ -496,7 +496,7 @@ primitive _ResponseParser
     let num_params = reader.u16_be()?.usize()
     let oids: Array[U32] iso = recover iso Array[U32](num_params) end
 
-    for i in Range(0, num_params) do
+    for i in Range[USize].till(0, num_params) do
       oids.push(reader.u32_be()?)
     end
 
